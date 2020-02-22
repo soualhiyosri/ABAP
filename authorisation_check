@@ -1,0 +1,122 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_CHECKAUT
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_CHECKAUT.
+field-symbols:
+                 <key> type /iwbep/s_mgw_name_value_pair,
+                 <fs_entityset> type ZCL_AUTHCHECK=>scenario_ins_t.
+types:
+*"* public components of class /STDF/DFL_CL_MODEL_PROVIDER
+*"* do not include other source files here!!!
+    begin of instance_s,
+        instance_id type string,
+        instance_name type string,
+        instance_description type string,
+        category_name type string,
+        category_id type string,
+        dashboard_url type string,
+        end of instance_s .
+
+TYPES : begin of scenario_ins,
+        instance type instance_s,
+        no_instances type string,
+        no_level1s type string,
+        end of scenario_ins .
+
+        types:
+    scenario_ins_t type standard table of scenario_ins .
+  create data er_entityset type scenario_ins_t.
+  assign er_entityset->* to <fs_entityset>.
+
+
+  data: temp_table    type /stdf/dfl_cl_model_provider=>scenario_ins_t,
+        temp_item     type /stdf/dfl_cl_model_provider=>scenario_ins,
+        lv_authorized type boolean,
+        lv_c_authorized type boolean,
+        lv_conf_id    type /stdf/de_config_id,
+        lt_attr       type table of /stdf/ope_attrib,
+        ls_attr       type /stdf/ope_attrib,
+        lt_bp_val     type table of /stdf/ope_bp_att,
+        lt_bp_conf    like lt_bp_val,
+        ls_bp_val     like line of lt_bp_val,
+        lt_id_range   type range of /stdf/ope_config-config_id,
+        ls_id_range   like line of lt_id_range,
+        lv_count      type i.
+
+  select * from /stdf/ope_bp_att into table lt_bp_val. "#EC CI_NOWHERE.
+  lt_bp_conf = lt_bp_val.
+  sort lt_bp_conf by config_id.
+  delete adjacent duplicates from lt_bp_conf comparing config_id.
+
+  call method /stdf/cl_dash_auth_check=>check_authorization
+   EXPORTING
+*     iv_config_id     = lv_config_id     " Config ID
+     iv_project_id    = 'OPE'    " Project ID
+     iv_target        = /stdf/cl_dash_auth_check=>lc_config   " Target
+   IMPORTING
+     ev_authorization = lv_c_authorized     " Authorization
+   .
+
+  loop at lt_bp_conf into ls_bp_val.
+    clear lv_authorized.
+
+    if lv_c_authorized eq abap_true.
+      lv_authorized = abap_true.
+    else.
+      lv_conf_id = ls_bp_val-config_id.
+      call method /stdf/cl_dash_auth_check=>check_authorization
+        exporting
+          iv_config_id     = lv_conf_id    " Config ID
+          iv_project_id    = 'OPE'    " Project ID
+          iv_target        = /stdf/cl_dash_auth_check=>lc_dash    " Target
+        importing
+          ev_authorization = lv_authorized    " Authorization
+        .
+    endif.
+    if lv_authorized eq abap_false.
+      ls_id_range-option = 'EQ'.
+      ls_id_range-sign = 'I'.
+      ls_id_range-low = lv_conf_id.
+      append ls_id_range to lt_id_range.
+    endif.
+  endloop.
+
+  if lt_id_range is not initial.
+    delete lt_bp_val where config_id in lt_id_range.
+  endif.
+
+  lt_bp_conf = lt_bp_val.
+  sort lt_bp_conf by attr_id.
+  delete adjacent duplicates from lt_bp_conf comparing attr_id.
+  if lt_bp_conf is not initial.
+    select * from /stdf/ope_attrib into table lt_attr for all entries in lt_bp_conf where id = lt_bp_conf-attr_id.
+  endif.
+
+  lt_bp_conf = lt_bp_val.
+  sort lt_bp_conf by attr_id config_id.
+  delete adjacent duplicates from lt_bp_conf comparing attr_id config_id.
+
+  loop at lt_attr into ls_attr.
+    temp_item-instance-instance_id = ls_attr-id.
+    temp_item-instance-instance_name = ls_attr-description.
+    concatenate '/sap/bc/bsp/stdf/ope_dashboard/index.html?attributeId=' temp_item-instance-instance_id into temp_item-instance-dashboard_url.
+    concatenate temp_item-instance-dashboard_url '[NEW]/sap/bc/ui5_ui5/stdf/ope_dash/index.html?attributeId=' temp_item-instance-instance_id into temp_item-instance-dashboard_url.
+    clear lv_count.
+    loop at lt_bp_conf into ls_bp_val where attr_id = ls_attr-id.
+      lv_count = lv_count + 1.
+    endloop.
+    temp_item-no_instances = lv_count.
+
+    clear lv_count.
+    loop at lt_bp_val into ls_bp_val where attr_id = ls_attr-id.
+      lv_count = lv_count + 1.
+    endloop.
+    temp_item-no_level1s = lv_count.
+
+    append temp_item to <fs_entityset>.
+    clear temp_item.
+  endloop.
