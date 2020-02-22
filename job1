@@ -1,0 +1,79 @@
+**&---------------------------------------------------------------------*
+**& Report  Z_JOB3
+**&
+**&---------------------------------------------------------------------*
+**&
+**&
+**&---------------------------------------------------------------------*
+*REPORT Z_JOB3.
+*
+*data: jobname like tbtcjob-jobname value
+*                             ' TRANSFE2'.
+*data: jobcount like tbtcjob-jobcount,
+*      host like msxxlist-host.
+*data: begin of starttime.
+*        include structure tbtcstrt.
+*data: end of starttime.
+*data: starttimeimmediate like btch0000-char1.
+*
+** Job open
+*  call function 'JOB_OPEN'
+*       exporting
+*            delanfrep        = ' '
+*            jobgroup         = ' '
+*            jobname          = jobname
+*            sdlstrtdt        = sy-datum
+*            sdlstrttm        = sy-uzeit
+*       importing
+*            jobcount         = jobcount
+*       exceptions
+*            cant_create_job  = 01
+*            invalid_job_data = 02
+*            jobname_missing  = 03.
+*  if sy-subrc ne 0.
+*                                       "error processing
+*  endif.
+*
+** Insert process into job
+* SUBMIT z_bulk5 and return
+*                with p_param1 = 12
+*                user sy-uname
+*                via job jobname
+*                number jobcount.
+*  if sy-subrc > 0.
+*                                       "error processing
+*  endif.
+*
+** Close job
+*  starttime-sdlstrtdt = sy-datum + 1.
+*  starttime-sdlstrttm = '124000'.
+*  call function 'JOB_CLOSE'
+*       exporting
+*            event_id             = starttime-eventid
+*            event_param          = starttime-eventparm
+*            event_periodic       = starttime-periodic
+*            jobcount             = jobcount
+*            jobname              = jobname
+*            laststrtdt           = starttime-laststrtdt
+*            laststrttm           = starttime-laststrttm
+*            prddays              = 1
+*            prdhours             = 0
+*            prdmins              = 0
+*            prdmonths            = 0
+*            prdweeks             = 0
+*            sdlstrtdt            = starttime-sdlstrtdt
+*            sdlstrttm            = starttime-sdlstrttm
+*            strtimmed            = starttimeimmediate
+*            targetsystem         = host
+*       exceptions
+*            cant_start_immediate = 01
+*            invalid_startdate    = 02
+*            jobname_missing      = 03
+*            job_close_failed     = 04
+*            job_nosteps          = 05
+*            job_notex            = 06
+*            lock_failed          = 07
+*            others               = 99.
+*  if sy-subrc eq 0.
+*                                       "error processing
+*  endif.
