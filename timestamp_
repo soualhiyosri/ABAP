@@ -1,0 +1,79 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_TMMMP
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_TMMMP.
+
+
+DATA: ld_e_output	TYPE STRING.
+DATA: ld_i_timestamp  TYPE STRING.
+DATA: ld_i_timestamp1  TYPE STRING.
+ld_i_timestamp = '4/13/2019 7:31'.
+DATA LT_FILTERS2 TYPE TABLE OF STRING.
+DATA LT_FILTERS1 TYPE TABLE OF STRING.
+DATA LT_FILTERS TYPE TABLE OF STRING.
+    SPLIT ld_i_timestamp AT '/' INTO TABLE LT_FILTERS.
+
+    DATA: LS_FILTERSS	TYPE STRING.
+
+
+*FIRST MONTH AND DAY
+    loop at LT_FILTERS into LS_FILTERSS .
+write :/ LS_FILTERSS.
+ SPLIT LS_FILTERSS AT '' INTO TABLE LT_FILTERS1.
+ENDLOOP.
+*FIRSTYEAR
+loop at LT_FILTERS1 into LS_FILTERSS.
+write :/ LS_FILTERSS.
+ SPLIT LS_FILTERSS AT ':' INTO TABLE LT_FILTERS2.
+ENDLOOP.
+DATA : month TYPE STRING,
+      year TYPE STRING,
+      hour TYPE STRING,
+      minute TYPE STRING,
+      day TYPE STRING,
+      TIMEZONE TYPE STRING.
+
+WRITE :/'***********************************'.
+
+*MONTH AND DAY
+    loop at LT_FILTERS into LS_FILTERSS  TO 2.
+
+IF  STRLEN( LS_FILTERSS ) = 1 .
+  month = '0' && LS_FILTERSS.
+  write :/ month.
+ ELSE.
+   day = LS_FILTERSS.
+  ENDIF.
+ENDLOOP.
+*YEAR
+loop at LT_FILTERS1 into LS_FILTERSS TO 1.
+year = LS_FILTERSS.
+ENDLOOP.
+*HOUR AN MINUTE
+loop at LT_FILTERS2 into LS_FILTERSS to 1.
+hour = LS_FILTERSS.
+ENDLOOP.
+loop at LT_FILTERS2 into LS_FILTERSS to 2.
+minute = LS_FILTERSS.
+ENDLOOP.
+*2019-04-13T06:31:00.000Z
+TIMEZONE = year && '-' && MONTH && '-' && DAY && 'T' && HOUR && ':' && MINUTE && ':00.000Z'.
+WRITE :/ TIMEZONE.
+BREAK-POINT.
+DATA X TYPE STRING.
+X = '20190516192220.695'.
+WRITE :/ X.
+*YEAR
+WRITE :/ X(4).
+*MONTH
+ WRITE :/ X+4(2).
+*DAY
+  WRITE :/ X+6(2).
+*HOUR
+  WRITE :/ X+8(2).
+*MINUTE
+  WRITE :/ X+10(2).
