@@ -1,0 +1,140 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_ELK
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_ELK.
+
+DATA: LV_JSON TYPE /ui2/cl_json=>JSON,
+      LR_DATA TYPE REF TO DATA,
+      lv_string1 type string.
+DATA : HWORLD TYPE STRING.
+DATA : LV_PAYLOAD TYPE STRING.
+DATA : LV_PAYLOAD1 TYPE STRING.
+DATA : LV_PAYLODA2 TYPE STRING.
+*<<<<
+
+TYPES: BEGIN OF Z_LS_SERIES_ROW,
+  KEY TYPE STRING,
+  DOC_COUNT TYPE I,
+  END OF Z_LS_SERIES_ROW.
+
+*  DATA: FTAB TYPE TABLE OF LINE ,
+*           ETAB TYPE TABLE OF LINE,
+*WA_LINE TYPE LINE.
+*
+*WA_LINE-COL1 = 'A'. WA_LINE-COL2 = 'B'.
+*APPEND WA_LINE TO ETAB.
+*MOVE ETAB[] TO FTAB.
+*
+*LOOP AT FTAB INTO WA_LINE.
+*WRITE: / WA_LINE-COL1, WA_LINE-COL2.
+*ENDLOOP.
+
+TYPES: Z_LT_SERIES_ROW TYPE TABLE OF Z_LS_SERIES_ROW.
+DATA Z_LS_SERIES TYPE Z_LS_SERIES_ROW.
+DATA Z_LT_SERIES TYPE Z_LT_SERIES_ROW.
+DATA Z_it_ekpo TYPE STANDARD TABLE OF Z_LS_SERIES_ROW.
+*
+*DATA: ls_comp TYPE abap_componentdescr,
+*        ls_stru TYPE REF TO cl_abap_structdescr,
+*        lt_comp TYPE STANDARD TABLE OF abap_componentdescr WITH KEY name.
+*
+* FIELD-SYMBOLS:  <lfs_first>.
+*
+* ls_stru ?= cl_abap_typedescr=>describe_by_data( <lfs_first> ).
+* lt_comp = ls_stru->get_components( ).
+
+
+FIELD-SYMBOLS:
+            <LS_DATA> TYPE ANY.
+
+
+FIELD-SYMBOLS:
+  <GT_DATA> TYPE TABLE,
+  <DATA>   TYPE DATA,
+  <DATA2>   TYPE DATA,
+  <STRUCT> TYPE ANY  ,
+  <FIELD>  TYPE ANY.
+
+LV_PAYLOAD ='{"took": 776,"timed_out": false,"_shards": {"total": 5,"successful": 5,"skipped": 0,"failed": 0},"hits": {"total": 8976,"max_score": 0,"hits": []},"aggregations": {"2": {"doc_count_error_upper_bound": 5,"sum_other_doc_count": 656,'.
+LV_PAYLOAD1 = '"buckets": [{"key": "/SALM/TM_TWL_SRV","doc_count": 2509},{"key": "/SALM/IT_PPM_UI5_APP_SERVICE_SRV","doc_count": 2125},{"key": "/SALM/SOL_READINESS_ODATA_SERVICE","doc_count": 1278},{"key": "/SALM/MC_SRV","doc_count": 1242},'.
+LV_PAYLODA2 = '{"key": "/SALM/DROP_DOC_SRV","doc_count": 901},{"key": "/SALM/CRMGENERICAPPCONFIG","doc_count": 265}]}}}'.
+*Concatenate([lv_payload];Concatenate([lv_payloadd];Concatenate([lv_paylodadd];Concatenate([lv_payloaadd])))).
+HWORLD = LV_PAYLOAD && LV_PAYLOAD1 && LV_PAYLODA2.
+
+*lv_json = `{"name":"Key1","properties":{"field1":"Value1","field2":"Value2"}}`.
+LR_DATA = /ui2/cl_json=>GENERATE( JSON = HWORLD ).
+BREAK-POINT.
+
+
+" OK, generated, now let us access somete field :(
+IF LR_DATA IS BOUND.
+  ASSIGN LR_DATA->* TO <DATA>.
+  ASSIGN COMPONENT 'AGGREGATIONS' OF STRUCTURE <DATA> TO <STRUCT>.
+  IF <STRUCT> IS ASSIGNED.
+    LR_DATA = <STRUCT>.
+    ASSIGN LR_DATA->* TO <DATA>.
+    ASSIGN COMPONENT `2` OF STRUCTURE <DATA> TO <STRUCT>.
+    IF <STRUCT> IS ASSIGNED.
+      LR_DATA = <STRUCT>.
+      ASSIGN LR_DATA->* TO <DATA>.
+      ASSIGN COMPONENT `BUCKETS` OF STRUCTURE <DATA> TO <STRUCT>.
+      IF <STRUCT> IS ASSIGNED.
+        LR_DATA = <STRUCT>.
+        ASSIGN LR_DATA->* TO <GT_DATA>.
+        LOOP AT <GT_DATA> ASSIGNING <DATA>.
+          lr_data = <data>.
+
+
+          FIELD-SYMBOLS: <field2> TYPE DATA,
+                         <field3> TYPE DATA,
+                         <str> TYPE DATA.
+          FIELD-SYMBOLS: <lv_string> type string.
+
+          BREAK-POINT.
+
+          ASSIGN <data>->* TO <str>.
+
+
+          ASSIGN COMPONENT 'DOC_COUNT' OF STRUCTURE <str> TO  <field3>.
+
+           FIELD-SYMBOLS:  <lv_string1> TYPE i.
+           ASSIGN <field3>->* to <lv_string1>.
+
+
+          Z_LS_SERIES-DOC_COUNT = <lv_string1>.
+
+          WRITE: / <lv_string1>.
+
+
+          ASSIGN COMPONENT 'KEY' OF STRUCTURE <str> TO  <field2>.
+
+          ASSIGN <FIELD2>->* to <lv_string>.
+
+         Z_LS_SERIES-KEY = <lv_string>.
+
+          WRITE: / <lv_string>.
+
+          BREAK-POINT.
+
+
+          APPEND Z_LS_SERIES TO Z_it_ekpo.
+*          INSERT Z_LS_SERIES INTO Z_it_ekpo.
+
+        ENDLOOP.
+        " We got it -> Value1
+      ENDIF.
+    ENDIF.
+  ENDIF.
+ENDIF.
+BREAK-POINT.
+*
+*      FIELD-SYMBOLS:
+*                 <ls_data> TYPE ANY.
+*
+*  CREATE DATA cr_data LIKE is_data.
+*  ASSIGN cr_data->* TO <ls_data>.
+*  <ls_data> = is_data.
