@@ -1,0 +1,47 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_ELKINDEXGET3
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_ELKINDEXGET3.
+TYPES :
+BEGIN OF controlarea_s,
+          INDEX TYPE string,
+        END OF controlarea_s,
+
+        BEGIN OF root,
+          bfmdata TYPE TABLE OF controlarea_s WITH NON-UNIQUE DEFAULT KEY,
+        END OF root.
+
+ DATA: lv_json TYPE string,
+       ls_abap TYPE root.
+
+lv_json ='"bfmData":[{"controlArea":"1000"},{"controlArea":"1000"},{"controlArea":"1000"}]}'.
+ /ui2/cl_json=>deserialize( EXPORTING
+                              json = lv_json
+                            CHANGING
+                              data = ls_abap ).
+ BREAK-POINT.
+
+ DATA: lt_flight TYPE STANDARD TABLE OF sflight,
+      lrf_descr TYPE REF TO cl_abap_typedescr,
+      lv_json1   TYPE string.
+
+
+SELECT * FROM sflight INTO TABLE lt_flight.
+
+* serialize table lt_flight into JSON, skipping initial fields and converting ABAP field names into camelCase
+lv_json1 = /ui2/cl_json=>serialize( data = lt_flight compress = abap_true pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+WRITE / lv_json.
+
+CLEAR lt_flight.
+
+* deserialize JSON string json into internal table lt_flight doing camelCase to ABAP like field name mapping
+/ui2/cl_json=>deserialize( EXPORTING json = lv_json1 pretty_name = /ui2/cl_json=>pretty_mode-camel_case CHANGING data = lt_flight ).
+
+* serialize ABAP object into JSON string
+lrf_descr = cl_abap_typedescr=>describe_by_data( lt_flight ).
+lv_json1 = /ui2/cl_json=>serialize( lrf_descr ).
+WRITE / lv_json1.
