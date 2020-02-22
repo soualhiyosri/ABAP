@@ -1,0 +1,176 @@
+  METHOD if_http_extension~handle_request.
+
+
+    TYPE-POOLS abap.
+    DATA: lt_flight TYPE STANDARD TABLE OF sflight,
+          lrf_descr TYPE REF TO cl_abap_typedescr.
+    DATA: show_import_params TYPE abap_bool VALUE abap_false,
+          lowercase          TYPE abap_bool VALUE abap_false,
+          path_info          TYPE string,
+          p_info_tab         TYPE TABLE OF string,
+          format             TYPE string,
+          accept             TYPE string,
+          action             TYPE string,
+          postbody           TYPE string,
+          request_method     TYPE string,
+          jsonp_callback     TYPE string,
+          i_content_type     TYPE string,
+          i_cdata            TYPE string,
+          i_cdataj           TYPE xstring,
+          o_cdata            TYPE string,
+          lv_cdata           TYPE string,
+          exceptheader       TYPE string,
+          etext              TYPE string,
+          etext2             TYPE string,
+          str_item           TYPE string,
+          host               TYPE string,
+          port               TYPE string,
+          proto              TYPE string,
+          http_code          TYPE i,
+          http_status        TYPE string,
+
+          funcname           TYPE rs38l_fnam,
+          dparam             TYPE abap_parmname,
+          t_params_p         TYPE STANDARD TABLE OF rfc_fint_p,
+          paramtab           TYPE abap_func_parmbind_tab,
+          exceptab           TYPE abap_func_excpbind_tab,
+          exception          TYPE LINE OF abap_func_excpbind_tab,
+          funcrc             TYPE sy-subrc,
+          oexcp              TYPE REF TO cx_root,
+          oexjson            TYPE REF TO /stdf/cx_json,
+          oexnop             TYPE REF TO cx_sy_no_handler,
+          qs_nvp             TYPE tihttpnvp,
+          l_lines            TYPE i,
+          l_idx              TYPE i,
+          cache_id           TYPE string,
+          http_server        TYPE REF TO cl_http_server,
+          caller             TYPE rfcipv6addr,
+          lv_str             TYPE string,
+          lv_str2            TYPE string,
+          lv_text            TYPE string.
+
+    DATA lt_fields TYPE tihttpnvp.
+    DATA lt_fields2 TYPE tihttpnvp.
+    DATA lt_fields3 TYPE string.
+
+
+    DATA: table_name       TYPE string,
+          lo_dynamic_table TYPE REF TO data,
+          lo_dynamic_line  TYPE REF TO data.
+
+    FIELD-SYMBOLS: <lt_table_structure> TYPE table,
+                   <ls_table_structure> TYPE any.
+
+    DATA: lv_tstmp1    TYPE timestampl,
+          lv_tstmp2    TYPE timestampl,
+          lt_filters   TYPE TABLE OF string,
+          lv_diff      TYPE tzntstmpl,
+          user_agent   TYPE string,
+          short_url    TYPE string,
+          query_string TYPE string,
+          url          TYPE string,
+          my_service   TYPE string,
+          tablename    TYPE dd02l-tabname,
+          lv_diff_i    TYPE i.
+
+    DATA: ld_subrc TYPE string,
+          stabname TYPE dd02l-tabname,
+          subrc    TYPE sy-subrc.
+    server->get_location( IMPORTING host = host  port = port  out_protocol = proto ).
+
+    CONCATENATE proto '://' host ':' port INTO url.
+* Get form and header fields
+    my_service         = server->request->get_header_field( name = '~script_name' ).
+    request_method         = server->request->get_header_field( name = '~request_method' ).
+    query_string           = server->request->get_header_field( name = '~~query_string' ).
+    i_content_type         = server->request->get_header_field( name = /stdf/dc_text_util=>ccontype ).
+    user_agent             = server->request->get_header_field( name = 'ua' ).
+    show_import_params   = server->request->get_form_field( 'show_import_params' ).
+    action                 = server->request->get_form_field( 'action' ).
+    jsonp_callback         = server->request->get_form_field( 'callback' ).
+    lowercase              = server->request->get_form_field( 'lowercase' ).
+    format               = server->request->get_form_field( 'format' ).
+    accept               = server->request->get_header_field( name = /stdf/dc_text_util=>caccept ).
+    postbody             = server->request->get_cdata( ).
+    http_server          ?= server.
+    caller               = http_server->c_caller_ip.
+
+    cache_id               = server->request->get_form_field( 'cache-id' ).
+
+* Get function name from PATH_INFO
+    path_info = server->request->get_header_field( name = '~path_info' ).
+
+    SPLIT path_info AT '/' INTO TABLE lt_filters.
+    CLEAR i_cdata.
+    i_cdata = server->request->get_cdata( ).
+    server->request->get_form_fields_cs( CHANGING fields = qs_nvp ).
+    BREAK-POINT.
+
+    READ TABLE lt_filters INTO tablename INDEX 2.
+
+    CALL FUNCTION 'DB_EXISTS_TABLE'
+      EXPORTING
+        tabname = tablename
+      IMPORTING
+        subrc   = subrc
+      .  "  DB_EXISTS_TABLE
+
+    IF sy-subrc EQ 0 AND request_method = 'POST'.
+      lt_fields3 = server->request->get_content_type( ).
+*     If we are posting a text file
+*      IF lt_fields3 = 'text/plain'.
+
+        CREATE DATA lo_dynamic_table TYPE TABLE OF (tablename).
+        ASSIGN lo_dynamic_table->* TO <lt_table_structure>.
+
+        CREATE DATA lo_dynamic_line LIKE LINE OF <lt_table_structure>.
+        ASSIGN lo_dynamic_line->* TO <ls_table_structure>.
+
+
+        TRY.
+            /ui2/cl_json=>deserialize( EXPORTING json = i_cdata pretty_name = /ui2/cl_json=>pretty_mode-camel_case CHANGING data = <lt_table_structure> ).
+          CATCH cx_root INTO  DATA(lo_excep).
+        ENDTRY.
+        IF <lt_table_structure> IS INITIAL.
+          server->response->set_status( code = 404  reason = '' ).
+        ENDIF.
+        BREAK-POINT.
+        "All OK
+
+
+*   *If we are posting an JSON array/object
+*      ELSEIF lt_fields3 = 'application/json'.
+
+
+
+        CREATE DATA lo_dynamic_table TYPE TABLE OF (tablename).
+        ASSIGN lo_dynamic_table->* TO <lt_table_structure>.
+
+        CREATE DATA lo_dynamic_line LIKE LINE OF <lt_table_structure>.
+        ASSIGN lo_dynamic_line->* TO <ls_table_structure>.
+
+
+        TRY.
+            /ui2/cl_json=>deserialize( EXPORTING json = i_cdata pretty_name = /ui2/cl_json=>pretty_mode-camel_case CHANGING data = <lt_table_structure> ).
+          CATCH cx_root INTO  lo_excep.
+        ENDTRY.
+        IF <lt_table_structure> IS INITIAL.
+          server->response->set_status( code = 404  reason = '' ).
+        ENDIF.
+        BREAK-POINT.
+        "All OK
+*      ENDIF.
+    ENDIF.
+    server->request->get_header_fields(
+      CHANGING
+        fields = lt_fields   " Header fields
+    ).
+    server->request->get_form_fields(
+*       EXPORTING
+*         formfield_encoding = 0    " CO_FORMFIELD_ENCODING_RAW / _ENCODED
+*         search_option      = 3    " CO_BODY_BEFORE_QUERY_STRING or others
+      CHANGING
+        fields             = lt_fields2     " Form fields
+    ).
+
+  ENDMETHOD.
