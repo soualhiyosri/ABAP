@@ -1,0 +1,340 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_ELK_COPY
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_ELK_COPY.
+ METHOD GET_DATA_ELASTIC.
+*&---------------------------------------------------------------------*
+*****
+*TYPES: BEGIN OF ls_series_row,
+*  key TYPE string,
+*  doc_count TYPE i,
+*  END OF ls_series_row.
+*
+*DATA lt_series_row TYPE TABLE OF ls_series_row.
+*DATA ls_series TYPE ls_series_row.
+*******
+   DATA LT_SERIES_ROW TYPE TABLE OF  ZXYTABLE.
+   DATA LS_SERIES TYPE ZXYTABLE.
+   DATA IT TYPE ZXYTABLE.
+
+
+   DATA:  HTTP_CLIENT TYPE REF TO IF_HTTP_CLIENT,
+          HTTP_URL    TYPE STRING,
+          P_CONTENT   TYPE STRING.
+
+
+   DATA : GV_JSON TYPE STRING.
+   DATA LV_PAYLOAD TYPE STRING.
+   DATA LV_PAYLOAD1 TYPE STRING.
+   DATA LV_PAYLODA2 TYPE STRING.
+   DATA LV_PAY3 TYPE STRING.
+   DATA HELLOWORLD TYPE STRING.
+   DATA UV_PAYLOAD TYPE STRING.
+   DATA GV_CODE TYPE INTEGER.
+   DATA GV_REASON TYPE STRING.
+
+   DATA COP TYPE I VALUE 0 .
+
+   DATA LV_PAYLOADD TYPE STRING.
+    DATA LV_PAYLOADD1 TYPE STRING.
+   DATA LV_PAYLOADD2 TYPE STRING.
+
+   DATA AGGREGATION TYPE STRING.
+   DATA LV_PAYLOADD4 TYPE STRING.
+
+
+   DATA LV_PAYLOADD6 TYPE STRING.
+
+   DATA LV_PAYLOADD7 TYPE STRING.
+   DATA LV_PAYLOADD8 TYPE STRING.
+   DATA LV_PAYLOADD9 TYPE STRING.
+     DATA LV_PAYLOADD10 TYPE STRING.
+   DATA HELLOWORLDD TYPE STRING.
+
+   DATA FILD TYPE STRING.
+   DATA LT_FILTERS TYPE TABLE OF STRING.
+   DATA: LV_FILTER TYPE STRING,
+         SHOULD    TYPE STRING,
+         S         TYPE STRING.
+   SPLIT LVDIMENSION AT ',' INTO  TABLE LT_FILTERS.
+   LOOP AT LT_FILTERS  INTO LV_FILTER.
+     CONCATENATE '{"term" : {" ' DIMENSION  '.keyword":"' LV_FILTER '"}}' INTO S .
+     IF SHOULD IS INITIAL.
+       SHOULD = S.
+     ELSE.
+       SHOULD = SHOULD && ',' && S .
+     ENDIF.
+   ENDLOOP.
+
+   DELETE FROM ZXYTABLE.
+*   IF AGGRIGATION = 'count' .
+   IF AGGRIGATION = 'count' AND MEASURE IS  INITIAL.
+
+*     IF MEASURE IS NOT INITIAL.
+*       FILD = MEASURE.
+*       LV_PAYLOADD = '{ "aggs": { "2": { "terms": { "field": "'.
+*       LV_PAYLOADD2 = '", "size": 5, "order": { "_key": "desc" }' .
+*
+*       LV_PAYLOADD6 = '}}}, "size": 0, "_source": { "excludes": [] }, "stored_fields": ["*"], "script_fields": {}, "docvalue_fields": [{ "field": "@timestamp", "format": "date_time" }], '.
+*       LV_PAYLOADD7 = ' "query": { "bool": { "must": [{ "match_all": {} }, { "range": { "@timestamp": { "gte": 1492362339268, "lte": 1555434339268, "format": "epoch_millis" } } }],  '.
+*       LV_PAYLOADD8 = '"filter": [], "should": [], "must_not": [] } }, "timeout": "30000ms" }'.
+*
+*       HELLOWORLDD = LV_PAYLOADD && MEASURE && LV_PAYLOADD2   && LV_PAYLOADD6 && LV_PAYLOADD7 && LV_PAYLOADD8 .
+*
+*     ELSE.
+     LV_PAYLOADD = '{"aggs": {"2": {"date_histogram": {"field": "TIMESTAMP","interval":"'.
+*RESOLUTION
+
+     LV_PAYLOADD1 = '","time_zone": "Africa/Lagos","min_doc_count": 1},{ "aggs": { "3": { "terms": { "field": "'.
+     LV_PAYLOADD2 = '.keyword", "size": 5000, "order": { "_key": "desc" }' .
+
+     LV_PAYLOADD6 = '}}}}}, "size": 0, "_source": { "excludes": [] }, "stored_fields": ["*"], "script_fields": {}, "docvalue_fields": ["TIMESTAMP"], '.
+     LV_PAYLOADD7 = ' "query": { "bool": { "must": [{"range":"TIMESTAMP":{"from":"'.
+*start_time
+
+     LV_PAYLOADD8 = '","to:"'.
+*end_time
+
+
+      LV_PAYLOADD9 = '"}} }],"filter": [],"minimum_should_match": 1,"should": ['.
+*should
+
+     LV_PAYLOADD10 = '], "must_not": [] } }}'.
+
+     HELLOWORLDD =  LV_PAYLOADD && 'res' && LV_PAYLOAD1 && DIMENSION && LV_PAYLOADD2   && LV_PAYLOADD6 && LV_PAYLOADD7 && ' str_tim ' && LV_PAYLOADD8 &&'end_tm' &&   LV_PAYLOADD9 && SHOULD  && LV_PAYLOADD10.
+*     ENDIF.
+
+   ELSEIF AGGRIGATION = 'sum'.
+
+     IF DIMENSION IS  INITIAL.
+       LV_PAYLOADD = '{ "aggs": { "2": { "terms": { "field": "'.
+
+       LV_PAYLOADD2 = '", "size": 5, "order": { "_key": "desc" } }, "aggs": { "1": { "'.
+
+       LV_PAYLOADD4 = '": { "field": "'.
+
+       LV_PAYLOADD6 = '" } } } } }, "size": 0, "_source": { "excludes": [] }, "stored_fields": ["*"], "script_fields": {}, "docvalue_fields": [{ "field": "@timestamp", "format": "date_time" }], '.
+       LV_PAYLOADD7 = ' "query": { "bool": { "must": [],  '.
+       LV_PAYLOADD8 = '"filter": [], "should": [], "must_not": [] } }, "timeout": "30000ms" }'.
+
+       HELLOWORLDD = LV_PAYLOADD && MEASURE && LV_PAYLOADD2 && AGGRIGATION && LV_PAYLOADD4 && MEASURE && LV_PAYLOADD6 && LV_PAYLOADD7 && LV_PAYLOADD8 .
+
+     ELSE.
+
+       LV_PAYLOADD = '{ "aggs": { "2": { "terms": { "field": "'.
+
+       LV_PAYLOADD2 = '.keyword", "size": 5000, "order": { "_key": "desc" } }, "aggs": { "1": { "'.
+
+       LV_PAYLOADD4 = '": { "field": "'.
+
+       LV_PAYLOADD6 = '" } } } } }, "size": 0, "_source": { "excludes": [] }, "stored_fields": ["*"], "script_fields": {}, "docvalue_fields": [{ "field": "@timestamp", "format": "date_time" }], '.
+       LV_PAYLOADD7 = ' "query": { "bool": { "must": [],  '.
+       LV_PAYLOADD8 = '"filter": [], "should": ['.
+
+       LV_PAYLOADD9 = '], "must_not": [] } }, "timeout": "30000ms" }'.
+
+       HELLOWORLDD = LV_PAYLOADD && DIMENSION && LV_PAYLOADD2 && AGGRIGATION && LV_PAYLOADD4 && MEASURE && LV_PAYLOADD6 && LV_PAYLOADD7 && LV_PAYLOADD8 && SHOULD && LV_PAYLOADD9.
+     ENDIF.
+
+   ELSE.
+
+     IF DIMENSION IS  INITIAL.
+
+       LV_PAYLOADD = '{ "aggs": { "2": { "terms": { "field": "'.
+
+       LV_PAYLOADD2 = '", "size": 5, "order": { "_key": "desc" } }, "aggs": { "1": { "'.
+
+       LV_PAYLOADD4 = '": { "field": "'.
+
+       LV_PAYLOADD6 = '" } } } } }, "size": 0, "_source": { "excludes": [] }, "stored_fields": ["*"], "script_fields": {}, "docvalue_fields": [{ "field": "@timestamp", "format": "date_time" }], '.
+       LV_PAYLOADD7 = ' "query": { "bool": { "must": [],  '.
+       LV_PAYLOADD8 = '"filter": [], "should": [], "must_not": [] } }, "timeout": "30000ms" }'.
+
+       HELLOWORLDD = LV_PAYLOADD && MEASURE && LV_PAYLOADD2 && AGGRIGATION && LV_PAYLOADD4 && MEASURE && LV_PAYLOADD6 && LV_PAYLOADD7 && LV_PAYLOADD8 .
+
+     ELSE.
+
+       LV_PAYLOADD = '{ "aggs": { "2": { "terms": { "field": "'.
+
+       LV_PAYLOADD2 = '.keyword", "size": 5000, "order": { "_key": "desc" } }, "aggs": { "1": { "'.
+
+       LV_PAYLOADD4 = '": { "field": "'.
+
+       LV_PAYLOADD6 = '" } } } } }, "size": 0, "_source": { "excludes": [] }, "stored_fields": ["*"], "script_fields": {}, "docvalue_fields": [{ "field": "@timestamp", "format": "date_time" }], '.
+       LV_PAYLOADD7 = ' "query": { "bool": { "must": [],  '.
+       LV_PAYLOADD8 = '"filter": [], "should": ['.
+
+       LV_PAYLOADD9 = '], "must_not": [] } }, "timeout": "30000ms" }'.
+
+
+       HELLOWORLDD = LV_PAYLOADD && DIMENSION && LV_PAYLOADD2 && AGGRIGATION && LV_PAYLOADD4 && MEASURE && LV_PAYLOADD6 && LV_PAYLOADD7 && LV_PAYLOADD8 && SHOULD && LV_PAYLOADD9.
+     ENDIF.
+   ENDIF.
+
+   DATA: GV_REQUEST TYPE REF TO IF_HTTP_REQUEST.
+   DATA: GV_RESPONSE TYPE REF TO IF_HTTP_RESPONSE.
+   DATA: LO_HTTP_CLIENT    TYPE REF TO IF_HTTP_CLIENT.
+   DATA: LV_HTTP_ERROR_DESCR      TYPE STRING,
+         LV_HTTP_ERROR_DESCR_LONG TYPE XSTRING.
+   DATA: LV_HTTP_RETURN_CODE  TYPE I.
+
+   DATA: HTTP_DEST TYPE RFCDEST VALUE 'ZTEST_HTTP'.
+   CL_HTTP_CLIENT=>CREATE_BY_DESTINATION( EXPORTING
+   DESTINATION = HTTP_DEST IMPORTING CLIENT = LO_HTTP_CLIENT ).
+
+
+*TRANSLATE index TO LOWER CASE.
+*TRANSLATE _type TO LOWER CASE.
+   CALL METHOD CL_HTTP_UTILITY=>SET_REQUEST_URI
+     EXPORTING
+       REQUEST = LO_HTTP_CLIENT->REQUEST
+       URI     = |/{ INDEX }/_search|.
+
+* Set up the HTTP Post
+   CALL METHOD LO_HTTP_CLIENT->REQUEST->SET_METHOD
+     EXPORTING
+       METHOD = 'POST'.
+
+   CALL METHOD LO_HTTP_CLIENT->REQUEST->SET_VERSION
+     EXPORTING
+       VERSION = IF_HTTP_REQUEST=>CO_PROTOCOL_VERSION_1_0.   " 1.0
+
+
+   LO_HTTP_CLIENT->REQUEST->SET_HEADER_FIELD(
+       NAME = 'Content-Type'
+       VALUE = 'application/json'
+       ).
+
+   CALL METHOD LO_HTTP_CLIENT->REQUEST->IF_HTTP_ENTITY~SET_CDATA
+     EXPORTING
+       DATA   = HELLOWORLDD
+       OFFSET = 0.
+
+* Send the HTTP Post
+   CALL METHOD LO_HTTP_CLIENT->SEND
+     EXPORTING
+       TIMEOUT                    = 15   " 15 Seconds
+     EXCEPTIONS
+       HTTP_COMMUNICATION_FAILURE = 1
+       HTTP_INVALID_STATE         = 2.
+
+
+*Read the Response
+   CALL METHOD LO_HTTP_CLIENT->RECEIVE
+     EXCEPTIONS
+       HTTP_COMMUNICATION_FAILURE = 1
+       HTTP_INVALID_STATE         = 2
+       HTTP_PROCESSING_FAILED     = 3.
+
+* Get the HTTP return code from the HTTP POST:
+   LO_HTTP_CLIENT->RESPONSE->GET_STATUS( IMPORTING CODE   = LV_HTTP_RETURN_CODE ).
+   LO_HTTP_CLIENT->RESPONSE->GET_STATUS( IMPORTING REASON = LV_HTTP_ERROR_DESCR ).
+
+   LV_HTTP_ERROR_DESCR_LONG = LO_HTTP_CLIENT->RESPONSE->GET_RAW_MESSAGE( ).
+* Write the HTTP Return Code / Description to the screen:
+   WRITE:/ 'HTTP return Code/Description:',  LV_HTTP_RETURN_CODE NO-GAP, '/' NO-GAP, LV_HTTP_ERROR_DESCR.
+   SKIP 1.
+*WRITE:/ 'HTTP return Code/Long Description:',  lv_http_return_code NO-GAP, '/' NO-GAP, lv_http_error_descr_long.
+   SKIP 1.
+
+* Refresh the Request after each POST:
+   CALL METHOD LO_HTTP_CLIENT->REFRESH_REQUEST(
+     EXCEPTIONS
+       HTTP_ACTION_FAILED = 1
+       OTHERS             = 2 ).
+
+* Write the data received back from the POST to the screen:
+   CLEAR  P_CONTENT.
+   P_CONTENT = LO_HTTP_CLIENT->RESPONSE->GET_CDATA( ).
+
+*************************************************
+   DATA: LV_JSON  TYPE Z_TEST_UI2=>JSON,
+         LR2_DATA TYPE REF TO DATA,
+         LR_DATA  TYPE REF TO DATA.
+
+
+   FIELD-SYMBOLS:
+     <DATA>    TYPE DATA,
+     <STRUCT>  TYPE ANY,
+     <FIELD>   TYPE ANY,
+     <GT_DATA> TYPE TABLE.
+
+
+   LR_DATA = /UI2/CL_JSON=>GENERATE( JSON = P_CONTENT ).
+
+   " OK, generated, now let us access somete field :(
+   IF LR_DATA IS BOUND.
+     ASSIGN LR_DATA->* TO <DATA>.
+     ASSIGN COMPONENT `AGGREGATIONS` OF STRUCTURE <DATA> TO <FIELD>.
+     IF <FIELD> IS ASSIGNED.
+       LR_DATA = <FIELD>.
+
+       ASSIGN LR_DATA->* TO <DATA>.
+       ASSIGN COMPONENT `2` OF STRUCTURE <DATA> TO <FIELD>.
+       IF <FIELD> IS ASSIGNED.
+         LR_DATA = <FIELD>.
+         ASSIGN LR_DATA->* TO <DATA>.
+
+         ASSIGN COMPONENT `BUCKETS` OF STRUCTURE <DATA> TO <FIELD>.
+
+         IF <FIELD> IS ASSIGNED.
+           LR_DATA = <FIELD>.
+           ASSIGN LR_DATA->* TO <GT_DATA>.
+
+           LOOP AT <GT_DATA> ASSIGNING <DATA>.
+             LR_DATA = <DATA>.
+             FIELD-SYMBOLS: <FIELD1> TYPE DATA,<FIELD2> TYPE DATA,
+                            <STR>    TYPE DATA.
+             FIELD-SYMBOLS: <LV1_STRING> TYPE STRING,<LV2_STRING> TYPE I, <LV1_I>  TYPE I.
+
+
+
+             ASSIGN <DATA>->* TO <STR>.
+* a refaire pour sum,avg et count d'un mesure el key esti I N'est pa string.
+             ASSIGN COMPONENT 'KEY' OF STRUCTURE <STR> TO  <FIELD1>.
+             DATA R TYPE I.
+             DATA YY TYPE STRING.
+             IF DIMENSION IS INITIAL.
+               ASSIGN <FIELD1>->* TO <LV1_I>.
+               R = <LV1_I>.
+               YY = R .
+             ELSE.
+               ASSIGN <FIELD1>->* TO <LV1_STRING>.
+               YY = <LV1_STRING>.
+
+
+             ENDIF.
+
+             ASSIGN COMPONENT 'DOC_COUNT' OF STRUCTURE <STR> TO  <FIELD2>.
+             ASSIGN <FIELD2>->* TO <LV2_STRING>.
+*            WRITE: / <lv1_string>.
+*            WRITE: / <lv2_string>.
+             LS_SERIES-X = YY.
+*             WRITE: / <LV1_STRING>.
+             LS_SERIES-Y = <LV2_STRING>.
+             WRITE: / <LV2_STRING>.
+             COP =  COP + 1.
+             LS_SERIES-ID = COP.
+             APPEND LS_SERIES TO  LT_SERIES_ROW.
+
+
+
+             INSERT INTO   ZXYTABLE   VALUES LS_SERIES.
+
+*INSERT INTO table ZXYTABLE VALUES LS_SERIES.
+           ENDLOOP.
+
+*APPEND LS_SERIES to ZXYTABLE2.
+         ENDIF.
+       ENDIF.
+
+     ENDIF.
+   ENDIF.
+
+
+
+ ENDMETHOD.
