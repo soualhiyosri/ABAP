@@ -1,0 +1,150 @@
+METHOD CHECK_AUTHORIZATION.
+
+  DATA LS_KEY TYPE /STDF/DE_DASH_KEYS.
+  DATA LV_CONFIG_ID	TYPE /STDF/DE_CONFIG_ID.
+  DATA LV_PROJECT_ID  TYPE /STDF/DE_PROJECT_ID.
+  DATA LV_PROJECT_ID_STRING  TYPE STRING.
+  DATA LV_SOLUTION_ID TYPE STRING.
+  DATA LV_GROUP_ID TYPE STRING.
+*  DATA lv_solution_id_string TYPE string.
+
+
+  DATA LT_INSTANCES           TYPE TABLE OF /STDF/INST_GRPS.
+  DATA LS_INSTANCE            LIKE LINE OF LT_INSTANCES.
+
+  DATA:
+    LV_LOG_DB_TIME       TYPE TIMESTAMP,
+    LT_LOG_TABLE         TYPE /STDF/CL_SHARED_ROOT=>TT_LOG,
+    LV_CURRENT_TIMESTAMP TYPE TIMESTAMP,
+    LV_DIFF              TYPE TZNTSTMPL,
+    LR_EXCEPTION         TYPE REF TO  /STDF/CX_EXCEPTION,
+    LV_ERR_MSG           TYPE STRING,
+    LV_ACTVT             TYPE CHAR2.
+
+
+  LV_CONFIG_ID  = IV_CONFIG_ID.
+  LV_PROJECT_ID = IV_PROJECT_ID.
+  LV_ACTVT      = IV_ACTVT.
+  CONDENSE LV_PROJECT_ID.
+  CONDENSE LV_CONFIG_ID.
+
+  EV_AUTHORIZATION = ABAP_FALSE.
+
+  CASE IV_TARGET.
+    WHEN LC_CONFIG.
+
+      AUTHORITY-CHECK OBJECT '/STDF/APPC'
+               ID '/STDF/APP' FIELD LV_PROJECT_ID
+               ID 'ACTVT' FIELD LV_ACTVT. "'03'.
+      IF SY-SUBRC = 0.
+        EV_AUTHORIZATION = ABAP_TRUE.
+      ENDIF.
+    WHEN LC_DQ.
+
+      AUTHORITY-CHECK OBJECT '/STDF/APPQ'
+                     ID '/STDF/APP' FIELD LV_PROJECT_ID
+                     ID 'ACTVT' FIELD LV_ACTVT. "'03'.
+      IF SY-SUBRC = 0.
+        EV_AUTHORIZATION = ABAP_TRUE.
+      ENDIF.
+    WHEN LC_DASH.
+
+      AUTHORITY-CHECK OBJECT '/STDF/APPC'
+                 ID '/STDF/APP' FIELD LV_PROJECT_ID
+                 ID 'ACTVT' FIELD LV_ACTVT.
+
+      IF SY-SUBRC = 0.
+         EV_AUTHORIZATION = ABAP_TRUE.
+
+      ELSE.
+        CONCATENATE LV_PROJECT_ID LV_CONFIG_ID INTO LS_KEY SEPARATED BY '_'.
+        CONDENSE LS_KEY.
+        AUTHORITY-CHECK OBJECT '/STDF/APPD'
+               ID '/STDF/KEY' FIELD LS_KEY
+               ID '/STDF/APP' FIELD LV_PROJECT_ID
+               ID 'ACTVT' FIELD LV_ACTVT. "'03'.
+
+        IF SY-SUBRC = 0.
+          EV_AUTHORIZATION = ABAP_TRUE.
+     ENDIF.
+
+
+        LV_PROJECT_ID_STRING = IV_PROJECT_ID .
+
+        IF IV_SOLUTION_ID IS SUPPLIED.
+          LV_SOLUTION_ID = IV_SOLUTION_ID.
+        ELSE.
+          LV_SOLUTION_ID = /STDF/CL_DASH_LICENSING=>C_SOLUTION_ID-FOCUSED_INSIGHT.
+
+        ENDIF.
+
+      ENDIF.
+
+  ENDCASE.
+
+****************************** log access ************************************
+  IF EV_AUTHORIZATION = ABAP_TRUE.
+    TRY.
+        CALL METHOD /STDF/CL_DASH_AUTH_CHECK=>READ_LAST_LOG_DB_TIME
+          EXPORTING
+            SOLUTION_ID    = LV_SOLUTION_ID
+            USAGE_ID       = LV_PROJECT_ID_STRING
+          IMPORTING
+            EV_LOG_DB_TIME = LV_LOG_DB_TIME
+            ET_LOG_TABLE   = LT_LOG_TABLE.
+      CATCH /STDF/CX_EXCEPTION INTO LR_EXCEPTION.
+        LV_ERR_MSG = LR_EXCEPTION->GET_TEXT( ).
+    ENDTRY.
+    IF  LV_LOG_DB_TIME IS INITIAL . " Step 0 first access to the shared memory log + update logdbtmstp.
+
+      CALL METHOD /STDF/CL_DASH_LICENSING=>LOG_ACCESS  "step 0.1. log access
+        EXPORTING
+          IV_SOLUTION_ID = LV_SOLUTION_ID
+          IV_USAGE_ID    = LV_PROJECT_ID_STRING.
+
+      GET TIME STAMP FIELD LV_CURRENT_TIMESTAMP.
+
+      TRY.
+          CALL METHOD /STDF/CL_DASH_AUTH_CHECK=>UPDATE_LOG_DB_TIME "step 0.2. update logdbtime
+            EXPORTING
+              IV_LOG_DB_TIME = LV_CURRENT_TIMESTAMP
+              CLIENT         = SY-MANDT
+              USER           = SY-UNAME
+              SOLUTION_ID    = LV_SOLUTION_ID
+              USAGE_ID       = LV_PROJECT_ID_STRING
+              IT_LOG_TABLE   = LT_LOG_TABLE.
+        CATCH /STDF/CX_EXCEPTION INTO LR_EXCEPTION.
+          LV_ERR_MSG = LR_EXCEPTION->GET_TEXT( ).
+      ENDTRY.
+      CLEAR LV_CURRENT_TIMESTAMP.
+    ELSE. "step1 :logdbtime is already filled ? test if we have more than 1 hour
+      GET TIME STAMP FIELD LV_CURRENT_TIMESTAMP.
+
+      TRY.
+          IF LV_LOG_DB_TIME IS NOT INITIAL.
+            LV_DIFF = CL_ABAP_TSTMP=>SUBTRACT(
+             TSTMP1 = LV_CURRENT_TIMESTAMP
+             TSTMP2 = LV_LOG_DB_TIME ).
+          ENDIF.
+
+        CATCH CX_ROOT.
+      ENDTRY.
+
+      IF LV_DIFF > 3600. "1.1 check if we have more than 1 hour since last DB log
+        TRY.
+            CALL METHOD /STDF/CL_DASH_AUTH_CHECK=>UPDATE_LOG_DB_TIME "step 0.2. update logdbtime
+              EXPORTING
+                IV_LOG_DB_TIME = LV_CURRENT_TIMESTAMP
+                CLIENT         = SY-MANDT
+                USER           = SY-UNAME
+                SOLUTION_ID    = LV_SOLUTION_ID
+                USAGE_ID       = LV_PROJECT_ID_STRING
+                IT_LOG_TABLE   = LT_LOG_TABLE.
+          CATCH /STDF/CX_EXCEPTION INTO LR_EXCEPTION.
+            LV_ERR_MSG = LR_EXCEPTION->GET_TEXT( ).
+        ENDTRY.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+***************************************************************************************************
+ENDMETHOD.
