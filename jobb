@@ -1,0 +1,153 @@
+**&---------------------------------------------------------------------*
+**& Report  Z_JOB2
+**&
+**&---------------------------------------------------------------------*
+**&
+**&
+**&---------------------------------------------------------------------*
+*REPORT Z_JOB2.
+*
+*DATA : JOBNAME      TYPE TBTCJOB-JOBNAME VALUE 'Z_JOBBULK3',
+*       JOBCLASS     TYPE TBTCJOB-JOBCLASS VALUE 'A',
+*       JOBCOUNT     TYPE TBTCJOB-JOBCOUNT,
+*       LV_STARTDATE LIKE SY-DATUM,
+*       LV_STARTTIME LIKE SY-UZEIT,
+*       AUTHCKNAM    TYPE TBTCJOB-AUTHCKNAM,
+*       LV_VARNAME   TYPE RSVAR-VARIANT,
+*       LWA_VARDESC  TYPE VARID.
+*
+*DATA: BEGIN OF GT_VARID.
+*        INCLUDE STRUCTURE VARID.
+*DATA: END OF GT_VARID.
+*
+*DATA: BEGIN OF GT_VARIT OCCURS 2.
+*        INCLUDE STRUCTURE VARIT.
+*DATA: END OF GT_VARIT.
+*
+*DATA: BEGIN OF GT_RSPARAMS OCCURS 0.
+*        INCLUDE STRUCTURE RSPARAMS.
+*DATA: END OF GT_RSPARAMS.
+*
+*AUTHCKNAM = SY-UNAME.
+*
+*LV_STARTDATE = SY-DATUM.
+*LV_STARTTIME = SY-UZEIT + 300.
+*
+*CONCATENATE  'ABAP' LV_STARTTIME INTO LV_VARNAME.
+*
+*LWA_VARDESC-REPORT = 'ZMMREPT_FUTURE_DELIVERY'.
+*
+** fill VARID structure - Variantenkatalog, variant description
+*
+*GT_VARID-MANDT        = SY-MANDT.
+*GT_VARID-REPORT       = LWA_VARDESC-REPORT.
+*GT_VARID-VARIANT      = LV_VARNAME.
+*GT_VARID-FLAG1        = SPACE.
+*GT_VARID-FLAG2        = SPACE.
+*GT_VARID-TRANSPORT    = SPACE.
+*GT_VARID-ENVIRONMNT   = 'A'.         "Variant for batch and online
+*GT_VARID-PROTECTED    = SPACE.
+*GT_VARID-SECU         = SPACE.
+*GT_VARID-VERSION      = '1'.
+*GT_VARID-ENAME        = SY-UNAME.
+*GT_VARID-EDAT         = SY-DATUM.
+*GT_VARID-ETIME        = SY-UZEIT.
+*GT_VARID-AENAME       = SPACE.
+*GT_VARID-AEDAT        = SPACE.
+*GT_VARID-AETIME       = SPACE.
+*GT_VARID-MLANGU       = SY-LANGU.
+*
+**.fill VARIT structure - Variantentexte; variant texts
+*GT_VARIT-MANDT      = SY-MANDT.
+*GT_VARIT-LANGU      = SY-LANGU.
+*GT_VARIT-REPORT     = LWA_VARDESC-REPORT.
+*GT_VARIT-VARIANT    = LV_VARNAME.
+*GT_VARIT-VTEXT      = LV_VARNAME.
+*APPEND GT_VARIT.
+*
+*GT_RSPARAMS-SELNAME = 'S_PLNT'.
+*GT_RSPARAMS-KIND    = 'S'.
+*GT_RSPARAMS-SIGN    = 'I'.
+*GT_RSPARAMS-OPTION  = 'EQ'.
+*GT_RSPARAMS-LOW     = '1000'.
+*GT_RSPARAMS-HIGH    = '3500'.
+*APPEND GT_RSPARAMS.
+*
+*GT_RSPARAMS-SELNAME = 'S_MTART'.
+*GT_RSPARAMS-KIND    = 'S'.
+*GT_RSPARAMS-SIGN    = 'I'.
+*GT_RSPARAMS-OPTION  = 'EQ'.
+*GT_RSPARAMS-LOW     = 'FERT'.
+*GT_RSPARAMS-HIGH    = 'ROH'.
+*APPEND GT_RSPARAMS.
+*
+*GT_RSPARAMS-SELNAME = 'S_DDATE'.
+*GT_RSPARAMS-KIND    = 'S'.
+*GT_RSPARAMS-SIGN    = 'I'.
+*GT_RSPARAMS-OPTION  = 'EQ'.
+*GT_RSPARAMS-LOW     = '12.02.2008'.
+*GT_RSPARAMS-HIGH    = SY-DATUM.
+*APPEND GT_RSPARAMS.
+*
+*
+*CALL FUNCTION 'JOB_OPEN'
+*  EXPORTING
+*    JOBNAME          = JOBNAME
+*    JOBCLASS         = JOBCLASS
+*    SDLSTRTDT        = LV_STARTDATE
+*    SDLSTRTTM        = LV_STARTTIME
+*  IMPORTING
+*    JOBCOUNT         = JOBCOUNT
+*  EXCEPTIONS
+*    CANT_CREATE_JOB  = 1
+*    INVALID_JOB_DATA = 2
+*    JOBNAME_MISSING  = 3
+*    OTHERS           = 4.
+*
+*IF SY-SUBRC = 0.
+*
+*  CALL FUNCTION 'JOB_SUBMIT'
+*    EXPORTING
+*      AUTHCKNAM               = AUTHCKNAM
+*      JOBCOUNT                = JOBCOUNT
+*      JOBNAME                 = JOBNAME
+*      REPORT                  = 'Z_BULK2'
+*      VARIANT                 = '12'
+*    EXCEPTIONS
+*      BAD_PRIPARAMS           = 1
+*      BAD_XPGFLAGS            = 2
+*      INVALID_JOBDATA         = 3
+*      JOBNAME_MISSING         = 4
+*      JOB_NOTEX               = 5
+*      JOB_SUBMIT_FAILED       = 6
+*      LOCK_FAILED             = 7
+*      PROGRAM_MISSING         = 8
+*      PROG_ABAP_AND_EXTPG_SET = 9
+*      OTHERS                  = 10.
+*
+*  IF SY-SUBRC = 0.
+*
+*    CALL FUNCTION 'JOB_CLOSE'
+*      EXPORTING
+*        JOBCOUNT             = JOBCOUNT
+*        JOBNAME              = JOBNAME
+*        SDLSTRTDT            = LV_STARTDATE
+*        SDLSTRTTM            = LV_STARTTIME
+*      EXCEPTIONS
+*        CANT_START_IMMEDIATE = 1
+*        INVALID_STARTDATE    = 2
+*        JOBNAME_MISSING      = 3
+*        JOB_CLOSE_FAILED     = 4
+*        JOB_NOSTEPS          = 5
+*        JOB_NOTEX            = 6
+*        LOCK_FAILED          = 7
+*        INVALID_TARGET       = 8
+*        OTHERS               = 9.
+*    IF SY-SUBRC = 0.
+*
+*
+*    ENDIF.
+*
+*  ENDIF.
+*
+*ENDIF.
