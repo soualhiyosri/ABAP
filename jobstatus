@@ -1,0 +1,110 @@
+**&---------------------------------------------------------------------*
+**& Report  Z_JOBSTATUS
+**&
+**&---------------------------------------------------------------------*
+**&
+**&
+**&---------------------------------------------------------------------*
+*REPORT Z_JOBSTATUS.
+*
+*DATA JOBNAME LIKE  TBTCJOB-JOBNAME.
+*DATA  JOBNUMBER LIKE  TBTCJOB-JOBCOUNT.
+*DATA  SESSIONNR LIKE  BDLDTOC-SESSIONNR.
+*DATA  EXTENSION LIKE  BDLDTOC-MANDANT.
+*
+*DATA JOBNAME2 LIKE  TBTCJOB-JOBNAME.
+*DATA JOBCOUNT1 LIKE  TBTCJOB-JOBCOUNT.
+*DATA JOBSTATUS1 TYPE  C.
+*JOBNAME2 = 'TRANSFERtt'.
+*JOBCOUNT1 = 14073600.
+*DATA JOBSTATUS LIKE  TBTCO-STATUS.
+*DATA JOBNAME_OUT LIKE  TBTCJOB-JOBNAME.
+*DATA JOBNUMBER_OUT LIKE  TBTCJOB-JOBCOUNT.
+*CALL FUNCTION 'SHOW_JOBSTATE'
+*  EXPORTING
+*    JOBCOUNT = JOBCOUNT1
+*    JOBNAME  = JOBNAME2
+** IMPORTING
+*    "ABORTED                = JOBSTATUS1
+*    "FINISHED               = JOBSTATUS1
+*    "PRELIMINARY            = JOBSTATUS1
+*    "READY                  = JOBSTATUS1
+*    "RUNNING                = JOBSTATUS1
+*    "SCHEDULED              = JOBSTATUS1
+*    "SUSPENDED              = JOBSTATUS1
+**   OTHER    = JOBSTATUS1
+** EXCEPTIONS
+**   JOBCOUNT_MISSING       = 1
+**   JOBNAME_MISSING        = 2
+**   JOB_NOTEX              = 3
+**   OTHERS   = 4
+*  .
+*IF SY-SUBRC <> 0.
+** Implement suitable error handling here
+*ENDIF.
+*
+*CALL FUNCTION 'BDL_READ_JOB_STATUS'
+*  EXPORTING
+*    JOBNAME   = JOBNAME2
+*    JOBNUMBER = JOBCOUNT1
+**   SESSIONNR = '0000000000'
+**   EXTENSION = '000'
+** IMPORTING
+**   JOBNAME_OUT         =
+**   JOBNUMBER_OUT       =
+*    "JOBSTATUS           = JOBSTATUS1
+** EXCEPTIONS
+**   JOB_NOT_FOUND       = 1
+**   OTHERS    = 2
+*  .
+*IF SY-SUBRC <> 0.
+** Implement suitable error handling here
+*ENDIF.
+*WRITE :/ JOBSTATUS1.
+*
+*
+*TABLES: TBTCO.
+*DATA: SEARCHNAME LIKE TBTCO-JOBNAME.
+*DATA: JOBLIST LIKE TBTCO OCCURS 0 WITH HEADER LINE.
+*
+*IF JOBNAME2 <> SPACE.
+*  SELECT SINGLE * FROM TBTCO
+*            WHERE JOBNAME  = JOBNAME2
+*             AND JOBCOUNT = JOBCOUNT1.
+*  IF SY-SUBRC > 0.
+*    RAISE JOB_NOT_FOUND.
+*  ENDIF.
+*  JOBSTATUS = TBTCO-STATUS.
+*  JOBNAME_OUT = JOBNAME2.
+*  JOBNUMBER_OUT = JOBCOUNT1.
+*ELSE.
+*  CONCATENATE 'S____' SESSIONNR '_COLL%' INTO SEARCHNAME.
+*  SELECT * FROM TBTCO INTO TABLE JOBLIST
+*    WHERE JOBNAME LIKE SEARCHNAME
+*    ORDER BY SDLSTRTDT DESCENDING SDLSTRTTM DESCENDING.
+*  IF SY-SUBRC <> 0.
+*    RAISE JOB_NOT_FOUND.
+*  ENDIF.
+*  READ TABLE JOBLIST INDEX 1.
+*  JOBSTATUS = JOBLIST-STATUS.
+*  JOBNAME_OUT = JOBLIST-JOBNAME.
+*  JOBNUMBER_OUT = JOBLIST-JOBCOUNT.
+*ENDIF.
+*CASE JOBSTATUS.
+*    WHEN 'P'.
+*      WRITE :/ 'preliminary' .
+*    WHEN 'S'.
+*      WRITE :/  'scheduled' .
+*    WHEN 'Y'.
+*      WRITE :/  'ready'.
+*    WHEN 'R'.
+*      WRITE :/ 'running'.
+*    WHEN 'F'.
+*      WRITE :/  'finished'.
+*    WHEN 'A'.
+*      WRITE :/  'aborted'.
+*    WHEN 'Z'.
+*      WRITE :/  'suspended'.
+*
+*  ENDCASE.
+*  BREAK-POINT.
