@@ -1,0 +1,115 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_ELKINDEXGET2
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_ELKINDEXGET2.
+
+DATA: LV_JSON TYPE /ui2/cl_json=>JSON,
+      LR_DATA TYPE REF TO DATA,
+      lv_string1 type string.
+DATA : HWORLD TYPE STRING.
+DATA : LV_PAYLOAD TYPE STRING.
+DATA : LV_PAYLOAD1 TYPE STRING.
+DATA : LV_PAYLODA2 TYPE STRING.
+*<<<<
+
+TYPES: BEGIN OF Z_LS_SERIES_ROW,
+  KEY TYPE STRING,
+  DOC_COUNT TYPE I,
+  END OF Z_LS_SERIES_ROW.
+
+*  DATA: FTAB TYPE TABLE OF LINE ,
+*           ETAB TYPE TABLE OF LINE,
+*WA_LINE TYPE LINE.
+*
+*WA_LINE-COL1 = 'A'. WA_LINE-COL2 = 'B'.
+*APPEND WA_LINE TO ETAB.
+*MOVE ETAB[] TO FTAB.
+*
+*LOOP AT FTAB INTO WA_LINE.
+*WRITE: / WA_LINE-COL1, WA_LINE-COL2.
+*ENDLOOP.
+
+TYPES: Z_LT_SERIES_ROW TYPE TABLE OF Z_LS_SERIES_ROW.
+DATA Z_LS_SERIES TYPE Z_LS_SERIES_ROW.
+DATA Z_LT_SERIES TYPE Z_LT_SERIES_ROW.
+DATA Z_it_ekpo TYPE STANDARD TABLE OF Z_LS_SERIES_ROW.
+TYPES: BEGIN OF ls_series_row,
+  key TYPE string,
+  END OF ls_series_row.
+
+DATA lt_series_row TYPE TABLE OF ls_series_row.
+DATA ls_series TYPE ls_series_row.
+
+TYPES:
+        begin of ty_stru,
+              id_token TYPE string,
+              id_token1 TYPE string,
+              id_token2 TYPE string,
+              id_token3 TYPE string,
+              id_token4 TYPE string,
+          end of ty_stru.
+          DATA:
+       lr2_data TYPE REF TO data.
+
+
+FIELD-SYMBOLS:
+  <GT_DATA> TYPE TABLE,
+  <DATA>   TYPE DATA,
+  <DATA2>   TYPE DATA,
+  <STRUCT> TYPE ANY  ,
+  <FIELD>  TYPE ANY.
+DATA:
+   rv_detail TYPE string,
+   out TYPE ty_stru,
+   lo_http_client TYPE REF TO if_http_client,
+         lv_status      TYPE i,
+         lt_fields      TYPE tihttpnvp,
+         lv_sysubrc     TYPE sysubrc.
+
+
+    CALL METHOD cl_http_client=>create_by_url
+      EXPORTING
+        url                = 'http://frncew000012.dhcp.ncel.sap.corp:9200/_cat/indices?format=json&pretty=true&h=index'
+      IMPORTING
+        client             = lo_http_client
+      EXCEPTIONS
+        argument_not_found = 1
+        plugin_not_active  = 2
+        internal_error     = 3
+        OTHERS             = 4.
+
+    ASSERT sy-subrc = 0.
+
+    CALL METHOD lo_http_client->request->set_method( if_http_request=>co_request_method_get ).
+
+    CALL METHOD lo_http_client->send
+      EXCEPTIONS
+        http_communication_failure = 1
+        http_invalid_state         = 2
+        http_processing_failed     = 3.
+
+    ASSERT sy-subrc = 0.
+
+    CALL METHOD lo_http_client->receive
+      EXCEPTIONS
+        http_communication_failure = 1
+        http_invalid_state         = 2
+        http_processing_failed     = 3.
+
+
+    rv_detail = lo_http_client->response->get_cdata( ).
+    BREAK-POINT.
+    WRITE rv_detail.
+
+data lv_val TYPE string.
+
+
+lr_data = /ui2/cl_json=>generate( json = rv_detail ).
+
+/ui2/cl_data_access=>create( ir_data = lr_data iv_component =
+`properties-field1`)->value( IMPORTING ev_data = lv_val ).
+WRITE: lv_val.
