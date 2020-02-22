@@ -1,0 +1,200 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_CACHE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT z_cache.
+DATA:
+  lo_auth_check      TYPE REF TO /stdf/cl_dash_auth_check,
+  lv_config_id       TYPE c LENGTH 16,
+  lv_authorized      TYPE boolean,
+  lt_id_range        TYPE RANGE OF /stdf/cl_tac_serv_mpc=>ts_instance-config_id,
+  ls_id_range        LIKE LINE OF lt_id_range,
+  lv_id              TYPE string,
+  ls_config          TYPE /stdf/ope_config,
+  lt_config          LIKE TABLE OF ls_config,
+  ls_process         TYPE /stdf/ope_bp,
+  lt_process         LIKE TABLE OF ls_process,
+  lt_del_process     LIKE lt_process,
+  ls_step            TYPE /stdf/ope_steps,
+  lt_step            LIKE TABLE OF ls_step,
+  ls_proc_att        TYPE /stdf/ope_bp_att,
+  lt_proc_att        LIKE TABLE OF ls_proc_att,
+  ls_attr            TYPE /stdf/ope_attrib,
+  lt_attr            LIKE TABLE OF ls_attr,
+  ls_attr_val        TYPE /stdf/ope_att_va,
+  lt_attr_val        LIKE TABLE OF ls_attr_val,
+  ls_attribute_value TYPE /stdf/cl_ope_srv_mpc=>ts_attributevalue,
+  ls_metric          TYPE /stdf/cl_ope_srv_mpc=>ts_metric,
+  lt_metric_config   TYPE /stdf/ope_sys_alert,
+  ls_metric_config   LIKE LINE OF lt_metric_config,
+  lt_mas             TYPE REF TO data,
+  lt_occ_query       TYPE TABLE OF /stdf/ope_occque,
+  ls_occ_query       LIKE LINE OF lt_occ_query,
+  lt_key_figure      TYPE TABLE OF /stdf/ope_key_fg,
+  ls_key_figure      LIKE LINE OF lt_key_figure,
+  lt_bpa_panel       TYPE TABLE OF /stdf/ope_bp_kpi,
+  ls_bpa_panel       LIKE LINE OF lt_bpa_panel,
+  lt_eem             TYPE TABLE OF /stdf/ope_eem,
+  ls_eem             LIKE LINE OF lt_eem,
+  lt_eem_robot       TYPE TABLE OF /stdf/ope_eem_rb,
+  ls_eem_robot       LIKE LINE OF lt_eem_robot,
+  lt_itsm            TYPE TABLE OF /stdf/ope_itsm,
+  ls_itsm            LIKE LINE OF lt_itsm,
+  lv_link            TYPE string,
+  lr_dsm             TYPE REF TO cl_ags_ri_dsm,
+  lr_panel_ins       TYPE REF TO cl_ags_ri_panel_ins,
+  lt_prt_url         TYPE cl_ags_ri_panel_ins=>tt_akfi_url,
+  ls_url             LIKE LINE OF lt_prt_url,
+  lv_lines           TYPE i,
+  lv_panel           TYPE string,
+  lv_key             TYPE string,
+  lt_metric          TYPE REF TO data.
+DATA: BEGIN OF ls_metric_exp.
+        INCLUDE TYPE /stdf/cl_ope_srv_mpc=>ts_metric.
+      DATA:
+              metricset TYPE STANDARD TABLE OF /stdf/cl_ope_srv_mpc=>ts_metric,
+            END OF ls_metric_exp.
+DATA et_metricset TYPE REF TO data.
+DATA it_cache_data TYPE REF TO data.
+
+DATA lt_metric_exp LIKE TABLE OF ls_metric_exp.
+
+DATA:
+  ls_cache         TYPE /stdf/ss_ope_srv_metric,
+  ls_cache_prev    TYPE /stdf/ss_ope_srv_metric,
+  ls_cache_parentc TYPE /stdf/ss_ope_srv_metric.
+
+
+
+FIELD-SYMBOLS:
+  <lt_cache_data> TYPE /stdf/tt_ope_srv_metric,
+  <lt_metricset>  LIKE lt_metric_exp.
+
+TYPES:
+    tt_string TYPE TABLE OF string.
+DATA: it_attribute_id TYPE tt_string,
+      it_config_id    TYPE tt_string,
+      it_level_1_id   TYPE tt_string,
+      it_level_2_id   TYPE tt_string.
+
+APPEND '58' TO it_config_id.
+BREAK-POINT.
+CALL METHOD /stdf/cl_ope_srv_dpc_ext=>get_required_data
+  EXPORTING
+    it_attribute_id    = it_attribute_id    " String table
+    it_config_id       = it_config_id    " String table
+    it_level_1_id      = it_level_1_id    " String table
+    it_level_2_id      = it_level_2_id    " String table
+  IMPORTING
+    et_config          = lt_config
+    et_level_1         = lt_process
+    et_level_2         = lt_step
+    et_level_1_value   = lt_proc_att
+    et_attribute       = lt_attr
+    et_attribute_value = lt_attr_val.
+LOOP AT lt_config INTO ls_config.
+  lv_config_id = ls_config-config_id.
+ENDLOOP.
+
+
+CALL METHOD /stdf/cl_ope_srv_dpc_ext=>gen_metricset_cache_key(
+  EXPORTING
+    it_config  = lt_config
+    it_process = lt_process
+*   it_step    = lt_step
+  IMPORTING
+    ev_key     = lv_key
+                 ).
+CALL METHOD /stdf/cl_ope_srv_dpc_ext=>get_metricset_from_cache(
+  EXPORTING
+    iv_key  = lv_key
+  IMPORTING
+    er_data = lt_metric
+              ).
+
+
+CREATE DATA et_metricset LIKE lt_metric_exp.
+ASSIGN et_metricset->* TO <lt_metricset>.
+
+ASSIGN lt_metric->* TO <lt_cache_data>.
+
+*IF <lt_cache_data> IS ASSIGNED.
+*  LOOP AT <lt_cache_data> INTO ls_cache WHERE parent_context_id IS INITIAL AND parent_metric_id IS INITIAL.
+*    CLEAR ls_metric_exp.
+*    MOVE-CORRESPONDING ls_cache TO ls_metric_exp.
+*
+*    LOOP AT <lt_cache_data> INTO ls_cache
+*      WHERE parent_context_id IS NOT INITIAL AND parent_metric_id IS NOT INITIAL
+*        AND parent_context_id = ls_metric_exp-context_id AND parent_metric_id = ls_metric_exp-metric_id.
+*      CLEAR ls_metric.
+*      MOVE-CORRESPONDING ls_cache TO ls_metric.
+*      APPEND ls_metric TO ls_metric_exp-metricset.
+*    ENDLOOP.
+*
+*    APPEND ls_metric_exp TO <lt_metricset>.
+*  ENDLOOP.
+*ENDIF.
+DATA parnet_prev TYPE boolean.
+parnet_prev = abap_false.
+DATA child_prev TYPE boolean.
+child_prev = abap_false.
+
+IF <lt_cache_data> IS ASSIGNED.
+
+  LOOP AT <lt_cache_data> INTO ls_cache.
+*   first parent
+    IF ls_cache-parent_context_id IS INITIAL AND ls_cache-parent_metric_id IS INITIAL AND parnet_prev EQ abap_false AND child_prev EQ abap_false.
+      parnet_prev = abap_true.
+      ls_cache_prev = ls_cache.
+      CONTINUE.
+*parent parent pp
+
+    ELSEIF ls_cache-parent_context_id IS INITIAL AND ls_cache-parent_metric_id IS INITIAL  AND parnet_prev EQ abap_true AND child_prev EQ abap_false.
+ls_cache_prev = ls_cache.
+      CLEAR ls_metric_exp.
+      MOVE-CORRESPONDING ls_cache_prev TO ls_metric_exp.
+      APPEND ls_metric_exp TO <lt_metricset>.
+      ls_cache_prev = ls_cache.
+      parnet_prev = abap_true.
+
+* child parent cp
+
+    ELSEIF ls_cache-parent_context_id IS INITIAL AND ls_cache-parent_metric_id IS INITIAL  AND parnet_prev EQ abap_false AND child_prev EQ abap_true.
+ls_cache_prev = ls_cache.
+ CLEAR ls_metric.
+      MOVE-CORRESPONDING ls_cache_prev TO ls_metric.
+      APPEND ls_metric TO ls_metric_exp-metricset.
+      CLEAR ls_metric_exp.
+      MOVE-CORRESPONDING ls_cache_parentc TO ls_metric_exp.
+      APPEND ls_metric_exp TO <lt_metricset>.
+
+      parnet_prev = abap_true.
+
+*parent child pc
+
+    ELSEIF ls_cache-parent_context_id IS NOT INITIAL AND ls_cache-parent_metric_id IS NOT INITIAL AND parnet_prev EQ abap_true AND child_prev EQ abap_false.
+
+      ls_cache_parentc = ls_cache_prev.
+      ls_cache_prev = ls_cache.
+      child_prev = abap_true.
+      CONTINUE.
+
+
+*     child and child  cc
+
+    ELSEIF ls_cache-parent_context_id IS NOT INITIAL AND ls_cache-parent_metric_id IS NOT INITIAL AND parnet_prev EQ abap_false AND child_prev EQ abap_true.
+
+      CLEAR ls_metric.
+      MOVE-CORRESPONDING ls_cache_prev TO ls_metric.
+      APPEND ls_metric TO ls_metric_exp-metricset.
+      ls_cache_prev = ls_cache.
+      child_prev = abap_true.
+
+    ENDIF.
+
+
+  ENDLOOP.
+ENDIF.
