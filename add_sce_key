@@ -1,0 +1,25 @@
+REPORT Z_ADD_SCE_KEYS.
+
+DATA ls_key TYPE /stdf/dash_keys.
+DATA ls_dash TYPE /STDF/OPE_ATTRIB.
+DATA lv_dash_id TYPE /stdf/de_config_id.
+
+DATA: lo_auth_check TYPE REF TO /stdf/cl_dash_auth_check.
+
+
+CREATE OBJECT lo_auth_check.
+SELECT * FROM /STDF/OPE_ATTRIB INTO TABLE @DATA(lt_dashs).
+  BREAK-POINT.
+LOOP AT lt_dashs INTO ls_dash.
+  lv_dash_id = ls_dash-id.
+  CONDENSE lv_dash_id.
+  TRY .
+      lo_auth_check->insert_keys(
+        EXPORTING
+          iv_config_id  = lv_dash_id    " Config ID
+          iv_project_id = 'OSC'    " Project ID
+      ).
+    CATCH /stdf/cx_dash_exception.
+
+  ENDTRY.
+ENDLOOP.
