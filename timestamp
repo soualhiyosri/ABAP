@@ -1,0 +1,85 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_ELK_TIMSTAMP
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_ELK_TIMSTAMP.
+
+
+DATA: ld_e_output	TYPE STRING.
+DATA: ld_i_timestamp  TYPE STRING.
+DATA: ld_i_timestamp1  TYPE STRING.
+ld_i_timestamp = '4/13/2019 7:31'.
+DATA LT_FILTERS2 TYPE TABLE OF STRING.
+DATA LT_FILTERS1 TYPE TABLE OF STRING.
+DATA LT_FILTERS TYPE TABLE OF STRING.
+    SPLIT ld_i_timestamp AT '/' INTO TABLE LT_FILTERS.
+
+    DATA: LS_FILTERSS	TYPE STRING.
+    loop at LT_FILTERS into LS_FILTERSS.
+write :/ LS_FILTERSS.
+ SPLIT LS_FILTERSS AT '' INTO TABLE LT_FILTERS1.
+ENDLOOP.
+loop at LT_FILTERS1 into LS_FILTERSS.
+write :/ LS_FILTERSS.
+ SPLIT LS_FILTERSS AT ':' INTO TABLE LT_FILTERS2.
+ENDLOOP.
+loop at LT_FILTERS2 into LS_FILTERSS.
+write :/ LS_FILTERSS.
+ENDLOOP.
+
+data: cet  TYPE tzonref-tzone VALUE 'CET',
+      utc  TYPE tzonref-tzone VALUE 'UTC',
+      tstp TYPE timestamp.
+
+
+*ld_i_timestamp = '20190412050708'.
+ld_e_output = ld_i_timestamp(4).
+DATA: str TYPE string.
+str = substring( val = ld_i_timestamp off = strlen( ld_i_timestamp ) - 8 len = 2 ).
+BREAK-POINT.
+str = substring( val = ld_i_timestamp off = strlen( ld_i_timestamp ) - 10 len = 2 ).
+BREAK-POINT.
+str = substring( val = ld_i_timestamp off = strlen( ld_i_timestamp ) - 14 len = 4 ).
+BREAK-POINT.
+str = substring( val = ld_i_timestamp off = strlen( ld_i_timestamp ) - 2 len = 2 ).
+BREAK-POINT.
+str = substring( val = ld_i_timestamp off = strlen( ld_i_timestamp ) - 4 len = 2 ).
+BREAK-POINT.
+str = substring( val = ld_i_timestamp off = strlen( ld_i_timestamp ) - 6 len = 2 ).
+BREAK-POINT.
+
+
+
+
+
+DATA: LS_FILTERS  TYPE STRING.
+DATA: LS_FILTERS0	TYPE STRING.
+DATA: LS_FILTERS1	TYPE STRING.
+DATA: LS_FILTERS2	TYPE STRING.
+DATA: LS_FILTERS3	TYPE STRING.
+DATA: LV_IOBJNM_STR	TYPE STRING.
+DATA: LV_RANGE_VALUES	TYPE STRING.
+DATA: LV_RANGE_VALUES1  TYPE STRING.
+
+
+LS_FILTERS0 = '{"mandt": "200" , "id": " AFBWtrBdHumcwXCJF5xUnA==", "timestampl": 20190509033540.3647350,"serviceName": "IT_PPM_UI5_APP_SERVICE_SRV ", "namespace ": "/SALM/ ", "version ":1, "operation ": "read feed ", "entityType ":'.
+ LS_FILTERS1 = '"PPMProjectStatusSet ", "gwtotal ":282, "gwhub ":146, "gwbe ":55, "gwapp ":81, "gwappsum ":81, "responseSize ":6046, "formatType ": "atom ", "numEntries ":6, "userid ": "OUO ", '.
+ LS_FILTERS2 = ' "consumerType ": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36 ", "requestAddress ": "/sap/opu/odata/SALM/IT_PPM_UI5_APP_SERVICE_SRV/PPMProjectStatusSet ",'.
+ LS_FILTERS3 = '"transactionId ": "XNDVvXPAaajhAAAACmGlYQ== ", "rootContextId ": "AFBWtrBdHumcwXCJFoQUnA== "}'.
+
+LS_FILTERS = LS_FILTERS0 && LS_FILTERS1 && LS_FILTERS2 && LS_FILTERS3 .
+
+*DATA LT_FILTERS TYPE TABLE OF STRING.
+*    SPLIT LS_FILTERS AT ',' INTO TABLE LT_FILTERS.
+*    DATA: LS_FILTERSS  TYPE STRING.
+
+     LOOP AT LT_FILTERS INTO LS_FILTERSS.
+SPLIT LS_FILTERSS AT '":' INTO LV_IOBJNM_STR LV_RANGE_VALUES.
+REPLACE ALL OCCURRENCES OF LV_IOBJNM_STR IN LS_FILTERS WITH LV_IOBJNM_STR && '*M'.
+
+write : LS_FILTERS.
+      LV_RANGE_VALUES1 = SUBSTRING( VAL = LV_IOBJNM_STR OFF = STRLEN( LV_IOBJNM_STR ) - 2 LEN = 2 ).
+      ENDLOOP.
