@@ -1,0 +1,247 @@
+  METHOD calculate_period.
+
+    "Data declaration
+    DATA lv_current_date LIKE sy-datum.
+    DATA lv_timestamp_val_start TYPE timestamp.
+    DATA lv_timestamp_val_end TYPE timestamp.
+    DATA lg_current_date LIKE sy-datum.
+    DATA lv_current_time TYPE sy-uzeit.
+    DATA lv_current_timestamp TYPE timestamp.
+    DATA lv_mod_timestamp TYPE timestamp  ##NEEDED.
+    DATA lv_string_timestamp TYPE string.
+    DATA lv_string_timestamp2 TYPE string.
+    DATA lv_secs TYPE i     ##NEEDED.
+    DATA lv_last_year(4) TYPE c.
+    DATA lv_weekday TYPE c.
+    DATA lv_from TYPE d.
+    DATA lv_to TYPE d.
+    DATA lv_from_t TYPE timestamp.
+    DATA lv_to_t TYPE timestamp.
+    DATA lv_date LIKE sy-datum.
+    DATA lv_start_date_time TYPE n LENGTH 2.
+    DATA lv_month_enddate TYPE n LENGTH 2.
+    DATA lv_current TYPE string.
+    DATA lv_last TYPE string.
+    DATA lv_end_str TYPE string    ##NEEDED.
+    DATA lv_nbr TYPE i             ##NEEDED.
+    DATA lv_start_time(6) TYPE c.
+    DATA lv_end_time(6) TYPE c.
+    DATA lv_is_valid TYPE boolean.
+    DATA lv_start_timestamp TYPE timestamp   ##NEEDED.
+    DATA: lt_datetime TYPE TABLE OF swfxst_date_time .
+    DATA lv_period TYPE char30.
+    DATA lv_tzone TYPE tzonref-tzone.
+    DATA: ls_datetime TYPE swfxst_date_time.
+
+    DATA: lv_utc TYPE string.
+    "Get system Date
+    lv_current_date = sy-datum.
+    "get system time
+    lv_current_time = sy-uzeit.
+
+    CONCATENATE lv_current_date lv_current_time
+    INTO lv_string_timestamp.
+    lv_current_timestamp = lv_string_timestamp.
+
+    lv_mod_timestamp = lv_current_timestamp MOD 500.
+
+    lv_period = iv_period.
+
+    TRANSLATE lv_period TO UPPER CASE.
+
+    CASE lv_period.
+      WHEN cl_frn_fi_util=>today.   "Period is Today
+
+        lv_from = lv_to = lv_current_date.
+        CONCATENATE  lv_from '000000'    INTO ev_time_val_start .
+        CONCATENATE  lv_to  lv_current_time   INTO ev_time_val_end .
+
+
+      WHEN cl_frn_fi_util=>yesterday .  "Period is yesterday
+
+        lv_from = lv_to = lv_current_date - 1.
+        CONCATENATE   lv_from '000000'    INTO ev_time_val_start .
+        CONCATENATE  lv_to '235959'   INTO ev_time_val_end .
+
+      WHEN cl_frn_fi_util=>last_24_hour.  "period is last 24 Hours
+        "calculate last24h start time
+        lv_start_date_time = lv_current_time(2).
+        lg_current_date = lv_current_date.
+        lv_current_date =  lv_current_date - 1.
+        IF lv_current_time(2) = '00'.
+          lv_current_time(2) = '23'.
+          lv_month_enddate = lv_current_date.
+        ELSE.
+          lv_current_time(2) = lv_current_time(2) - 1.
+          lv_month_enddate = lg_current_date+6(2).
+        ENDIF.
+*          CONCATENATE  LV_CURRENT_DATE(4) LV_CURRENT_DATE+4(2) LV_CURRENT_DATE+6(2) LV_START_DATE_TIME '0000'    INTO EV_TIME_VAL_START .
+*          CONCATENATE  LV_CURRENT_DATE(4) LG_CURRENT_DATE+4(2) LV_MONTH_ENDDATE  LV_CURRENT_TIME(2) '0000'   INTO EV_TIME_VAL_END .
+        CONCATENATE lv_start_date_time '0000' INTO lv_start_time.
+        CONCATENATE lv_current_time '0000' INTO lv_end_time.
+        CONVERT DATE lv_current_date(8)  TIME lv_start_time INTO TIME STAMP lv_from_t TIME ZONE sy-zonlo.
+        CONCATENATE lv_current_date(4) lg_current_date+4(2) lv_month_enddate INTO lv_date.
+        CONVERT DATE lv_date(8)  TIME lv_end_time INTO TIME STAMP lv_to_t TIME ZONE sy-zonlo.
+        ev_time_val_start =   lv_from_t.
+        ev_time_val_end = lv_to_t.
+
+      WHEN cl_frn_fi_util=>current_week.  "period is this week
+
+        "calculate number of this day in the week
+        CALL FUNCTION 'DATE_COMPUTE_DAY'
+          EXPORTING
+            date = lv_current_date
+          IMPORTING
+            day  = lv_weekday. "1 = Monday, 2 = Tuesday, ...
+
+        lv_from = lv_current_date - ( lv_weekday - 1 ).
+        lv_to = lv_current_date.
+        CONCATENATE   lv_from '000000'    INTO ev_time_val_start .
+        CONVERT DATE lv_to  TIME lv_current_time INTO TIME STAMP lv_to_t TIME ZONE sy-zonlo.
+        ev_time_val_end = lv_to_t.
+
+      WHEN cl_frn_fi_util=>last_week.  "period is last week
+
+        "calculate the position of today in the week
+        CALL FUNCTION 'DATE_COMPUTE_DAY'
+          EXPORTING
+            date = lv_current_date
+          IMPORTING
+            day  = lv_weekday. "1 = Monday, 2 = Tuesday, ...
+
+        lv_from = lv_current_date - ( lv_weekday - 1 ) - 7.
+        lv_to = lv_from + 6.
+
+        CONCATENATE   lv_from '000000'    INTO ev_time_val_start .
+        CONCATENATE  lv_to '235959'   INTO ev_time_val_end .
+
+      WHEN cl_frn_fi_util=>current_month.  "period is this month
+        "calculte tne end date of this month
+        lv_to = lv_current_date.
+        lv_from = lv_current_date.
+        lv_from+6(2) = '01'.
+
+        CONCATENATE  lv_from  '000000'   INTO ev_time_val_start .
+        CONVERT DATE lv_to  TIME lv_current_time INTO TIME STAMP lv_to_t TIME ZONE sy-zonlo.
+        ev_time_val_end = lv_to_t.
+
+      WHEN cl_frn_fi_util=>last_month.   "period is last month
+        "calculate the start and end date of last month
+        lv_current_date+6(2) = '01'.
+        lv_to = lv_current_date - 1.
+        lv_from = lv_to.
+        lv_from+6(2) = '01'.
+
+        CONCATENATE  lv_from  '000000'   INTO ev_time_val_start .
+        CONCATENATE  lv_to '235959'    INTO ev_time_val_end.
+
+      WHEN cl_frn_fi_util=>current_year.  "Period is this year
+
+        CONCATENATE lv_current_date(4) '0101' INTO lv_from.
+        CONCATENATE lv_current_date(4) lv_current_date+4(2) lv_current_date+6(2)  INTO lv_to.
+
+        CONCATENATE  lv_from  '000000'   INTO ev_time_val_start .
+        CONVERT DATE lv_to  TIME lv_current_time INTO TIME STAMP lv_to_t TIME ZONE sy-zonlo.
+        ev_time_val_end = lv_to_t.
+
+      WHEN cl_frn_fi_util=>last_year. "period is last year
+
+        lv_last_year = lv_current_date(4) - 1.
+
+        CONCATENATE lv_last_year '0101' INTO lv_from.
+        CONCATENATE lv_last_year '1231' INTO lv_to.
+        CONCATENATE  lv_from  '000000'   INTO ev_time_val_start .
+        CONCATENATE  lv_to  '235959'    INTO ev_time_val_end.
+
+      WHEN cl_frn_fi_util=>last_hour. "period is last 1 hour
+
+        CONVERT DATE lv_current_date  TIME lv_current_time INTO TIME STAMP lv_to_t TIME ZONE sy-zonlo.
+        lv_to_t = lv_to_t - 10000.
+        ev_time_val_start = lv_to_t.
+        CONCATENATE ev_time_val_start(10) '0000' INTO ev_time_val_start.
+        CONCATENATE ev_time_val_start(10) '5959' INTO ev_time_val_end.
+
+      WHEN cl_frn_fi_util=>current_hour. "period is last 1 hour
+
+        CONVERT DATE lv_current_date  TIME lv_current_time INTO TIME STAMP lv_to_t TIME ZONE sy-zonlo.
+        ev_time_val_start = lv_to_t.
+        CONCATENATE ev_time_val_start(10) '0000' INTO ev_time_val_start.
+        ev_time_val_end = lv_to_t.
+
+      WHEN OTHERS.
+        lv_current = lv_period(7).
+        lv_last = lv_period(4).
+
+        IF lv_current = cl_frn_fi_util=>current.
+          cl_frn_fi_util=>calculate_current_x_period(
+            EXPORTING
+              iv_period     = lv_period
+            IMPORTING
+              ev_start_time = lv_from_t            " UTC Time Stamp in Short Form (YYYYMMDDhhmmss)
+              ev_end_time   = lv_to_t               " UTC Time Stamp in Short Form (YYYYMMDDhhmmss)
+              ev_is_valid   = lv_is_valid           " Boolean Variable (X=true, -=false, space=unknown)
+              ).
+          IF lv_is_valid = abap_false.
+            lv_from = lv_to = lv_current_date - 1.
+            CONCATENATE   lv_from '000000'    INTO ev_time_val_start .
+            CONCATENATE  lv_to '235959'   INTO ev_time_val_end .
+            ev_period = cl_frn_fi_util=>default_period.
+          ELSE.
+            ev_time_val_start = lv_from_t.
+            ev_time_val_end =  lv_to_t.
+          ENDIF.
+
+        ELSEIF lv_last = cl_frn_fi_util=>last.
+
+          cl_frn_fi_util=>calculate_last_x_period(
+          EXPORTING
+            iv_period     = lv_period
+          IMPORTING
+            ev_start_time = lv_from_t            " UTC Time Stamp in Short Form (YYYYMMDDhhmmss)
+            ev_end_time   = lv_to_t               " UTC Time Stamp in Short Form (YYYYMMDDhhmmss)
+            ev_is_valid   = lv_is_valid           " Boolean Variable (X=true, -=false, space=unknown)
+              ).
+
+          IF lv_is_valid = abap_false.
+            lv_from = lv_to = lv_current_date - 1.
+            CONCATENATE   lv_from '000000'    INTO ev_time_val_start .
+            CONCATENATE  lv_to '235959'   INTO ev_time_val_end .
+            ev_period = cl_frn_fi_util=>default_period.
+          ELSE.
+            ev_time_val_start = lv_from_t.
+            ev_time_val_end =  lv_to_t.
+          ENDIF.
+        ELSE.
+          lv_from = lv_to = lv_current_date - 1.
+          CONCATENATE   lv_from '000000'    INTO ev_time_val_start .
+          CONCATENATE  lv_to '235959'   INTO ev_time_val_end .
+          ev_period = cl_frn_fi_util=>default_period.
+        ENDIF.
+    ENDCASE.
+
+
+    DATA lv_timezone TYPE timezone.
+
+    TRY .
+        lv_timezone = cl_sya_mai_utils=>utcoffset_to_zonename( iv_offset = iv_timezone / 60 ).
+      CATCH      cx_sya_exception .
+
+    ENDTRY.
+
+    lv_timestamp_val_start = ev_time_val_start.
+    lv_timestamp_val_end = ev_time_val_end.
+
+    CONVERT TIME STAMP lv_timestamp_val_start TIME ZONE lv_timezone
+              INTO DATE DATA(date) TIME DATA(time).
+    CONCATENATE date time INTO DATA(lv_starttime).
+    ev_time_val_start = lv_starttime.
+
+
+
+    CONVERT TIME STAMP lv_timestamp_val_end TIME ZONE lv_timezone
+          INTO DATE date TIME time.
+    CONCATENATE date time INTO DATA(lv_endtime).
+    ev_time_val_end =  lv_endtime .
+
+
+  ENDMETHOD.
