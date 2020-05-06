@@ -1,0 +1,168 @@
+  method GET_METRIC_RESULT by database procedure
+                                for hdb
+                                language sqlscript
+                                options read-only
+                                using MAI_UDM_STORE acmetricdir ACCONTEXTDIR.
+      declare lv_start_date NVARCHAR(10) ;
+      declare lv_end_date NVARCHAR(10) ;
+      declare lv_start_time NVARCHAR(6) ;
+      declare lv_end_time NVARCHAR(6) ;
+
+*      SELECT to_dats(to_date(LOCALTOUTC (TO_TIMESTAMP(concat(:iv_sdate, :iv_stime), 'YYYYMMDDHH24MISS'), :iv_timezone))) into lv_start_date FROM DUMMY;
+*      SELECT to_dats(to_date(LOCALTOUTC (TO_TIMESTAMP(concat(:iv_edate, :iv_etime), 'YYYYMMDDHH24MISS'), :iv_timezone))) into lv_end_date FROM DUMMY;
+*
+*      SELECT replace(to_time(LOCALTOUTC(to_timestamp(concat(:iv_sdate, :iv_stime) ), :iv_timezone)), ':','') into lv_start_time FROM DUMMY;
+*      SELECT replace(to_time(LOCALTOUTC(to_timestamp(concat(:iv_edate, :iv_etime) ), :iv_timezone)), ':','') into lv_end_time FROM DUMMY;
+
+*      SELECT first records according to selected timeframe and introduced
+*      Context_Ids and Type_Ids
+
+      scoped_ctx_metrics = select context_id, event_type_id as type_id, unit, name, count( * )
+                          from acmetricdir
+                          where ( context_id, event_type_id) in (select context_id, type_id from :it_filter )
+                          group by context_id, event_type_id, unit, name;
+
+      scoped_ctx = select context_id, context_name, context_type, context_subtype from ACCONTEXTDIR
+      WHERE context_id in (select DISTINCT context_id from :it_filter );
+
+
+      scoped_ctx_metrics_hash = select scm.context_id, context_name, context_type, context_subtype,
+                                scm.type_id, itf.hash_metric_path, scm.unit, scm.name
+                                from :scoped_ctx_metrics scm
+                                left join :it_filter itf
+                                ON scm.context_id = itf.context_id
+                                AND
+                                scm.type_id = itf.type_id
+                                left join :scoped_ctx ctx
+                                ON scm.context_id = ctx.context_id;
+
+
+
+
+      lt1 = SELECT
+      value_date_utc,
+      value_time_utc,
+
+     UDM.context_id,
+     UDM.type_id,
+     UDM.hash_metric_path,
+     UDM.VALUE_MAX ,
+     UDM.VALUE_MIN,
+     UDM.VALUE_SUM,
+     UDM.VALUE_COUNT,
+     case IFNULL( UDM.VALUE_COUNT, 0 ) when 0 then 0 else ( UDM.VALUE_SUM / UDM.VALUE_COUNT ) end as VALUE_AVG,
+     case udm.calculated_rating when 0 then 1 else 0 end  as gray,
+     case udm.calculated_rating when 1 then 1 else 0 end  as green,
+     case udm.calculated_rating when 2 then 1 else 0 end  as yellow,
+     case udm.calculated_rating when 3 then 1 else 0 end  as red
+     FROM MAI_UDM_STORE UDM
+     where
+    (
+      ( VALUE_DATE_UTC = :IV_SDATE and VALUE_TIME_UTC >= :iv_stime and VALUE_DATE_UTC <> :iv_edate ) or
+      ( VALUE_DATE_UTC > :IV_SDATE and VALUE_DATE_UTC < :iv_edate) or
+      ( VALUE_DATE_UTC = :iv_edate and VALUE_TIME_UTC <= :iv_etime and VALUE_DATE_UTC <> :IV_SDATE ) or
+      ( VALUE_DATE_UTC = :iv_edate and VALUE_DATE_UTC = :IV_SDATE and VALUE_TIME_UTC >= :iv_stime and VALUE_TIME_UTC <= :iv_etime)
+    )
+    AND (context_id, type_id, hash_metric_path) in (select context_id, type_id, hash_metric_path from :IT_FILTER);
+
+    lt3_ = select
+    case
+*      n = not aggregated, T = only hours, H = hour YYYYMMDDHH0000, D = day YYYYMMDD000000, M = Month YYYYMM00000000, W = Week YYYYWW00000000, M = month YYYYMM00000000
+       --SUBSTR(time_axis,7,10)
+       when :iv_agg_level = 'T' then  SUBSTR(
+               to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+               replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':','')
+               ,7,10)
+       --RPAD(SUBSTR(time_axis,0,10),14,0)
+       when :iv_agg_level = 'H' then  RPAD(
+              SUBSTR(
+               to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+               replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':',''),
+                0,10),
+               14,0)
+       --RPAD(SUBSTR(time_axis,0,8),14,0)
+       when :iv_agg_level = 'D' then  RPAD(
+               SUBSTR(
+               to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+               replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':',''),
+                0,8),
+               14,0)
+       --RPAD(SUBSTR(isoweek(time_axis),0,4)|| SUBSTR(isoweek(time_axis),7,8) || '',14,0)
+       when :iv_agg_level = 'W' then  RPAD(
+                 SUBSTR(isoweek(
+                 to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+                 replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':',''))
+                 ,0,4)||
+                 SUBSTR(isoweek(to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+                 replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':',''))
+                 ,7,8) || '',
+               14,0)
+       --RPAD(SUBSTR(time_axis,0,6),14,0)
+       when :iv_agg_level = 'M' then  RPAD(
+                 SUBSTR(
+                 to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+                 replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':','')
+                  ,0,6)
+               ,14,0)
+     else
+       to_dats(to_date(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone))) ||
+               replace(to_time(utctolocal(to_timestamp(concat(value_date_utc, value_time_utc) ), :iv_timezone)), ':','')
+               end as time_axis,
+     UDM.context_id,
+     UDM.type_id,
+     UDM.hash_metric_path,
+     UDM.VALUE_MAX ,
+     UDM.VALUE_MIN,
+     UDM.VALUE_SUM,
+     UDM.VALUE_COUNT,
+     VALUE_AVG,
+     gray,
+     green,
+     yellow,
+     red from :lt1 UDM;
+
+    lt3 = SELECT time_axis,
+     context_id,
+     type_id,
+     hash_metric_path,
+     MAX(VALUE_MAX) AS VALUE_MAX,
+     MIN(VALUE_MIN) AS VALUE_MIN,
+     SUM(VALUE_SUM) AS VALUE_SUM,
+     SUM(VALUE_COUNT) AS VALUE_COUNT,
+     AVG(VALUE_AVG) AS VALUE_AVG,
+     SUM( GRAY ) AS GRAY,
+     SUM( GREEN ) AS GREEN,
+     SUM( YELLOW ) AS YELLOW,
+     SUM( RED ) AS RED
+     FROM :lt3_
+     GROUP BY time_axis, context_id, type_id, hash_metric_path;
+
+     lt4 = select time_axis,
+     res.context_id,
+     scmh.context_name,
+     scmh.context_type,
+     scmh.context_subtype,
+     res.type_id,
+     res.hash_metric_path,
+     unit,
+     name as type_name,
+     res.VALUE_MAX as max,
+     res.VALUE_MIN as min,
+     res.VALUE_SUM as sum,
+     res.VALUE_COUNT as count,
+     res.VALUE_AVG as avg,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(res.GRAY / VALUE_COUNT * 100) END as GRAY_PERCENT,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(res.GREEN / VALUE_COUNT * 100) END as GREEN_PERCENT,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(res.YELLOW / VALUE_COUNT * 100) END as YELLOW_PERCENT,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(res.RED / VALUE_COUNT * 100) END as RED_PERCENT
+     FROM :lt3 res
+     left join :scoped_ctx_metrics_hash scmh
+     ON res.context_id = scmh.context_id
+     AND res.type_id = scmh.type_id;
+
+      ET_RESULT = SELECT time_axis, context_id, context_name, context_type, context_subtype
+      , type_id,hash_metric_path, '' as metric_path, type_name, unit, max, min, avg, sum, count
+      , GRAY_PERCENT, GREEN_PERCENT, YELLOW_PERCENT, RED_PERCENT FROM :lt4;
+
+
+  endmethod.
