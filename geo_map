@@ -1,0 +1,82 @@
+  METHOD get_geomap_table.
+    TYPES: BEGIN OF ts_country,
+             land1   TYPE t005t-land1,
+             landx50 TYPE t005t-landx50,
+           END OF ts_country.
+
+    DATA ev_country_key      TYPE /rum/countrycode.
+    DATA lt_country_key      TYPE TABLE OF ts_country.
+    DATA lt_range_ck      TYPE RANGE OF t005t-land1.
+    DATA ls_range_ck      LIKE LINE OF lt_range_ck.
+    DATA ev_countr_name     TYPE  t005t-landx.
+
+
+
+    DATA : ls_geo_output        TYPE TS_GEO_OUTPUT,
+           lt_geo_output        TYPE TABLE OF TS_GEO_OUTPUT,
+           lt_geocd2cls         TYPE TABLE OF geocd2cls,
+           lt_geocdrlfld        TYPE TABLE OF geocdrlfld,
+           lt_t005              TYPE TABLE OF t005,
+           lt_t005s             TYPE TABLE OF t005s,
+           lv_country_long_name TYPE string,
+           iv_country           TYPE string,
+           lv_country           TYPE string,
+           lt_geot005           TYPE TABLE OF geot005,
+           lt_metrics           TYPE TABLE OF string,
+           ls_geot005           TYPE  geot005,
+           lt_geot005s          TYPE TABLE OF geot005s,
+
+           lt_geocoders         TYPE TABLE OF geocoders.
+    DATA: lv_loghandle TYPE balloghndl,
+          lv_len       TYPE i.
+
+    lt_metrics = it_country.
+
+    LOOP AT lt_metrics INTO iv_country.
+
+      lv_len = strlen( iv_country ).
+      IF lv_len > 4.
+        iv_country = iv_country+0(4).
+      ENDIF.
+
+      CONCATENATE '%' iv_country '%' INTO lv_country.
+      TRANSLATE lv_country TO UPPER CASE.
+      SELECT  land1, landx50 FROM t005t
+                         WHERE (  spras = @sy-langu AND (
+                             upper( landx ) LIKE @lv_country OR upper( land1 ) LIKE @lv_country  ) )  INTO TABLE @lt_country_key.
+      IF  sy-subrc = 0 AND  lt_country_key IS NOT INITIAL.
+
+        LOOP AT lt_country_key INTO DATA(ls_ck).
+
+          ls_range_ck-low = ls_ck.
+          ls_range_ck-option = 'EQ'.
+          ls_range_ck-sign = 'I'.
+          APPEND ls_range_ck TO lt_range_ck.
+        ENDLOOP.
+        ev_countr_name = iv_country.
+*       use the country key to extract the data
+        SELECT  * FROM geot005 INTO TABLE lt_geot005 WHERE land1 IN  lt_range_ck.
+*      ENDIF.
+
+        LOOP AT lt_geot005 INTO ls_geot005.
+          READ TABLE lt_country_key WITH  KEY land1 = ls_geot005-land1 INTO DATA(ls_country).
+          ls_geo_output-mandt = ls_geot005-mandt.
+          ls_geo_output-countryname = ls_country-landx50.
+          ls_geo_output-countrykey = ls_country-land1.
+          ls_geo_output-latitude = ls_geot005-latitude.
+          ls_geo_output-longitude = ls_geot005-longitude.
+          ls_geo_output-altitude = ls_geot005-altitude.
+
+          APPEND ls_geo_output TO lt_geo_output.
+
+        ENDLOOP.
+
+      ELSE.
+        EXIT.
+      ENDIF.
+
+    ENDLOOP.
+
+    lt_geo_table = lt_geo_output.
+
+  ENDMETHOD.
