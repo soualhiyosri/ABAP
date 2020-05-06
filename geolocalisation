@@ -1,0 +1,47 @@
+METHOD get_country_coordination.
+
+
+    DATA ev_country_key      TYPE /rum/countrycode.
+
+    TYPES : BEGIN OF ts_geo_output,
+              mandt       TYPE string,
+              countrykey  TYPE string,
+              countryname TYPE string,
+              longitude   TYPE string,
+              latitude    TYPE string,
+              altitude    TYPE string,
+            END OF ts_geo_output .
+
+    DATA : ls_geo_output        TYPE ts_geo_output,
+           lt_geo_output        TYPE TABLE OF ts_geo_output,
+           lt_geocd2cls         TYPE TABLE OF geocd2cls,
+           lt_geocdrlfld        TYPE TABLE OF geocdrlfld,
+           lt_t005              TYPE TABLE OF t005,
+           lt_t005s             TYPE TABLE OF t005s,
+           lv_country_long_name TYPE string,
+           lt_geot005           TYPE TABLE OF geot005,
+           ls_geot005           TYPE  geot005,
+           lt_geot005s          TYPE TABLE OF geot005s,
+
+           lt_geocoders         TYPE TABLE OF geocoders.
+    DATA: lv_loghandle TYPE balloghndl,
+          lv_len       TYPE i.
+
+
+    DATA(lt_metrics) = read_filter_values(
+                           it_filters =  iv_query-query-filter
+                           iv_key     = 'COUNTRY' ).
+*extract the country name or country key
+*    READ TABLE lt_metrics  INDEX 1.
+      CALL METHOD cl_frn_fi_dp_rum=>get_geomap_table
+        EXPORTING
+          it_country   = lt_metrics
+        CHANGING
+          lt_geo_table = lt_geo_output.
+
+    CALL METHOD /ui2/cl_json=>serialize
+      EXPORTING
+        data   = lt_geo_output
+      RECEIVING
+        r_json = rv_json.
+  ENDMETHOD.
