@@ -1,0 +1,111 @@
+method GET_GENERIC_DATA_AMDP by database procedure for hdb language sqlscript options read-only using mai_udm_store.
+
+    declare lv_min_date NVARCHAR(8);
+    declare lv_max_date NVARCHAR(8);
+
+    select min(date_start) into lv_min_date from :it_timeline;
+    select max(date_end)   into lv_max_date from :it_timeline;
+
+
+    lt_filter = SELECT context_id, type_id, hash_metric_path
+     from  :it_filter;
+
+-- first grab all meas from store according to mea_keys ( it_filter ) and time frame
+      lt_meas =
+        select udm.context_id,
+               udm.type_id,
+               udm.hash_metric_path,
+               udm.value_date_utc,
+               udm.value_time_utc,
+               udm.value_count,
+               udm.value_max,
+               udm.value_min,
+               udm.value_sum,
+               udm.calculated_rating,
+               udm.value_intv_len,
+               case udm.calculated_rating when 0 then 1 else 0 end  as gray,
+               case udm.calculated_rating when 1 then 1 else 0 end  as green,
+               case udm.calculated_rating when 2 then 1 else 0 end  as yellow,
+               case udm.calculated_rating when 3 then 1 else 0 end  as red
+          from MAI_udm_STORE as udm
+         inner join :lt_filter as mea on udm.context_id = mea.context_id and udm.type_id = mea.type_id and udm.hash_metric_path = mea.hash_metric_path
+         where udm.value_date_utc between :lv_min_date and :lv_max_date
+           and value_count > 0 with hint ( CS_JOIN_REDUCTION_MULTICOLUMN_FIRST( 'MAI_UDM_STORE.TYPE_ID' )  );
+
+-- build cross-product of mea_keys ( it_filter ) and requested time slot series ( it_timeline )
+      lt_mea_times =
+        select context_id, type_id, HASH_METRIC_PATH, date_start, time_start, date_end, time_end
+          from :lt_filter as fil inner join :it_timeline as tim on 1 = 1;
+
+-- fill-in and aggregate mea data into time slot series
+      lt1 =
+        select sel.context_id,
+               sel.type_id,
+               sel.hash_metric_path,
+               to_dats(to_date(utctolocal(to_timestamp(concat(sel.date_start, sel.time_start) ), :iv_result_timezone))) as value_date,
+               replace(to_time(utctolocal(to_timestamp(concat(sel.date_start, sel.time_start) ), :iv_result_timezone)), ':', '') as
+value_time,
+               sum( VALUE_COUNT ) as VALUE_COUNT,
+               max( VALUE_MAX ) as VALUE_MAX,
+               min( VALUE_MIN ) as VALUE_MIN,
+               sum( VALUE_SUM ) as VALUE_SUM,
+               SUM( GRAY ) AS GRAY,
+               SUM( GREEN ) AS GREEN,
+               SUM( YELLOW ) AS YELLOW,
+               SUM( RED ) AS RED,
+                 case ifnull( sum( udm.value_count ), 0 ) when 0 then 0 else (  sum( udm.VALUE_SUM ) / sum( udm.value_count ) ) end as
+value_average,
+               round( avg ( calculated_rating ) ) as calculated_rating,
+               case ifnull( sum( udm.value_count ), 0 ) when 0 then 0 else count(*) end as number_of_records,
+               sum( udm.value_intv_len ) as covered_time_range
+
+          from :lt_meas as udm
+         right outer join
+            :lt_mea_times as sel
+            on     udm.context_id       = sel.context_id
+               and udm.type_id          = sel.type_id
+               and udm.hash_metric_path = sel.hash_metric_path
+               and ( udm.value_date_utc > sel.date_start or ( udm.value_date_utc = sel.date_start and udm.value_time_utc >= sel.time_start ) )
+               and ( udm.value_date_utc < sel.date_end   or ( udm.value_date_utc = sel.date_end   and udm.value_time_utc <= sel.time_end ) )
+         group by sel.context_id, sel.type_id, sel.hash_metric_path, sel.date_start, sel.time_start;
+
+
+
+
+
+       lt_data = select
+       context_id, type_id , hash_metric_path , value_date , value_time ,value_count ,value_max        ,
+      value_min , value_sum ,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(GRAY / VALUE_COUNT * 100) END as GRAY_PERCENT,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(GREEN / VALUE_COUNT * 100) END as GREEN_PERCENT,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(YELLOW / VALUE_COUNT * 100) END as YELLOW_PERCENT,
+     CASE WHEN VALUE_COUNT = 0 THEN 0 ELSE round(RED / VALUE_COUNT * 100) END as RED_PERCENT,
+      value_average  ,  calculated_rating  ,  number_of_records ,  covered_time_range
+      from :lt1 ;
+
+
+      et_data = SELECT
+      f.root_id,
+      d.context_id,
+      d.type_id ,
+      d.hash_metric_path ,
+      d.value_date ,
+      d.value_time ,
+      d.value_count ,
+      d.value_max ,
+      d.value_min ,
+      d.value_sum ,
+     d.GRAY_PERCENT,
+     d.GREEN_PERCENT,
+     d.YELLOW_PERCENT,
+     d.RED_PERCENT,
+     d.value_average,
+     d.calculated_rating,
+     d.number_of_records ,
+     d.covered_time_range
+    FROM :lt_data as d
+    LEFT JOIN :it_filter as f ON
+   d.context_id = f.context_id and
+     d.type_id = f.type_id and
+     d.hash_metric_path = f.hash_metric_path;
+  endmethod.
