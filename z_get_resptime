@@ -1,0 +1,53 @@
+*&---------------------------------------------------------------------*
+*& Report Z_GET_RESPTIME
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_get_resptime.
+
+
+
+DATA iv_starttimestamp TYPE timestamp.
+DATA iv_endtimestamp TYPE timestamp.
+DATA iv_groupid TYPE /rum/guid_32.
+DATA it_lmdbid TYPE /rum/range_tt.
+DATA iv_threshold TYPE i.
+DATA rt_result TYPE /rum/sla_request_execution_tt.
+DATA f_cut TYPE REF TO /rum/cl_data_store.
+
+DATA:
+  lt_lmdbid TYPE /rum/guid_32_tt,
+  ls_lmdbid TYPE LINE OF  /rum/guid_32_tt,
+  lt_result TYPE /rum/execution_per_time_tt.
+
+*      FA163E4CC4F01EE68CC7030173AFFB7E
+ls_lmdbid = 'FA163E4CC4F01EE68CC7030173AFFB7E'.
+APPEND  ls_lmdbid TO lt_lmdbid .
+DATA: lr_factory         TYPE REF TO /rum/cl_factory,
+      lr_data_store_read TYPE REF TO /rum/if_data_store_read.
+
+
+lr_factory = /rum/cl_factory=>get_instance( ).
+lr_data_store_read = lr_factory->get_data_store_read_api( ).
+
+
+
+data lv_type TYPE /RUM/REQUESTTYPE VALUE 102.
+BREAK-POINT.
+TRY.
+    data(ls_group_def) = lr_factory->get_config_store_read_api( )->get_group_definition( iv_group_id = '6CAE8B74A0DE1ED6B4E8A355B3072A45' ).
+    lt_result = lr_data_store_read->get_executions_per_time(
+                                        EXPORTING
+                                          iv_starttimestamp = 20190221000000
+                                          iv_endtimestamp   = 201902212235959
+                                          it_lmdbid         = lt_lmdbid
+                                          iv_requesttype = lv_type
+                                          iv_requestname    = '/sap/opu/odata/RUM/UI5_SRV'
+*                                             iv_action         =
+*                                             it_user           =
+*                                             it_usertype       =
+*                                             iv_ratings        =
+                                          iv_agg_level      = 'H' ).
+ENDTRY.
+sort lt_result BY  time_axis .
+BREAK-POINT.
