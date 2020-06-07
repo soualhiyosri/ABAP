@@ -1,0 +1,1200 @@
+class CL_BOM_XML definition
+  public
+  final
+  create public .
+
+public section.
+
+  methods CONSTRUCTOR
+    importing
+      !IV_SERVICE_PATH type STRING optional
+      !IV_HOST_NAME type STRING optional
+      !IV_PORT_NUMBER type STRING optional
+      !IV_PROTOCOL type STRING optional
+      !IV_HTTP_DESTINATION type RFCDEST optional
+      !IV_USER_NAME type STRING optional
+      !IV_PASSWORD type STRING optional
+      !IV_TARGET_SAP_CLIENT type MANDT optional
+    raising
+      CX_BOM_XML .
+  methods SET_METADATA
+    exporting
+      !IV_METADATA type STRING
+      !IV_HTTP_STATUS type STRING
+    raising
+      CX_BOM_XML .
+  class-methods COMPARE_XML_FILE
+    importing
+      !IV_METADATA_DEV type STRING
+      !IV_METADATA_DEL type STRING
+    exporting
+      !IV_LOG type COMP_LOG_T
+      !IV_STATUS type STRING
+    raising
+      CX_BOM_XML .
+protected section.
+private section.
+
+  constants GC_FETCH_TOKEN type STRING value 'Fetch'. "#EC NOTEXT           ".
+  data MV_METADATA type STRING .
+  data MO_EDM_CONTAINER type ref to /IWCOR/IF_DS_EDM_ENTITY_CONT .
+  class-data MV_MESSAGE_TEXT type STRING .
+  data MV_SERVICE_PATH type STRING .
+  data MV_SERVICE_URI type STRING .
+  data MO_HTTP_CLIENT type ref to IF_HTTP_CLIENT .
+  type-pools ABAP .
+  data MV_CREATED_BY_DEST type ABAP_BOOL .
+  data MV_HOST_NAME type STRING .
+  data MV_PORT_NUMBER type STRING .
+  data MV_PROTOCOL type STRING .
+  data MV_USER_NAME type STRING .
+  data MV_PASSWORD type STRING .
+  data MV_TARGET_SAP_CLIENT type MANDT .
+  data MV_FIRST_CALL_DONE type ABAP_BOOL .
+  data MO_REST_CLIENT type ref to /IWCOR/IF_REST_CLIENT .
+  data MV_HTTP_DESTINATION type RFCDEST .
+  data MV_XML_METADATA type XSTRING .
+
+  methods INIT_BY_URL
+    importing
+      !IV_SERVICE_PATH type STRING
+      !IV_HOST_NAME type STRING
+      !IV_PORT_NUMBER type STRING
+      !IV_PROTOCOL type STRING
+      !IV_USER_NAME type STRING
+      !IV_PASSWORD type STRING
+      !IV_TARGET_SAP_CLIENT type MANDT
+    raising
+      CX_BOM_XML .
+  methods INIT_BY_DEST
+    importing
+      !IV_HTTP_DESTINATION type RFCDEST
+      !IV_TARGET_SAP_CLIENT type MANDT
+    raising
+      CX_BOM_XML .
+  methods SET_REST_CLIENT
+    returning
+      value(RV_SERVICE_PATH) type STRING
+    raising
+      CX_BOM_XML .
+  methods SET_HTTP_CLIENT
+    returning
+      value(RV_SERVICE_PATH) type STRING
+    raising
+      CX_BOM_XML .
+  methods GET_LOCAL_HOST_PORT
+    importing
+      !IV_PROTOCOL type STRING
+    changing
+      !CV_HOST_NAME type STRING
+      !CV_PORT_NUMBER type STRING
+    raising
+      CX_BOM_XML .
+  methods HTTP_DEST_EXISTS
+    importing
+      !IV_HTTP_DESTINATION type RFCDEST
+    returning
+      value(RV_EXISTS) type ABAP_BOOL
+    raising
+      CX_BOM_XML .
+  class-methods CREATE_XML_TABLE
+    importing
+      !IV_METADATA type STRING
+    exporting
+      !IV_XML_TABLE type ANY TABLE .
+ENDCLASS.
+
+
+
+CLASS CL_BOM_XML IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_BOM_XML=>COMPARE_XML_FILE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_METADATA_DEV                TYPE        STRING
+* | [--->] IV_METADATA_DEL                TYPE        STRING
+* | [<---] IV_LOG                         TYPE        COMP_LOG_T
+* | [<---] IV_STATUS                      TYPE        STRING
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method COMPARE_XML_FILE.
+*type definition
+
+  TYPES: begin of wa_xmltab,
+              hier type int1,
+              type type string,
+              cident type string,
+              cname type string,
+              cvalue type string,
+              cstatus type char3,
+              cnew   type char1,
+            end of wa_xmltab.
+
+  TYPES: xmltab TYPE TABLE OF wa_xmltab WITH KEY hier type cident cname.
+*data definition
+  DATA:  tab_xml1  TYPE xmltab,
+         tab_xml2  TYPE xmltab,
+         wa_xmltab TYPE wa_xmltab,
+         name_sp   TYPE string,
+         wa_xmltab1 type wa_xmltab,
+         wa_xmltab2 type wa_xmltab.
+  DATA: diff_xml1  type xmltab,
+        diff_xml2  type xmltab,
+        diff_xml  type xmltab.
+  DATA: wa_diff TYPE LINE OF xmltab,
+        wa_diffhelp TYPE LINE OF xmltab,
+        wa_diffhelp1 TYPE LINE OF xmltab,
+        wa_diffhelp2 TYPE LINE OF xmltab,
+        wa_diffhelp3 TYPE LINE OF xmltab,
+        wa_cvalue TYPE string,
+        wa_torole TYPE string,
+        ok(2) type c,
+        i_help type i,
+        i type i,
+        wa_status type string,
+        ihier TYPE int1,
+        pident type string,
+        nident type string,
+        eident type string,
+        esident type string,
+        aident type string,
+        helpident type string
+           .
+  DATA: itab TYPE TABLE OF string,
+                 text type string,
+                 wa_ivlog type comp_log_s.
+
+*create xml table from xml strings
+
+  create_xml_table( EXPORTING IV_METADATA = iv_metadata_dev  IMPORTING IV_XML_TABLE = tab_xml1 ).
+  create_xml_table( EXPORTING IV_METADATA = iv_metadata_del  IMPORTING IV_XML_TABLE = tab_xml2 ).
+
+* retrive namespace
+  READ TABLE tab_xml1 WITH KEY hier = '3' cname = 'Namespace' INTO wa_xmltab.
+  name_sp = wa_xmltab-cvalue.
+
+
+* Compare 2 xml's
+*diff_xml1 is table with entries which  was created in new version
+  LOOP AT tab_xml1 into wa_xmltab1.
+    read table tab_xml2 into wa_xmltab2 WITH TABLE KEY  hier = wa_xmltab1-hier type = wa_xmltab1-type cident = wa_xmltab1-cident cname = wa_xmltab1-cname.
+    if sy-subrc ne 0.
+      wa_xmltab1-cnew = 'I'.
+      append wa_xmltab1 to diff_xml1.
+    ENDIF.
+  ENDLOOP.
+
+*diff_xml2 is table with entries which version was deleted in new version
+  LOOP AT tab_xml2 into wa_xmltab2.
+    read table tab_xml1 into wa_xmltab1 WITH TABLE KEY hier = wa_xmltab2-hier type = wa_xmltab2-type cident = wa_xmltab2-cident cname = wa_xmltab2-cname.
+    if sy-subrc ne 0.
+      wa_xmltab2-cnew = 'D'.
+      append wa_xmltab2 to diff_xml2.
+      message e012 into mv_message_text .
+      wa_ivlog-hier = wa_xmltab2-hier.
+      wa_ivlog-type = wa_xmltab2-type.
+      wa_ivlog-ident = wa_xmltab2-cident.
+      wa_ivlog-name = wa_xmltab2-cname.
+      wa_ivlog-value = wa_xmltab2-cvalue.
+      wa_ivlog-status = wa_xmltab2-cstatus.
+      wa_ivlog-log = mv_message_text.
+      append wa_ivlog to iv_log.
+    ENDIF.
+  ENDLOOP.
+
+  IF diff_xml2 is not initial.
+
+*    RAISE EXCEPTION type cx_bom_xml
+*      EXPORTING
+*        text_token = mv_message_text.
+
+    iv_status = 'Check is not ok. Odata was changed incompatible'.
+    exit.
+
+  ENDIF.
+
+
+*check diff_xml1 according compatibility rules
+  diff_xml = diff_xml1.
+
+  LOOP AT diff_xml INTO wa_diff.
+
+
+* Compatibility check 1: It is allowed to add a new property that is nullable.
+    IF wa_diff-type IS INITIAL and wa_diff-cname = 'Property'.
+
+***
+* helpident is the path to next parent entity and check if entity is new
+
+      SPLIT wa_diff-cident AT SPACE INTO TABLE itab.
+      DESCRIBE TABLE  itab lines i.
+      CLEAR helpident.
+      LOOP AT itab INTO text TO i - 1.
+        CONCATENATE  helpident text into helpident SEPARATED BY SPACE.
+
+      ENDLOOP.
+
+      SHIFT helpident LEFT DELETING LEADING SPACE.
+      ihier = wa_diff-hier - 1.
+      READ TABLE diff_xml WITH TABLE KEY hier = ihier type = ' ' cident =  helpident cname = 'EntityType' INTO wa_diffhelp1.
+
+      IF sy-subrc <> 0.
+
+        READ TABLE tab_xml1 WITH TABLE KEY hier = wa_diff-hier type = 'A' cident = wa_diff-cident cname = 'Nullable' INTO wa_diffhelp.
+        IF sy-subrc = 0.
+          IF wa_diffhelp-cvalue = 'true'.
+            wa_status = 'OK'.
+            wa_diff-cstatus = wa_status.
+            pident = wa_diff-cident.
+            modify TABLE diff_xml from wa_diff.
+          ELSE.
+            wa_diff-cstatus = ' '.
+            pident = wa_diff-cident.
+            modify TABLE diff_xml from wa_diff.
+          ENDIF.
+
+
+          READ TABLE diff_xml WITH TABLE KEY  hier = ihier type = 'A' cident = helpident cname = 'service-schema-version' INTO wa_diffhelp1.
+          if sy-subrc <> 0.
+
+            message e010 with helpident into mv_message_text .
+*            RAISE EXCEPTION type cx_bom_xml
+*              EXPORTING
+*                text_token = mv_message_text.
+
+            wa_ivlog-hier = ihier.
+            wa_ivlog-type = 'A'.
+            wa_ivlog-ident = helpident.
+            wa_ivlog-name = 'service-schema-version'.
+            wa_ivlog-value = ''.
+            wa_ivlog-status =  ''.
+            wa_ivlog-log = mv_message_text.
+            append wa_ivlog to iv_log.
+
+          endif.
+          READ TABLE tab_xml2 WITH TABLE KEY  hier = ihier type = 'A' cident = helpident cname = 'service-schema-version' INTO wa_diffhelp2.
+          if sy-subrc = 0 .
+            if ( wa_diffhelp1-cvalue - wa_diffhelp2-cvalue ) = 1.
+              wa_diffhelp1-cstatus = wa_status.
+              wa_diffhelp1-cnew = wa_diff-cnew.
+              modify TABLE diff_xml from wa_diffhelp1.
+            else.
+              message e011 with helpident into mv_message_text .
+*              RAISE EXCEPTION type cx_bom_xml
+*                EXPORTING
+*                  text_token = mv_message_text.
+              wa_ivlog-hier = ihier.
+              wa_ivlog-type = 'A'.
+              wa_ivlog-ident = helpident.
+              wa_ivlog-name = 'service-schema-version'.
+              wa_ivlog-value = ''.
+              wa_ivlog-status =  ''.
+              wa_ivlog-log = mv_message_text.
+              append wa_ivlog to iv_log.
+
+            endif.
+          else.
+* default is 1 if not as attribute
+            READ TABLE tab_xml2 WITH KEY  hier = ihier type = 'A' cident = helpident INTO wa_diffhelp2.
+            if sy-subrc = 0.
+              if wa_diffhelp1-cvalue = '2'.
+                wa_diffhelp1-cstatus = wa_status.
+                wa_diffhelp1-cnew = wa_diff-cnew.
+                modify TABLE diff_xml from wa_diffhelp1.
+              else.
+                message e011 with helpident into mv_message_text .
+*                RAISE EXCEPTION type cx_bom_xml
+*                  EXPORTING
+*                    text_token = mv_message_text.
+                wa_ivlog-hier = ihier.
+                wa_ivlog-type = 'A'.
+                wa_ivlog-ident = helpident.
+                wa_ivlog-name = 'service-schema-version'.
+                wa_ivlog-value = ''.
+                wa_ivlog-status =  ''.
+                wa_ivlog-log = mv_message_text.
+                append wa_ivlog to iv_log.
+
+
+              endif.
+            else.
+              message e011 with helpident into mv_message_text .
+*              RAISE EXCEPTION type cx_bom_xml
+*                EXPORTING
+*                 text_token = mv_message_text.
+              wa_ivlog-hier = ihier.
+              wa_ivlog-type = 'A'.
+              wa_ivlog-ident = helpident.
+              wa_ivlog-name = 'service-schema-version'.
+              wa_ivlog-value = ''.
+              wa_ivlog-status =  ''.
+              wa_ivlog-log = mv_message_text.
+              append wa_ivlog to iv_log.
+
+            endif.
+          endif.
+          clear i.
+        ELSE.
+*default
+        ENDIF.
+
+      ENDIF.
+    ELSEIF wa_diff-type = 'A' and wa_diff-cident = pident.
+      wa_diff-cstatus = wa_status.
+      modify TABLE diff_xml from wa_diff.
+
+    ENDIF.
+
+
+* Compatibility check 2: It is allowed to add a new navigation property based on 0…* or 0…1 association.
+*NavigationProperty
+    IF wa_diff-type is INITIAL and wa_diff-cname = 'NavigationProperty'.
+      clear wa_cvalue.
+      READ TABLE tab_xml1 WITH TABLE KEY hier = wa_diff-hier type = 'A' cident = wa_diff-cident cname = 'Relationship' INTO wa_diffhelp.
+      IF  name_sp CO wa_diffhelp-cvalue.
+        i_help = sy-fdpos +  1.
+        wa_cvalue = wa_diffhelp-cvalue+i_help.
+      ENDIF.
+      clear wa_diffhelp.
+      READ TABLE tab_xml1 WITH TABLE KEY hier = wa_diff-hier type = 'A' cident = wa_diff-cident cname = 'ToRole' INTO wa_diffhelp.
+      wa_torole = wa_diffhelp-cvalue.
+
+      SPLIT wa_diffhelp-cident AT SPACE INTO TABLE itab.
+      DESCRIBE TABLE  itab lines i.
+      CLEAR helpident.
+      LOOP AT itab INTO text TO i - 2.
+        CONCATENATE  helpident text into helpident SEPARATED BY SPACE.
+
+      ENDLOOP.
+      CONCATENATE helpident wa_cvalue into helpident SEPARATED BY SPACE.
+      SHIFT helpident LEFT DELETING LEADING SPACE.
+
+
+      LOOP AT tab_xml1 into wa_diffhelp.
+        if helpident CO wa_diffhelp-cident and wa_diffhelp-cname = 'Role' and wa_diffhelp-cvalue = wa_torole.
+          READ TABLE tab_xml1 WITH KEY hier = wa_diffhelp-hier type = 'A' cident = wa_diffhelp-cident cname = 'Multiplicity' into wa_diffhelp1.
+          if sy-subrc = 0.
+            exit.
+          else.
+          endif.
+        endif.
+      ENDLOOP.
+
+      IF wa_diffhelp1-cvalue = '*'.
+* check  if name of a association is correct
+        ihier =  wa_diffhelp1-hier - 1.
+
+        READ TABLE tab_xml1 WITH TABLE KEY  hier = ihier type = ' ' cident = helpident cname = 'Association' INTO wa_diffhelp.
+        IF sy-subrc = 0.
+          wa_status = 'OK'.
+          wa_diff-cstatus = wa_status.
+          nident = wa_diff-cident.
+          aident = wa_diffhelp-cident.
+        ELSE.
+          wa_status = ' '.
+          wa_diff-cstatus = wa_status.
+          nident = wa_diff-cident.
+          aident = wa_diffhelp-cident.
+        ENDIF.
+
+        modify TABLE diff_xml from wa_diff.
+      ENDIF.
+
+    ELSEIF wa_diff-type = 'A' and wa_diff-cident = nident.
+      wa_diff-cstatus = wa_status.
+      modify TABLE diff_xml from wa_diff.
+    ELSEIF aident is not initial and aident CO wa_diff-cident.
+      wa_diff-cstatus = wa_status.
+      modify TABLE diff_xml from wa_diff.
+    ENDIF.
+
+
+
+* Compatibility check 3: It is allowed to add a new entity type to the model that does not derive from any entity types exposed by existing entity sets, or returned by existing function imports.
+    IF wa_diff-type IS INITIAL and wa_diff-cname = 'EntityType'.
+      READ TABLE tab_xml1 WITH TABLE KEY hier = wa_diff-hier type = 'A' cident = wa_diff-cident cname = 'BaseType' into wa_diffhelp.
+      IF sy-subrc <> 0.
+        eident = wa_diff-cident.
+        wa_status = 'OK'.
+        wa_diff-cstatus = wa_status.
+        modify TABLE diff_xml from wa_diff.
+      ELSE.
+        eident = wa_diff-cident.
+        wa_diff-cstatus = wa_status.
+        modify TABLE diff_xml from wa_diff.
+      ENDIF.
+
+    ELSEIF eident is not initial and eident CO wa_diff-cident.
+      wa_diff-cstatus = wa_status.
+      modify TABLE diff_xml from wa_diff.
+    ENDIF.
+
+* Compatibility check 4: It is allowed to add a new complex type to the model that does not derive from a complex type used within entity types of existing entity sets, or returned by existing function imports.
+
+* Compatibility check 5:It is allowed to add a new entity set.
+    IF wa_diff-type IS INITIAL and wa_diff-cname = 'EntitySet'.
+      READ TABLE tab_xml1 WITH TABLE KEY hier = wa_diff-hier type = 'A' cident = wa_diff-cident cname = 'Name' INTO wa_diffhelp.
+      IF sy-subrc = 0 .
+        wa_status ='OK'.
+        wa_diff-cstatus = wa_status.
+        esident = wa_diff-cident.
+        modify TABLE diff_xml from wa_diff.
+      ENDIF.
+    ELSEIF wa_diff-type = 'A' and wa_diff-cident = esident.
+      wa_diff-cstatus = 'OK'.
+      modify TABLE diff_xml from wa_diff.
+    ENDIF.
+
+  ENDLOOP.
+
+  IF diff_xml is initial.
+    iv_status  = 'no changes'.
+  else.
+    LOOP AT diff_xml INTO wa_diff.
+      if wa_diff-cstatus is initial.
+        message e012 into mv_message_text .
+*                raise exception type cx_bom_xml
+*                exporting
+*                text_token = mv_message_text.
+        wa_ivlog-hier = wa_diff-hier.
+        wa_ivlog-type = wa_diff-type.
+        wa_ivlog-ident = wa_diff-cident.
+        wa_ivlog-name = wa_diff-cname.
+        wa_ivlog-value = wa_diff-cvalue.
+        wa_ivlog-status = wa_diff-cstatus.
+        wa_ivlog-log = mv_message_text.
+        append wa_ivlog to iv_log.
+*        exit.
+      endif.
+    ENDLOOP.
+    iv_status = 'Check is not ok. Odata was changed incompatible'.
+  ENDIF.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_BOM_XML->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SERVICE_PATH                TYPE        STRING(optional)
+* | [--->] IV_HOST_NAME                   TYPE        STRING(optional)
+* | [--->] IV_PORT_NUMBER                 TYPE        STRING(optional)
+* | [--->] IV_PROTOCOL                    TYPE        STRING(optional)
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST(optional)
+* | [--->] IV_USER_NAME                   TYPE        STRING(optional)
+* | [--->] IV_PASSWORD                    TYPE        STRING(optional)
+* | [--->] IV_TARGET_SAP_CLIENT           TYPE        MANDT(optional)
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method CONSTRUCTOR.
+  data:  lx_edm_except           type ref to /iwcor/cx_ds_edm_error
+        ,lo_edm_provider         type ref to /iwcor/cl_ds_edm_prov_simple
+        ,lo_edm                  TYPE REF TO /iwcor/if_ds_edm
+        ,lo_edm_entity_container TYPE REF TO /iwcor/if_ds_edm_entity_cont
+        , result_xml type standard table of SMUM_XMLTB.
+  data: return type standard table of BAPIRET2 .
+
+* -1- create http client
+  if iv_http_destination is not initial.
+    init_by_dest(
+      iv_http_destination = iv_http_destination
+      iv_target_sap_client = iv_target_sap_client ).
+  else.
+    init_by_url(
+      iv_service_path = iv_service_path
+      iv_host_name = iv_host_name
+      iv_port_number = iv_port_number
+      iv_protocol = iv_protocol
+      iv_user_name = iv_user_name
+      iv_password = iv_password
+      iv_target_sap_client = iv_target_sap_client ).
+  endif.
+
+* -2- get metadata from provider;
+*     get CSRF token + keep session cookie, if not created by destination
+*  set_metadata( ).
+
+*  mv_xml_metadata = cl_http_utility=>encode_utf8( mv_metadata ).
+* -3- create xml structure
+*  CALL FUNCTION 'SMUM_XML_PARSE'
+*    EXPORTING
+*      xml_input = mv_xml_metadata
+*    TABLES
+*      xml_table = result_xml
+*      return    = return.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_BOM_XML=>CREATE_XML_TABLE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_METADATA                    TYPE        STRING
+* | [<---] IV_XML_TABLE                   TYPE        ANY TABLE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method CREATE_XML_TABLE.
+     TYPES: begin of wa_xmltab,
+            hier type int1,
+            type type string,
+            cident type string,
+            cname type string,
+            cvalue type string,
+            cstatus type char3,
+            cnew   type char1,
+          end of wa_xmltab.
+TYPES: xmltab TYPE TABLE OF wa_xmltab WITH KEY hier type cident cname.
+data: l_ixml            TYPE REF TO if_ixml,
+      streamFactory TYPE REF TO if_ixml_stream_factory,
+      lstream   TYPE REF TO if_ixml_istream,
+      l_document        TYPE REF TO if_ixml_document,
+      l_parser          TYPE REF TO if_ixml_parser,
+      count          TYPE i,
+      index          TYPE i,
+      node      TYPE REF TO if_ixml_node,
+      iterator  TYPE REF TO if_ixml_node_iterator,
+      indent type i,
+      name type string, pname  type string, cvalue type string,dname type string,prefix    TYPE string,
+      value     TYPE string,
+      hier   type int1,
+      wa_xmltab type  wa_xmltab,
+      path type string,
+      map TYPE REF TO if_ixml_named_node_map,
+      attr      TYPE REF TO if_ixml_node,
+      parent    TYPE REF TO if_ixml_node,
+      par_map TYPE REF TO if_ixml_named_node_map,
+      p_tab_xml TYPE xmltab,
+      nodemap   TYPE REF TO if_ixml_named_node_map.
+
+  l_ixml = cl_ixml=>create( ).
+
+*data: streamFactory type ref to if_ixml_stream_factory.
+  streamFactory = l_ixml->create_stream_factory( ).
+
+*   wrap the table containing the file into a stream
+  lstream = streamfactory->create_istream_string( string = iv_metadata ).
+*   Creating a document
+  l_document = l_ixml->create_document( ).
+*   Create a Parser
+  l_parser = l_ixml->create_parser( stream_factory = streamfactory
+                                    istream        = lstream
+                                    document       = l_document ).
+
+*   Parse the stream
+  IF l_parser->parse( ) NE 0.
+    IF l_parser->num_errors( ) NE 0.
+      DATA: parseerror TYPE REF TO if_ixml_parse_error,
+            str        TYPE string,
+            i          TYPE i.
+      count = l_parser->num_errors( ).
+      WRITE: count, ' parse errors have occured:'.
+      index = 0.
+      WHILE index < count.
+        parseerror = l_parser->get_error( index = index ).
+        i = parseerror->get_line( ).
+        WRITE: 'line: ', i.
+        i = parseerror->get_column( ).
+        WRITE: 'column: ', i.
+        str = parseerror->get_reason( ).
+        WRITE: str.
+        index = index + 1.
+      ENDWHILE.
+    ENDIF.
+  ENDIF.
+*   Process the document
+  node = l_document.
+  CHECK NOT node IS INITIAL.
+*  ULINE.
+*  WRITE: /.
+*  WRITE: /' DOM-TREE', P_L_FIELNAME.
+  WRITE: /.
+  IF node IS INITIAL. EXIT. ENDIF.
+*   create a node iterator
+  iterator  = node->create_iterator( ).
+*   get current node
+  node = iterator->get_next( ).
+*   loop over all nodes
+
+  WHILE NOT node IS INITIAL.
+    indent = node->get_height( ) * 2.
+    indent = indent + 20.
+
+    CASE node->get_type( ).
+      WHEN if_ixml_node=>co_node_element.
+*         element node
+
+        name  = node->get_name( ).
+
+        hier = node->GET_height( ).
+
+        wa_xmltab-hier = hier.
+        wa_xmltab-type = ' '.
+        wa_xmltab-cname = name.
+* get node identifier
+        if hier = 1.
+          path = name.
+        else.
+          map = node->get_attributes( ).
+          if not map is initial.
+            count = map->get_length( ).
+            DO count TIMES.
+              index  = sy-index - 1.
+              attr   = map->get_item( index ).
+              pname   = attr->get_name( ).
+
+              IF pname = 'Name'.
+                cvalue = attr->get_value( ).
+                exit.
+              elseif pname = 'Type' and name = 'End'.
+                cvalue = attr->get_value( ).
+                exit.
+              ENDIF.
+            ENDDO.
+
+            if cvalue is initial.
+              cvalue = name.
+            endif.
+          ENDIF.
+          CONCATENATE  cvalue path INTO path SEPARATED BY SPACE.
+          clear cvalue.
+          SHIFT path RIGHT DELETING TRAILING  SPACE.
+          SHIFT path LEFT DELETING LEADING  SPACE.
+
+
+          parent = node->get_parent( ).
+          dname  = parent->get_name( ).
+          par_map = parent->get_attributes( ).
+
+          while not par_map is initial.
+
+            count = par_map->get_length( ).
+            do count times.
+              index  = sy-index - 1.
+              attr   = par_map->get_item( index ).
+              pname   = attr->get_name( ).
+              if pname = 'Name'.
+                cvalue = attr->get_value( ).
+                exit.
+              ENDIF.
+            enddo.
+            if cvalue is initial.
+              cvalue = dname.
+            endif.
+            CONCATENATE cvalue  path INTO path SEPARATED BY SPACE.
+            SHIFT path RIGHT DELETING TRAILING  SPACE.
+            SHIFT path LEFT DELETING LEADING  SPACE.
+            clear cvalue.
+            parent = parent->get_parent( ).
+            dname  = parent->get_name( ).
+            par_map = parent->get_attributes( ).
+            if par_map is initial.
+              exit.
+            endif.
+
+          ENDWHILE.
+
+
+
+        endif.
+
+
+
+        wa_xmltab-cvalue = ' ' .
+        wa_xmltab-cident = path.
+        APPEND wa_xmltab to p_tab_xml.
+
+        nodemap = node->get_attributes( ).
+
+        count = nodemap->get_length( ).
+
+*        nodemap = node->get_attributes( ).
+*        WRITE: / 'ELEMENT  :'.
+*        WRITE: AT indent name COLOR COL_POSITIVE INVERSE. ",
+        "path COLOR COL_POSITIVE INVERSE.
+
+        IF NOT nodemap IS INITIAL.
+*           attributes
+          count = nodemap->get_length( ).
+          DO count TIMES.
+            index  = sy-index - 1.
+            attr   = nodemap->get_item( index ).
+            name   = attr->get_name( ).
+
+            prefix = attr->get_namespace_prefix( ).
+            value  = attr->get_value( ).
+
+
+
+            wa_xmltab-hier = hier.
+            wa_xmltab-type = 'A'.
+            wa_xmltab-cname = name.
+            wa_xmltab-cvalue = value.
+            wa_xmltab-cident = path.
+            APPEND wa_xmltab to p_tab_xml.
+*            WRITE: / 'ATTRIBUTE:'.
+*            WRITE: AT indent name   COLOR COL_HEADING INVERSE, '=',
+*                             value COLOR COL_TOTAL   INVERSE.
+          ENDDO.
+
+        ENDIF.
+
+
+
+    ENDCASE.
+*     advance to next node
+    node = iterator->get_next( ).
+    clear path. clear cvalue.
+
+  ENDWHILE.
+  IV_XML_TABLE = p_tab_xml.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_BOM_XML->GET_LOCAL_HOST_PORT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PROTOCOL                    TYPE        STRING
+* | [<-->] CV_HOST_NAME                   TYPE        STRING
+* | [<-->] CV_PORT_NUMBER                 TYPE        STRING
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_LOCAL_HOST_PORT.
+    data:
+    lv_host_name type plg_host,
+    lv_port_number type plg_srv.
+
+  case iv_protocol.
+    when 'http'.
+      call function 'TH_GET_PLUGIN_INFO'
+        exporting
+          protocol         = 1
+          local            = 0
+          plgtype          = 1
+        importing
+          host             = lv_host_name
+          service          = lv_port_number
+        exceptions
+          no_plugin_active = 1
+          internal_error   = 2
+          icm_not_active   = 3
+          others           = 4.
+    when 'https'.
+      call function 'TH_GET_PLUGIN_INFO'
+        exporting
+          protocol         = 2
+          local            = 0
+          plgtype          = 1
+        importing
+          host             = lv_host_name
+          service          = lv_port_number
+        exceptions
+          no_plugin_active = 1
+          icm_not_active   = 2
+          internal_error   = 3
+          others           = 4.
+    when others.
+      message e003 into mv_message_text.
+      raise exception type cx_bom_xml
+        exporting
+          text_token = mv_message_text.
+  endcase.
+
+  if sy-subrc <> 0.
+    message e008 with iv_protocol sy-subrc into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  else.
+    cv_host_name = lv_host_name.
+    cv_port_number = lv_port_number.
+  endif.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_BOM_XML->HTTP_DEST_EXISTS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<-()] RV_EXISTS                      TYPE        ABAP_BOOL
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method HTTP_DEST_EXISTS.
+  data:
+        lv_rfc_type type rfctype_d.
+
+  call function 'RFC_READ_HTTP_DESTINATION'
+    exporting
+      destination             = iv_http_destination
+      authority_check         = abap_false
+    importing
+      rfctype                 = lv_rfc_type
+    exceptions
+      authority_not_available = 1
+      destination_not_exist   = 2
+      information_failure     = 3
+      internal_failure        = 4
+      no_http_destination     = 5
+      others                  = 6.
+
+  case sy-subrc.
+    when 0.
+      if lv_rfc_type <> 'G' and lv_rfc_type <> 'H' .
+        message e009 with iv_http_destination into mv_message_text.
+        raise exception type cx_bom_xml
+          exporting
+            text_token = mv_message_text.
+      endif.
+      rv_exists = abap_true.
+    when 2.
+    when 5.
+      message e009 with iv_http_destination into mv_message_text.
+      raise exception type cx_bom_xml
+        exporting
+          text_token = mv_message_text.
+    when others.
+      message e006 with iv_http_destination sy-subrc into mv_message_text.
+      raise exception type cx_bom_xml
+        exporting
+          text_token = mv_message_text.
+  endcase.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_BOM_XML->INIT_BY_DEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [--->] IV_TARGET_SAP_CLIENT           TYPE        MANDT
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INIT_BY_DEST.
+*   -1- check destination
+  if http_dest_exists( iv_http_destination ) = abap_false.
+    message e004 with iv_http_destination into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+
+* -2- generate http client for destination
+  call method cl_http_client=>create_by_destination
+    exporting
+      destination              = iv_http_destination
+    importing
+      client                   = mo_http_client
+    exceptions
+      argument_not_found       = 1
+      destination_not_found    = 2
+      destination_no_authority = 3
+      plugin_not_active        = 4
+      internal_error           = 5
+      others                   = 6.
+  if sy-subrc <> 0.
+    message e005 with 'CL_HTTP_CLIENT' 'CREATE_BY_DESTINATION' sy-subrc into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+
+* -3- keep returned cookies
+  mo_http_client->propertytype_accept_cookie = if_http_client=>co_enabled.
+
+  data:
+        lv_len type i,
+        lv_sap_client type string,
+        lv_protocol type string,
+        lv_servicenr type rfcdisplay-rfcsysid,
+        lv_server type rfcdisplay-rfchost,
+        lv_ssl type rfcdisplay-rfcsnc.
+
+* -4- set service path, etc.; expected in destination settings
+  call function 'RFC_READ_HTTP_DESTINATION'
+    exporting
+      destination             = iv_http_destination
+      authority_check         = abap_false
+    importing
+      servicenr               = lv_servicenr
+      server                  = lv_server
+      ssl                     = lv_ssl
+      path_prefix             = mv_service_path
+    exceptions
+      authority_not_available = 1
+      destination_not_exist   = 2
+      information_failure     = 3
+      internal_failure        = 4
+      no_http_destination     = 5
+      others                  = 6.
+  if sy-subrc <> 0.
+    message e006 with iv_http_destination sy-subrc into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+  lv_len = strlen( mv_service_path ) - 1.
+  if mv_service_path+lv_len <> '/'.
+    concatenate mv_service_path '/' into mv_service_path.
+  endif.
+
+* -5- set SAP target client, if specified
+  if iv_target_sap_client is not initial.
+    lv_sap_client = iv_target_sap_client.
+    mo_rest_client->set_request_header(
+      exporting
+        iv_name  = if_http_form_fields_sap=>sap_client
+        iv_value = lv_sap_client ).
+  endif.
+
+* -6- keep settings
+  if lv_ssl = abap_true.
+    lv_protocol = 'https' ##no_text.
+  else.
+    lv_protocol = 'http' ##no_text.
+  endif.
+  mv_created_by_dest = abap_true.
+  mv_first_call_done = abap_false.
+  mv_http_destination = iv_http_destination.
+  mv_service_uri = |{ lv_protocol }://{ lv_server }:{ lv_servicenr }{ mv_service_path }|.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_BOM_XML->INIT_BY_URL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SERVICE_PATH                TYPE        STRING
+* | [--->] IV_HOST_NAME                   TYPE        STRING
+* | [--->] IV_PORT_NUMBER                 TYPE        STRING
+* | [--->] IV_PROTOCOL                    TYPE        STRING
+* | [--->] IV_USER_NAME                   TYPE        STRING
+* | [--->] IV_PASSWORD                    TYPE        STRING
+* | [--->] IV_TARGET_SAP_CLIENT           TYPE        MANDT
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INIT_BY_URL.
+* -1- check URI data
+  if iv_service_path is initial or iv_protocol is initial.
+    message e003 into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+
+  data:
+        lv_len type i,
+        lv_sap_client type string,
+        lv_host_name type string,
+        lv_port_number type string.
+
+* -2- if host + port are not specified: use local settings
+  if iv_host_name is initial and iv_port_number is initial.
+    get_local_host_port(
+      exporting iv_protocol = iv_protocol
+      changing cv_host_name = lv_host_name cv_port_number = lv_port_number ).
+  else.
+    lv_host_name = iv_host_name.
+    lv_port_number = iv_port_number.
+  endif.
+
+* -3- set service URI + path
+  mv_service_path = iv_service_path.
+  lv_len = strlen( mv_service_path ) - 1.
+  if mv_service_path+lv_len <> '/'.
+    concatenate mv_service_path '/' into mv_service_path.
+  endif.
+
+  IF lv_port_number IS INITIAL.
+    mv_service_uri = |{ iv_protocol }://{ lv_host_name }{ mv_service_path }|.
+  ELSE.
+    mv_service_uri = |{ iv_protocol }://{ lv_host_name }:{ lv_port_number }{ mv_service_path }|.
+  ENDIF.
+
+
+* -4- create http client
+  cl_http_client=>create_by_url(
+    exporting
+      url                = mv_service_uri
+    importing
+      client             = mo_http_client
+    exceptions
+      argument_not_found = 1
+      plugin_not_active  = 2
+      internal_error     = 3
+      others             = 4 ).
+  if sy-subrc <> 0.
+    message e002 with 'CL_HTTP_CLIENT' 'CREATE_BY_URL' sy-subrc into mv_message_text.
+    raise exception type   cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+
+* -4.1- keep returned cookies
+  mo_http_client->propertytype_accept_cookie = if_http_client=>co_enabled.
+
+* -4.2- set u/p information, if specified
+  if iv_user_name is not initial and iv_password is not initial.
+    mo_http_client->authenticate( username = iv_user_name password = iv_password ).
+  endif.
+
+* -4.3- set SAP client, if specified
+  if iv_target_sap_client is not initial.
+    lv_sap_client = iv_target_sap_client.
+    mo_http_client->request->set_header_field( name  = if_http_form_fields_sap=>sap_client value = lv_sap_client ).
+  endif.
+
+* -5- keep settings
+  mv_created_by_dest = abap_false.
+  mv_host_name = iv_host_name.
+  mv_port_number = iv_port_number.
+  mv_protocol = iv_protocol.
+  mv_user_name = iv_user_name.
+  mv_password = iv_password.
+  mv_target_sap_client = iv_target_sap_client.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_BOM_XML->SET_HTTP_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_SERVICE_PATH                TYPE        STRING
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method SET_HTTP_CLIENT.
+  if mo_http_client is bound.
+    mo_http_client->request->delete_header_field( if_http_header_fields=>if_match ).
+    mo_http_client->request->delete_header_field( /iwcor/if_rest_request=>gc_header_method_override ).
+    if mv_created_by_dest = abap_true.
+      if mv_first_call_done = abap_false.
+        rv_service_path = '/'.  " first call!
+      else.
+        rv_service_path = mv_service_path.
+      endif.
+    else.
+      rv_service_path = mv_service_path.
+    endif.
+  else.
+    if mv_created_by_dest = abap_true.
+      init_by_dest(
+        iv_http_destination = mv_http_destination
+        iv_target_sap_client = mv_target_sap_client ).
+      rv_service_path = '/'. " first call!
+    else.
+      init_by_url(
+        iv_service_path = mv_service_path
+        iv_host_name = mv_host_name
+        iv_port_number = mv_port_number
+        iv_protocol = mv_protocol
+        iv_user_name = mv_user_name
+        iv_password = mv_password
+        iv_target_sap_client = mv_target_sap_client ).
+      rv_service_path = mv_service_path.
+    endif.
+  endif.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_BOM_XML->SET_METADATA
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] IV_METADATA                    TYPE        STRING
+* | [<---] IV_HTTP_STATUS                 TYPE        STRING
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method SET_METADATA.
+
+* -0- metadata get set only once
+  check mv_metadata is initial.
+
+  data:
+        lv_status_code type i,
+        lv_status_text type string,
+        lv_uri_path type string.
+
+* -1- on the very first http call using a http destination, the URL path setting gets
+*     constructed by the concatenation of the destination (prefix) path setting of SM59,
+*     and the header information set via http client method 'SET_HEADER_FIELD';
+*     all subsequent calls are using the request URI http header ('~request_uri') as set!
+  set_rest_client( ).
+  mo_http_client->request->set_method( if_http_request=>co_request_method_get ).
+  mo_http_client->request->set_version( if_http_request=>co_protocol_version_1_1 ).
+  if mv_created_by_dest = abap_true and mv_first_call_done = abap_false.
+    lv_uri_path = '/$metadata'.
+    mv_first_call_done = abap_true.
+  else.
+    concatenate mv_service_uri '$metadata' into lv_uri_path.
+  endif.
+  mo_http_client->request->set_header_field(
+    exporting
+      name  = if_http_header_fields_sap=>request_uri
+      value = lv_uri_path ).
+
+* -2- get a CSRF token for http header 'x-csrf-token'
+  mo_http_client->request->set_header_field(
+    exporting
+      name  = /iwcor/if_rest_request=>gc_header_csrf_token
+      value = gc_fetch_token ).
+
+* -3- get + set cookie from response for later requests
+  mo_http_client->propertytype_accept_cookie = if_http_client=>co_enabled.
+
+* -4- get metadata doc
+  mo_http_client->send(
+    exceptions
+      http_communication_failure = 1
+      http_invalid_state = 2
+      http_processing_failed = 3
+      http_invalid_timeout = 4 ).
+  if sy-subrc <> 0.
+    message e005 with 'IF_HTTP_CLIENT' 'SEND' sy-subrc into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+  mo_http_client->receive(
+    exceptions
+      http_communication_failure = 1
+      http_invalid_state = 2
+      http_processing_failed = 3 ).
+  if sy-subrc <> 0.
+    message e005 with 'IF_HTTP_CLIENT' 'RECEIVE' sy-subrc into mv_message_text.
+    raise exception type cx_bom_xml
+      exporting
+        text_token = mv_message_text.
+  endif.
+  mo_http_client->response->get_status(
+    importing
+      code = lv_status_code
+      reason = lv_status_text ).
+  if lv_status_code <> /iwcor/cl_rest_status_code=>gc_success_ok.
+    message i007 with lv_status_code lv_status_text into mv_message_text.
+*    raise exception type cx_bom_xml
+*      exporting
+*        text_token = mv_message_text.
+  endif.
+
+** -5- keep csrf token
+*  mv_csrf_token = mo_http_client->response->get_header_field( name = /iwcor/if_rest_request=>gc_header_csrf_token ).
+*  if mv_csrf_token is initial.
+*    message e010 into mv_message_text.
+*    raise exception type cx_bs_gfc_provider
+*      exporting
+*        text_token = mv_message_text.
+*  endif.
+
+* -7- keep metadata doc
+  mv_metadata = mo_http_client->response->get_cdata( ).
+  iv_metadata = mv_metadata.
+  iv_http_status = lv_status_code.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_BOM_XML->SET_REST_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_SERVICE_PATH                TYPE        STRING
+* | [!CX!] CX_BOM_XML
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method SET_REST_CLIENT.
+  rv_service_path = set_http_client( ).
+  create object mo_rest_client type /iwcor/cl_rest_http_client
+    exporting
+      io_http_client = mo_http_client.
+
+endmethod.
+ENDCLASS.
