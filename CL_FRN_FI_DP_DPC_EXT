@@ -1,0 +1,1369 @@
+class CL_FRN_FI_DP_DPC_EXT definition
+  public
+  inheriting from CL_FRN_FI_DP_DPC
+  create public .
+
+public section.
+
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_ENTITYSET
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_EXPANDED_ENTITYSET
+    redefinition .
+  methods /IWBEP/IF_MGW_APPL_SRV_RUNTIME~EXECUTE_ACTION
+    redefinition .
+protected section.
+
+  methods DYNAMICENTITYSET_GET_ENTITYSET
+    importing
+      !IV_ENTITY_NAME type STRING
+      !IV_ENTITY_SET_NAME type STRING
+      !IV_SOURCE_NAME type STRING
+      !IT_FILTER_SELECT_OPTIONS type /IWBEP/T_MGW_SELECT_OPTION
+      !IS_PAGING type /IWBEP/S_MGW_PAGING
+      !IT_KEY_TAB type /IWBEP/T_MGW_NAME_VALUE_PAIR
+      !IT_NAVIGATION_PATH type /IWBEP/T_MGW_NAVIGATION_PATH
+      !IT_ORDER type /IWBEP/T_MGW_SORTING_ORDER
+      !IV_FILTER_STRING type STRING
+      !IV_SEARCH_STRING type STRING
+      !IO_TECH_REQUEST_CONTEXT type ref to /IWBEP/IF_MGW_REQ_ENTITYSET optional
+    exporting
+      !ER_ENTITYSET type ref to DATA
+      !ES_RESPONSE_CONTEXT type /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+    raising
+      /IWBEP/CX_MGW_BUSI_EXCEPTION
+      /IWBEP/CX_MGW_TECH_EXCEPTION .
+
+  methods AUTHORIZATIONSET_GET_ENTITYSET
+    redefinition .
+  methods SERIESSACSET_GET_ENTITYSET
+    redefinition .
+  methods TABLEDATADPSET_GET_ENTITYSET
+    redefinition .
+  methods TABLESACSET_GET_ENTITYSET
+    redefinition .
+private section.
+
+  methods DELETE_CHAR
+    importing
+      !IV_STR type STRING
+    exporting
+      !EV_STR type STRING .
+ENDCLASS.
+
+
+
+CLASS CL_FRN_FI_DP_DPC_EXT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_FRN_FI_DP_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~EXECUTE_ACTION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION_NAME                 TYPE        STRING(optional)
+* | [--->] IT_PARAMETER                   TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_FUNC_IMPORT(optional)
+* | [<---] ER_DATA                        TYPE REF TO DATA
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD /iwbep/if_mgw_appl_srv_runtime~execute_action.
+
+   types : BEGIN OF ts_geo_output,
+              mandt       TYPE string,
+              countrykey  TYPE string,
+              countryname TYPE string,
+              longitude   TYPE string,
+              latitude    TYPE string,
+              altitude    TYPE string,
+            END OF ts_geo_output .
+    DATA
+        tt_geo_output TYPE STANDARD TABLE OF ts_geo_output .
+
+    DATA lt_metric TYPE TABLE OF string.
+
+    IF iv_action_name =  'GeoMapLocation'.
+
+      IF it_parameter IS NOT INITIAL.
+
+
+        READ TABLE it_parameter INTO DATA(ls_parameter) WITH KEY name = 'CountryName'.
+        IF ls_parameter-value IS NOT INITIAL.
+          APPEND ls_parameter-value TO lt_metric.
+        ELSE.
+          READ TABLE it_parameter INTO ls_parameter WITH KEY name = 'CountryCode'.
+          APPEND ls_parameter-value TO lt_metric.
+        ENDIF.
+        CALL METHOD cl_frn_fi_dp_rum=>get_geomap_table
+          EXPORTING
+            it_country   = lt_metric
+          CHANGING
+            lt_geo_table = tt_geo_output.
+
+
+
+      ENDIF.
+
+    ENDIF.
+
+    copy_data_to_ref( EXPORTING is_data = tt_geo_output
+        CHANGING cr_data = er_data ).
+
+
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_FRN_FI_DP_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION(optional)
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER(optional)
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IV_FILTER_STRING               TYPE        STRING(optional)
+* | [--->] IV_SEARCH_STRING               TYPE        STRING(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ER_ENTITYSET                   TYPE REF TO DATA
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method /IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_ENTITYSET.
+    IF IV_ENTITY_SET_NAME CP 'FIDS_*'.
+
+        DYNAMICENTITYSET_GET_ENTITYSET(
+          EXPORTING
+           IV_ENTITY_NAME = IV_ENTITY_NAME
+           IV_ENTITY_SET_NAME = IV_ENTITY_SET_NAME
+           IV_SOURCE_NAME = IV_SOURCE_NAME
+           IT_FILTER_SELECT_OPTIONS = IT_FILTER_SELECT_OPTIONS
+           IT_ORDER = IT_ORDER
+           IS_PAGING = IS_PAGING
+           IT_NAVIGATION_PATH = IT_NAVIGATION_PATH
+           IT_KEY_TAB = IT_KEY_TAB
+           IV_FILTER_STRING = IV_FILTER_STRING
+           IV_SEARCH_STRING = IV_SEARCH_STRING
+           IO_TECH_REQUEST_CONTEXT = IO_TECH_REQUEST_CONTEXT
+         IMPORTING
+           ER_ENTITYSET = ER_ENTITYSET
+           ES_RESPONSE_CONTEXT = ES_RESPONSE_CONTEXT
+         ).
+
+* CATCH /IWBEP/CX_MGW_BUSI_EXCEPTION .
+* CATCH /IWBEP/CX_MGW_TECH_EXCEPTION .
+*ENDTRY.
+
+
+      ELSE.
+        SUPER->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_ENTITYSET(
+          EXPORTING
+           IV_ENTITY_NAME = IV_ENTITY_NAME
+           IV_ENTITY_SET_NAME = IV_ENTITY_SET_NAME
+           IV_SOURCE_NAME = IV_SOURCE_NAME
+           IT_FILTER_SELECT_OPTIONS = IT_FILTER_SELECT_OPTIONS
+           IT_ORDER = IT_ORDER
+           IS_PAGING = IS_PAGING
+           IT_NAVIGATION_PATH = IT_NAVIGATION_PATH
+           IT_KEY_TAB = IT_KEY_TAB
+           IV_FILTER_STRING = IV_FILTER_STRING
+           IV_SEARCH_STRING = IV_SEARCH_STRING
+           IO_TECH_REQUEST_CONTEXT = IO_TECH_REQUEST_CONTEXT
+         IMPORTING
+           ER_ENTITYSET = ER_ENTITYSET
+           ES_RESPONSE_CONTEXT = ES_RESPONSE_CONTEXT
+        ) .
+    ENDIF.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_FRN_FI_DP_DPC_EXT->/IWBEP/IF_MGW_APPL_SRV_RUNTIME~GET_EXPANDED_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING(optional)
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING(optional)
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING(optional)
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION(optional)
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER(optional)
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING(optional)
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH(optional)
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR(optional)
+* | [--->] IV_FILTER_STRING               TYPE        STRING(optional)
+* | [--->] IV_SEARCH_STRING               TYPE        STRING(optional)
+* | [--->] IO_EXPAND                      TYPE REF TO /IWBEP/IF_MGW_ODATA_EXPAND(optional)
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ER_ENTITYSET                   TYPE REF TO DATA
+* | [<---] ET_EXPANDED_CLAUSES            TYPE        STRING_TABLE
+* | [<---] ET_EXPANDED_TECH_CLAUSES       TYPE        STRING_TABLE
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD /iwbep/if_mgw_appl_srv_runtime~get_expanded_entityset.
+
+    DATA: BEGIN OF ls_series.
+            INCLUDE TYPE cl_frn_fi_dp_mpc=>ts_seriesdatadp.
+            DATA: tomeasures TYPE STANDARD TABLE OF cl_frn_fi_dp_mpc=>ts_measures.
+    DATA: toattributes TYPE STANDARD TABLE OF cl_frn_fi_dp_mpc=>ts_attributes,
+          END OF ls_series.
+
+    DATA: BEGIN OF ls_query_series.
+            INCLUDE TYPE cl_frn_fi_dp_mpc=>ts_query.
+            DATA:toseries LIKE TABLE OF ls_series,
+          END OF ls_query_series.
+
+    DATA: BEGIN OF ls_query_table.
+            INCLUDE TYPE cl_frn_fi_dp_mpc=>ts_query.
+            DATA: totable TYPE STANDARD TABLE OF cl_frn_fi_dp_mpc=>ts_table,
+          END OF ls_query_table.
+
+    DATA: BEGIN OF ls_filters.
+            INCLUDE TYPE cl_frn_fi_dp_mpc=>ts_filter.
+            DATA: tooptions TYPE STANDARD TABLE OF cl_frn_fi_dp_mpc=>ts_option,
+          END OF ls_filters.
+
+    DATA: BEGIN OF ls_query_filters.
+            INCLUDE TYPE cl_frn_fi_dp_mpc=>ts_query.
+            DATA: tofilters LIKE TABLE OF ls_filters,
+          END OF ls_query_filters.
+
+
+
+    DATA: BEGIN OF ls_query_data.
+            INCLUDE TYPE cl_frn_fi_dp_mpc=>ts_query.
+            DATA: todata TYPE STANDARD TABLE OF  cl_frn_fi_dp_mpc=>ts_data,
+          END OF ls_query_data.
+
+    DATA: ls_query_json TYPE cl_frn_fi_dp_mpc=>ts_data.
+    DATA lt_json TYPE TABLE OF string .
+    DATA lt_sys_met TYPE TABLE OF string.
+
+
+    DATA lt_measures TYPE cl_frn_fi_dp_mpc=>tt_measures.
+    DATA ls_measures LIKE LINE OF lt_measures.
+    DATA lt_attributes TYPE cl_frn_fi_dp_mpc=>tt_attributes.
+    DATA ls_attribute LIKE LINE OF lt_attributes.
+    DATA lt_query_series LIKE TABLE OF ls_query_series.
+    DATA lt_query_table LIKE TABLE OF ls_query_table.
+    DATA lt_series LIKE TABLE OF ls_series.
+    DATA ls_attribute_series TYPE frn_fi_dp_pair.
+    DATA lt_points TYPE frn_fi_dp_point_tt.
+    DATA ls_point TYPE frn_fi_dp_point.
+    DATA lt_query_data_formatter LIKE TABLE OF ls_query_data.
+    DATA ls_query_data_formatter LIKE LINE OF lt_query_data_formatter.
+    DATA lt_table_data TYPE cl_frn_fi_dp_mpc=>tt_table.
+
+
+    DATA: ls_filter        TYPE /iwbep/s_mgw_select_option,
+          ls_filter_range  TYPE /iwbep/s_cod_select_option,
+          lt_data          TYPE frn_fi_dp_series_tt,
+          lt_ret_options   TYPE frn_fi_dp_select_option_tt,
+          lt_ret_messages  TYPE frn_fi_dp_ret_message_tt,
+          ls_data          TYPE frn_fi_dp_series,
+          lv_query_json    TYPE string,
+          lv_message       TYPE bapi_msg,
+          lt_options       TYPE  cl_frn_fi_dp_mpc=>tt_option,
+          ls_option        LIKE LINE OF lt_options,
+          lt_filters       LIKE TABLE OF ls_filters,
+          lt_query_filters LIKE TABLE OF ls_query_filters,
+          lt_msg           TYPE frn_fi_dp_ret_message_tt,
+          lv_msg           TYPE string,
+          lv_last_update   TYPE string,
+          lv_from_shma     TYPE boolean,
+          lv_valid         TYPE boolean.
+
+    DATA : BEGIN OF ls_query ,
+             data_provider TYPE string,
+             origin        TYPE  string,
+             context       TYPE frn_fi_dp_context_tt,
+           END OF ls_query .
+    DATA       lv_class_dp TYPE string.
+    DATA lo_dp TYPE REF TO if_frn_fi_dp.
+
+
+
+    TYPES : BEGIN OF class_desc,
+              name TYPE string,
+              desc TYPE string,
+            END OF class_desc .
+
+    DATA  lt_cl_desc TYPE TABLE OF class_desc.
+    DATA ls_cl_desc LIKE LINE OF lt_cl_desc .
+
+    DATA lr_interface TYPE REF TO cl_oo_interface.
+    DATA: wa_class TYPE REF TO  if_frn_fi_dp,
+          lo_base  TYPE REF TO cl_frn_fi_base_dp.
+
+    DATA lt_classes TYPE seo_relkeys.
+    DATA:
+      lt_query         TYPE cl_frn_fi_dp_utils=>ty_t_string,
+      lt_cache_data    TYPE cl_frn_fi_dp_shma_root=>ty_t_data,
+      ls_cache_data    LIKE LINE OF lt_cache_data,
+      lt_to_cache_data TYPE REF TO data,
+      lv_ts            TYPE timestamp.
+
+    CASE iv_entity_set_name.
+
+      WHEN 'QuerySet'.
+
+        DATA(lt_expand) = io_expand->get_children( ).
+        IF lt_expand IS NOT INITIAL.
+          DATA(lv_expand) = lt_expand[ 1 ]-tech_nav_prop_name.
+        ENDIF.
+
+        CASE  lv_expand.
+
+          WHEN 'TOSERIES'.
+
+            READ TABLE it_filter_select_options WITH TABLE KEY property = 'Statement'  ##NO_TEXT
+             INTO ls_filter.
+
+            IF sy-subrc EQ 0.
+              READ TABLE ls_filter-select_options INTO ls_filter_range INDEX 1.
+              IF sy-subrc EQ 0.
+*           -get filter value of Query_JSON
+                lv_query_json = ls_filter_range-low.
+
+                " Try to retrieve data from SHMA cache first
+                APPEND lv_query_json TO lt_query.
+
+                CALL METHOD cl_frn_fi_dp_utils=>get_data_from_shma
+                  EXPORTING
+                    it_query_json = lt_query                 " Query Statements
+                  IMPORTING
+                    et_shma_data  = lt_cache_data.                 " SHMA Data
+                " Check if cache data is there
+                IF lt_cache_data IS NOT INITIAL.
+                  READ TABLE lt_cache_data INTO ls_cache_data INDEX 1.
+                  MOVE-CORRESPONDING ls_cache_data-value_series TO lt_data.
+                  lv_from_shma = abap_true.
+                  lv_last_update = ls_cache_data-last_update.
+                  CONDENSE lv_last_update.
+                ELSE.
+                  " Get data of the query
+                  TRY .
+
+
+                      CALL METHOD cl_frn_fi_get_data_frm_dp=>get_series_data
+                        EXPORTING
+                          iv_query_json  = lv_query_json
+                        IMPORTING
+                          ev_series_data = lt_data
+                          ev_valid       = lv_valid
+                          ev_exception   = lv_message
+                          ev_message     = lt_msg.
+
+                      GET TIME STAMP FIELD lv_ts.
+                      lv_last_update = lv_ts.
+                      CONDENSE lv_last_update.
+
+                      " Update cache
+                      copy_data_to_ref(
+                        EXPORTING
+                          is_data = lt_data
+                        CHANGING
+                          cr_data = lt_to_cache_data
+                      ).
+
+                      CALL METHOD cl_frn_fi_dp_utils=>update_data_to_shma
+                        EXPORTING
+                          ip_query_json = lv_query_json                 " Query Statement
+                          ip_data       = lt_to_cache_data                 " Data
+                          ip_data_type  = 'SERIES'.                     " Data type: SERIES, TABLE, DATA
+
+                      IF lv_valid = abap_false.
+                        DATA lo_message_container TYPE REF TO /iwbep/if_message_container.
+                        lo_message_container = mo_context->get_message_container( ).
+
+                        CALL METHOD lo_message_container->add_message_text_only
+                          EXPORTING
+                            iv_msg_type = 'E'
+                            iv_msg_text = lv_message. "#EC NOTEXT
+
+                        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+                          EXPORTING
+                            message_container = lo_message_container.
+
+                      ENDIF.
+                    CATCH cx_frun_dp_exception INTO DATA(lx_frun_exception).
+
+                  ENDTRY.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+
+            LOOP AT lt_data INTO ls_data.
+              CLEAR lv_msg.
+              CONCATENATE lv_msg 'retrieval_time=' lv_last_update ';' INTO lv_msg.
+              IF lv_from_shma EQ abap_true.
+                CONCATENATE lv_msg 'from_shma=X;' INTO lv_msg.
+              ENDIF.
+              IF ls_data-comment IS NOT INITIAL.
+                CONCATENATE lv_msg ls_data-comment INTO lv_msg.
+              ENDIF.
+
+              LOOP AT ls_data-attributes INTO ls_attribute_series.
+                CLEAR ls_attribute.
+                ls_attribute-key = ls_attribute_series-k.
+                ls_attribute-value = ls_attribute_series-v.
+                APPEND ls_attribute TO lt_attributes.
+              ENDLOOP.
+              LOOP AT ls_data-points INTO ls_point.
+                CLEAR ls_measures.
+                ls_measures-category = ls_point-x.
+                ls_measures-value = ls_point-y.
+                APPEND ls_measures TO lt_measures.
+              ENDLOOP.
+              ls_series-name = ls_data-name.
+              ls_series-method = ls_data-method.
+              ls_series-measure = ls_data-measure.
+              ls_series-toattributes = lt_attributes.
+              ls_series-tomeasures = lt_measures.
+              APPEND ls_series TO lt_series.
+              CLEAR: lt_measures,lt_attributes.
+            ENDLOOP.
+            ls_query_series-toseries = lt_series.
+            ls_query_series-message = lv_msg.
+            APPEND ls_query_series TO lt_query_series.
+
+            copy_data_to_ref(
+             EXPORTING
+               is_data = lt_query_series
+             CHANGING
+               cr_data = er_entityset
+           ).
+
+            DATA lc_expand_tech_clause_toseries        TYPE string VALUE 'TOSERIES'.
+            DATA lc_expand_tech_clause_tomeasur        TYPE string VALUE 'TOSERIES/TOMEASURES'.
+            DATA lc_expand_tech_clause_toattrib        TYPE string VALUE 'TOSERIES/TOATTRIBUTES'.
+
+            INSERT lc_expand_tech_clause_toseries INTO TABLE et_expanded_tech_clauses.
+            INSERT lc_expand_tech_clause_tomeasur  INTO TABLE et_expanded_tech_clauses.
+            INSERT lc_expand_tech_clause_toattrib INTO TABLE et_expanded_tech_clauses.
+
+          WHEN 'TOTABLE'.
+
+            READ TABLE it_filter_select_options WITH TABLE KEY property = 'Statement' ##NO_TEXT
+            INTO ls_filter.
+            IF sy-subrc EQ 0.
+              READ TABLE ls_filter-select_options INTO ls_filter_range INDEX 1.
+              IF sy-subrc EQ 0.
+*           -get filter value of Query_JSON
+                lv_query_json = ls_filter_range-low.
+
+                " Try to retrieve data from SHMA cache first
+                APPEND lv_query_json TO lt_query.
+
+                CALL METHOD cl_frn_fi_dp_utils=>get_data_from_shma
+                  EXPORTING
+                    it_query_json = lt_query                 " Query Statements
+                  IMPORTING
+                    et_shma_data  = lt_cache_data.                 " SHMA Data
+                " Check if cache data is there
+                IF lt_cache_data IS NOT INITIAL.
+                  READ TABLE lt_cache_data INTO ls_cache_data INDEX 1.
+                  MOVE-CORRESPONDING ls_cache_data-value_table TO lt_table_data.
+                  lv_from_shma = abap_true.
+                  lv_last_update = ls_cache_data-last_update.
+                  CONDENSE lv_last_update.
+                ELSE.
+                  " Get data of the query
+                  TRY .
+                      CALL METHOD cl_frn_fi_get_data_frm_dp=>get_table
+                        EXPORTING
+                          iv_query_json = lv_query_json
+                        IMPORTING
+                          ev_table_data = lt_table_data
+                          ev_message    = lt_msg.
+
+                      GET TIME STAMP FIELD lv_ts.
+                      lv_last_update = lv_ts.
+                      CONDENSE lv_last_update.
+
+                      " Update cache
+                      copy_data_to_ref(
+                        EXPORTING
+                          is_data = lt_table_data
+                        CHANGING
+                          cr_data = lt_to_cache_data
+                      ).
+
+                      CALL METHOD cl_frn_fi_dp_utils=>update_data_to_shma
+                        EXPORTING
+                          ip_query_json = lv_query_json                 " Query Statement
+                          ip_data       = lt_to_cache_data                 " Data
+                          ip_data_type  = 'TABLE'.                     " Data type: SERIES, TABLE, DATA
+                    CATCH cx_frun_dp_exception ."INTO DATA(lx_frun_exception).
+
+                  ENDTRY.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+
+            CONCATENATE lv_msg 'retrieval_time=' lv_last_update ';' INTO lv_msg.
+            IF lv_from_shma EQ abap_true.
+              CONCATENATE lv_msg 'from_shma=X;' INTO lv_msg.
+            ENDIF.
+
+            ls_query_table-message = lv_msg.
+            ls_query_table-totable = lt_table_data.
+            APPEND ls_query_table TO lt_query_table.
+
+            copy_data_to_ref(
+                EXPORTING
+                  is_data = lt_query_table
+                CHANGING
+                  cr_data = er_entityset
+              ).
+
+            DATA lc_expand_tech_clause_totable TYPE string VALUE 'TOTABLE'.
+            INSERT lc_expand_tech_clause_totable INTO TABLE et_expanded_tech_clauses.
+
+          WHEN 'TOFILTERS'.
+
+
+            READ TABLE it_filter_select_options WITH TABLE KEY property = 'Statement'  ##NO_TEXT
+            INTO ls_filter.
+
+            IF sy-subrc EQ 0.
+              READ TABLE ls_filter-select_options INTO ls_filter_range INDEX 1.
+              IF sy-subrc EQ 0.
+*           -get filter value of Query_JSON
+                lv_query_json = ls_filter_range-low.
+
+*           -get data of the query
+
+*             deserialize JSON string json into json_input structure
+                /ui2/cl_json=>deserialize( EXPORTING json = lv_query_json CHANGING data = ls_query  ).
+              ENDIF.
+            ENDIF.
+
+
+
+            DATA(lv_dp) =  ls_query-data_provider.
+            DATA : lo_class      TYPE REF TO cl_oo_class,
+                   lt_subclasses TYPE seo_relkeys.
+
+            IF lv_dp = 'ALL'.
+              ls_filters-key  = 'DP'.
+              ls_filters-group  = ''.
+              ls_filters-name =  'Data Providers' ##NO_TEXT .
+              TRY.
+                  "create interface object
+                  CREATE OBJECT lr_interface
+                    EXPORTING
+                      intfname = 'IF_FRN_FI_DP'.
+
+                  "get all implemented classes
+                  lt_classes = lr_interface->get_implementing_classes( ).
+
+                  lo_class ?= cl_oo_class=>get_instance( clsname = 'CL_FRN_FI_BASE_DP' ).
+                  lt_subclasses = lo_class->get_subclasses( ).
+
+                CATCH cx_class_not_existent.
+                  RETURN.
+              ENDTRY.
+
+              CLEAR lt_cl_desc .
+              TRY.
+
+                  LOOP AT lt_classes INTO DATA(ls_classes) .
+
+                    IF ls_classes-clsname <> 'CL_FRN_FI_BASE_DP' .
+                      CREATE OBJECT wa_class TYPE (ls_classes-clsname).
+                      wa_class->get_name( IMPORTING ev_name = ls_option-key ).
+                      wa_class->get_description( IMPORTING ev_description = ls_option-value ).
+                      APPEND ls_option TO lt_options.
+
+                    ENDIF.
+
+                  ENDLOOP.
+
+                  LOOP AT lt_subclasses ASSIGNING FIELD-SYMBOL(<cl>) .
+
+                    IF  <cl>-clsname <> 'CL_FRN_FI_DP_MAINT'.
+                      CREATE OBJECT lo_base TYPE (<cl>-clsname).
+                      lo_base->if_frn_fi_dp~get_name( IMPORTING ev_name = ls_option-key ).
+                      lo_base->if_frn_fi_dp~get_description( IMPORTING ev_description = ls_option-value ).
+                      APPEND ls_option TO lt_options.
+
+                    ENDIF.
+                  ENDLOOP.
+
+                CATCH cx_class_not_existent.
+
+              ENDTRY.
+
+              ls_filters-tooptions = lt_options.
+              CLEAR lt_options.
+              APPEND ls_filters TO lt_filters .
+
+
+              ls_query_filters-tofilters = lt_filters.
+              APPEND ls_query_filters TO lt_query_filters.
+
+
+
+            ELSEIF lv_dp IS NOT INITIAL.
+
+              TRANSLATE lv_dp TO UPPER CASE.
+              CONCATENATE 'CL_FRN_FI_' lv_dp INTO lv_class_dp.
+
+              CREATE OBJECT lo_dp TYPE (lv_class_dp).
+
+              TRANSLATE ls_query-origin TO UPPER CASE.
+
+              CALL METHOD lo_dp->get_select_options
+                EXPORTING
+                  iv_origin_field = ls_query-origin
+                  it_context      = ls_query-context
+                IMPORTING
+                  et_ret_options  = lt_ret_options
+                  et_ret_messages = lt_ret_messages.
+
+              LOOP AT lt_ret_options INTO  DATA(ls_ret_options) .
+                ls_filters-key  = ls_ret_options-field_key.
+                ls_filters-group  = ls_ret_options-group.
+                ls_filters-name =  ls_ret_options-field_name.
+                ls_filters-type = ls_ret_options-multi.
+                ls_filters-trigger_refresh = ls_ret_options-refresh_keys.
+                LOOP AT ls_ret_options-options INTO DATA(ls_ret_option) .
+                  ls_option-key = ls_ret_option-k.
+                  ls_option-value = ls_ret_option-v.
+                  APPEND ls_option TO lt_options.
+                ENDLOOP.
+                ls_filters-tooptions = lt_options.
+                CLEAR lt_options.
+                APPEND ls_filters TO lt_filters .
+
+              ENDLOOP.
+              ls_query_filters-tofilters = lt_filters.
+              APPEND ls_query_filters TO lt_query_filters.
+            ENDIF.
+            copy_data_to_ref(
+    EXPORTING
+      is_data = lt_query_filters
+    CHANGING
+      cr_data = er_entityset
+  ).
+
+            DATA lc_expand_tech_clause_tofilter TYPE string VALUE 'TOFILTERS'.
+            DATA lc_expand_tech_clause_tooption TYPE string VALUE 'TOFILTERS/TOOPTIONS'.
+            INSERT lc_expand_tech_clause_tofilter INTO TABLE et_expanded_tech_clauses.
+            INSERT lc_expand_tech_clause_tooption INTO TABLE et_expanded_tech_clauses.
+
+
+          WHEN 'TODATA'.
+
+            READ TABLE it_filter_select_options WITH TABLE KEY property = 'Statement' ##NO_TEXT
+            INTO ls_filter.
+            IF sy-subrc EQ 0.
+              READ TABLE ls_filter-select_options INTO ls_filter_range INDEX 1.
+              IF sy-subrc EQ 0.
+*           -get filter value of Query_JSON
+                lv_query_json = ls_filter_range-low.
+
+                " Try to retrieve data from SHMA cache first
+                APPEND lv_query_json TO lt_query.
+
+                CALL METHOD cl_frn_fi_dp_utils=>get_data_from_shma
+                  EXPORTING
+                    it_query_json = lt_query                 " Query Statements
+                  IMPORTING
+                    et_shma_data  = lt_cache_data.                 " SHMA Data
+                " Check if cache data is there
+                IF lt_cache_data IS NOT INITIAL.
+                  READ TABLE lt_cache_data INTO ls_cache_data INDEX 1.
+                  MOVE-CORRESPONDING ls_cache_data-value_data TO ls_query_data_formatter-todata.
+                  lv_from_shma = abap_true.
+                  lv_last_update = ls_cache_data-last_update.
+                  CONDENSE lv_last_update.
+                ELSE.
+                  " Get data of the query
+                  TRY .
+                      CALL METHOD cl_frn_fi_get_data_frm_dp=>get_data
+                        EXPORTING
+                          iv_query_json = lv_query_json
+                        IMPORTING
+                          ev_json       = lt_json
+                          et_result     = lt_sys_met
+                          ev_valid      = lv_valid
+                          ev_message    = lt_msg.
+
+                      GET TIME STAMP FIELD lv_ts.
+                      lv_last_update = lv_ts.
+                      CONDENSE lv_last_update.
+
+
+                      LOOP AT  lt_json INTO DATA(ls_json).
+*                        DP Maintenenace Needed Information About System and metric
+                        IF lt_sys_met IS NOT INITIAL.
+                          READ TABLE lt_sys_met INTO data(lv_sys) INDEX sy-tabix.
+                          ls_query_json-id  = lv_sys.
+                        ELSE.
+                          ls_query_json-id = sy-tabix.
+                        ENDIF.
+
+                        ls_query_json-formatdata =  ls_json.
+                        APPEND ls_query_json TO ls_query_data_formatter-todata.
+                      ENDLOOP.
+
+                      " Update cache
+                      copy_data_to_ref(
+                        EXPORTING
+                          is_data = ls_query_data_formatter-todata
+                        CHANGING
+                          cr_data = lt_to_cache_data
+                      ).
+
+                      CALL METHOD cl_frn_fi_dp_utils=>update_data_to_shma
+                        EXPORTING
+                          ip_query_json = lv_query_json                 " Query Statement
+                          ip_data       = lt_to_cache_data                 " Data
+                          ip_data_type  = 'DATA'.
+
+                      IF lv_valid = abap_false.
+
+                        lo_message_container = mo_context->get_message_container( ).
+
+                        CALL METHOD lo_message_container->add_message_text_only
+                          EXPORTING
+                            iv_msg_type = 'E'
+                            iv_msg_text = 'Invalid Input ToDATA'. "#EC NOTEXT
+
+                        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+                          EXPORTING
+                            message_container = lo_message_container.
+
+                      ENDIF.                  " Data type: SERIES, TABLE, DATA
+                    CATCH cx_frun_dp_exception ."INTO DATA(lx_frun_exception).
+
+                  ENDTRY.
+                ENDIF.
+
+              ENDIF.
+            ENDIF.
+
+            CONCATENATE lv_msg 'retrieval_time=' lv_last_update ';' INTO lv_msg.
+            IF lv_from_shma EQ abap_true.
+              CONCATENATE lv_msg 'from_shma=X;' INTO lv_msg.
+            ENDIF.
+            ls_query_data_formatter-message = lv_msg.
+            APPEND ls_query_data_formatter TO lt_query_data_formatter.
+
+            copy_data_to_ref(
+                EXPORTING
+                  is_data = lt_query_data_formatter
+                CHANGING
+                  cr_data = er_entityset
+              ).
+
+
+            DATA lc_expand_tech_clause_todata TYPE string VALUE 'TODATA'.
+            INSERT lc_expand_tech_clause_todata INTO TABLE et_expanded_tech_clauses.
+
+          WHEN OTHERS.
+        ENDCASE.
+      WHEN OTHERS.
+
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_FRN_FI_DP_DPC_EXT->AUTHORIZATIONSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        CL_FRN_FI_DP_MPC=>TT_AUTHORIZATION
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method AUTHORIZATIONSET_GET_ENTITYSET.
+
+     data lv_is_authorized type boolean value abap_false.
+      data ls_is_authorized type cl_frn_fi_dp_mpc=>TS_AUTHORIZATION.
+      data lt_is_authorized type cl_frn_fi_dp_mpc=>TT_AUTHORIZATION.
+
+
+       case iv_entity_set_name.
+
+        when 'AuthorizationSet'.
+
+             authority-check object 'FI_APPD'
+             id 'ACTVT' field '03'. "Display Dashboard.
+
+             if sy-subrc = 0.
+
+             lv_is_authorized = abap_true.
+
+             endif.
+
+      endcase.
+
+      ls_is_authorized-is_authorized = lv_is_authorized.
+      append ls_is_authorized to lt_is_authorized.
+
+      et_entityset = lt_is_authorized.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_FRN_FI_DP_DPC_EXT->DELETE_CHAR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STR                         TYPE        STRING
+* | [<---] EV_STR                         TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD delete_char.
+    DATA: l_number_in      TYPE string,
+          l_number_out     TYPE string,
+          allowed_char(62) VALUE '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcefghijklmnopqrstuvwxyz_',
+          l_char_len       TYPE i,
+          l_num_len        TYPE i,
+          l_pos            TYPE i.
+    MOVE iv_str TO l_number_in.
+    CLEAR l_number_out.
+    CONDENSE l_number_in NO-GAPS.
+*  translate l_number_in to upper case.        "#EC TRANSLANG
+    IF l_number_in CN allowed_char.
+      l_num_len = strlen( l_number_in ).
+      l_pos = 0.
+      WHILE l_pos < l_num_len.
+        l_char_len = charlen( l_number_in+l_pos ).
+        IF l_number_in+l_pos(l_char_len) CO allowed_char.
+          CONCATENATE l_number_out l_number_in+l_pos(l_char_len) INTO l_number_out.
+        ENDIF.
+        ADD l_char_len TO l_pos.
+      ENDWHILE.
+*    do.
+*      if l_number_in(1) ne space.
+*        if l_number_in(1) co allowed_char.
+*          concatenate l_number_out l_number_in(1) into l_number_out.
+*        endif.
+*        shift l_number_in.
+*      else.
+*        exit.
+*      endif.
+*    enddo.
+      MOVE l_number_out TO ev_str.
+    ELSE.
+      MOVE l_number_in TO ev_str.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_FRN_FI_DP_DPC_EXT->DYNAMICENTITYSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ER_ENTITYSET                   TYPE REF TO DATA
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD dynamicentityset_get_entityset.
+
+
+    DATA : lt_ent   TYPE STANDARD TABLE OF frn_fi_dyn_ent,
+           ls_ent   TYPE frn_fi_dyn_ent,
+           lt_props TYPE STANDARD TABLE OF frn_fi_dyn_prop,
+           ls_props TYPE frn_fi_dyn_prop,
+           lv_type  TYPE c LENGTH 100.
+
+
+    DATA : lv_int      TYPE i VALUE 1,
+           lv_dp       TYPE string,
+           lv_class_dp TYPE string,
+           lo_dp       TYPE REF TO if_frn_fi_dp.
+
+
+    DATA : lt_series_data	TYPE frn_fi_dp_series_tt,
+           ret_series	    TYPE frn_fi_dp_series_tt,
+           lt_message     TYPE frn_fi_dp_ret_message_tt.
+
+    FIELD-SYMBOLS : <f_fs> TYPE table, <f_wa> TYPE any.
+    FIELD-SYMBOLS: <fs> TYPE any.
+
+    DATA : ls_component TYPE cl_abap_structdescr=>component,
+           gt_component TYPE cl_abap_structdescr=>component_table.
+
+
+    DATA : gr_struct_typ   TYPE REF TO  cl_abap_datadescr,
+           gr_dyntable_typ TYPE REF TO  cl_abap_tabledescr,
+           gt_dyn_table    TYPE REF TO data,
+           gw_dyn_line     TYPE REF TO data,
+           dy_line         TYPE REF TO data.
+
+
+    TYPES : BEGIN OF ts_point_grp,
+              x TYPE string,
+              y TYPE string,
+              g TYPE string, "Group Name
+*               S TYPE STRING, "Series Number
+              n TYPE string, "Series Name
+            END OF ts_point_grp .
+
+    DATA : ls_point_grp TYPE ts_point_grp,
+           lt_point_grp TYPE TABLE OF ts_point_grp.
+
+
+
+    DATA lv_resolution TYPE string .
+
+    DATA lv_week TYPE scal-week.
+    DATA lv_date TYPE scal-date.
+
+
+*select entity and their properties
+    SELECT SINGLE   * FROM frn_fi_dyn_ent INTO  ls_ent WHERE entity_name = iv_entity_name.
+    SELECT * FROM frn_fi_dyn_prop INTO TABLE lt_props WHERE entity_name = iv_entity_name ORDER BY id.
+
+
+
+*Create the table of the struct fields
+    LOOP AT lt_props INTO ls_props.
+      ls_component-name = ls_props-property_name.
+      ls_component-type ?= cl_abap_datadescr=>describe_by_data( lv_type ).
+      APPEND ls_component TO gt_component.
+      CLEAR : ls_component.
+    ENDLOOP.
+
+
+*Create the dynamic struct type from the properties
+    gr_struct_typ  ?= cl_abap_structdescr=>create( p_components = gt_component p_strict = '' ).
+
+*Create the dynamic table type from dynamic struct
+    gr_dyntable_typ = cl_abap_tabledescr=>create( p_line_type = gr_struct_typ  ).
+
+*Create the dynamic table and struct data
+    CREATE DATA gt_dyn_table TYPE HANDLE gr_dyntable_typ.
+    CREATE DATA  gw_dyn_line TYPE HANDLE gr_struct_typ.
+
+
+    ASSIGN gt_dyn_table->* TO <f_fs>.
+    CREATE DATA dy_line LIKE LINE OF <f_fs>.
+    ASSIGN dy_line->* TO <f_wa>.
+
+
+
+    DATA  :  ls_gadgets TYPE cl_frn_fi_util=>ts_gadget.
+
+    /ui2/cl_json=>deserialize( EXPORTING json = ls_ent-query  CHANGING data = ls_gadgets ).
+
+
+    READ TABLE ls_gadgets-lt_request INTO DATA(ls_request) INDEX 1 .
+    lv_resolution = ls_request-resolution.
+
+    LOOP AT ls_gadgets-lt_request INTO ls_request.
+
+      lv_dp = ls_request-query-data_provider.
+
+      IF lv_dp IS NOT INITIAL.
+
+        TRANSLATE lv_dp TO UPPER CASE.
+        CONCATENATE 'CL_FRN_FI_' lv_dp INTO lv_class_dp.
+
+        CREATE OBJECT lo_dp TYPE (lv_class_dp).
+
+        TRY .
+
+            CALL METHOD lo_dp->get_series
+              EXPORTING
+                iv_query        = ls_request-query
+                iv_start_time   = ls_request-start_time
+                iv_end_time     = ls_request-end_time
+                iv_resolution   = ls_request-resolution
+*               IT_PARAMS       =
+*               IV_TIMEZONE     =
+                iv_period       = ls_request-period
+                iv_gaps         = ''
+              CHANGING
+                ct_ret_series   = lt_series_data
+                ct_ret_messages = lt_message.
+
+
+
+*            APPEND LINES OF lt_series_data TO ret_series.
+
+
+          CATCH cx_frun_dp_exception .
+
+        ENDTRY.
+
+
+
+      ENDIF.
+
+    ENDLOOP.
+
+    DATA lv_serie_name TYPE string  .
+
+    LOOP AT lt_series_data INTO DATA(ls_series).
+      READ TABLE ls_gadgets-lt_details INDEX sy-tabix INTO DATA(lv_name) .
+      CALL METHOD delete_char
+        EXPORTING
+          iv_str = lv_name-legend
+        IMPORTING
+          ev_str = ls_point_grp-n.
+*      ls_point_grp-n =  ls_series-name.
+      LOOP AT ls_series-points ASSIGNING FIELD-SYMBOL(<ls_point>).
+        ls_point_grp-x = <ls_point>-x.
+        CONDENSE ls_point_grp-x NO-GAPS.
+        ls_point_grp-y = <ls_point>-y.
+        ls_point_grp-g = lv_name-group.
+        APPEND ls_point_grp TO lt_point_grp.
+      ENDLOOP.
+    ENDLOOP.
+
+
+    LOOP AT lt_point_grp INTO DATA(ls_all_points) GROUP BY ( KEY1 = LS_ALL_POINTS-X KEY2 = LS_ALL_POINTS-G ) INTO DATA(lv_gp)   .
+
+      ASSIGN COMPONENT 'DashboardId' OF STRUCTURE <f_wa> TO FIELD-SYMBOL(<f_ws>) .
+      <f_ws> = ls_gadgets-lv_dashbord_id .
+      CONDENSE <f_ws> NO-GAPS.
+
+      ASSIGN COMPONENT 'DashboardTitle' OF STRUCTURE <f_wa> TO <f_ws> .
+      <f_ws> = ls_gadgets-lv_dashboard_name .
+
+
+      ASSIGN COMPONENT 'GadgetId' OF STRUCTURE <f_wa> TO <f_ws> .
+      <f_ws> = ls_gadgets-lv_gadget_id .
+
+      ASSIGN COMPONENT 'GadgetTitle' OF STRUCTURE <f_wa> TO <f_ws> .
+      <f_ws> = ls_gadgets-lv_gadget_name .
+
+*      ASSIGN COMPONENT 'GadgetDesc' OF STRUCTURE <f_wa> TO <f_ws> .
+*      <f_ws> = ls_desc-desc .
+
+      ASSIGN COMPONENT 'Group' OF STRUCTURE <f_wa> TO <f_ws> .
+      <f_ws> = lv_gp-key2 .
+
+
+      ASSIGN COMPONENT 'Resolution' OF STRUCTURE <f_wa> TO <f_ws> .
+      <f_ws> = lv_resolution .
+
+
+
+      ASSIGN COMPONENT 'Timestamp' OF STRUCTURE <f_wa> TO <f_ws> .
+      <f_ws> = lv_gp-key1 .
+
+      ASSIGN COMPONENT 'Week' OF STRUCTURE <f_wa> TO <f_ws> .
+
+      IF lv_resolution  = cl_frn_fi_util=>granularity_week.
+        lv_date =  lv_gp-key1 .
+        CALL FUNCTION 'DATE_GET_WEEK' "Calendar fucntion: Returns week for a date
+          EXPORTING
+            date         = lv_date                   " scal-date     Date for which the week should be calculated
+          IMPORTING
+            week         = lv_week                 " scal-week     Week for date (format:YYYYWW)
+          EXCEPTIONS
+            date_invalid = 1            "               Date does not lie between 01/01/1991 and 31/12/2098
+          .  "  DATE_GET_WEEK
+
+        <f_ws> = lv_week .
+      ENDIF.
+
+
+
+      ASSIGN COMPONENT 'WeekDay' OF STRUCTURE <f_wa> TO <f_ws> .
+
+      IF lv_resolution  = cl_frn_fi_util=>granularity_day.
+        DATA ld_day TYPE scal-indicator .
+        lv_date =  lv_gp-key1.
+        CALL FUNCTION 'DATE_COMPUTE_DAY'
+          EXPORTING
+            date = lv_date
+          IMPORTING
+            day  = ld_day.
+
+        <f_ws> = ld_day .
+      ENDIF.
+
+
+      ASSIGN COMPONENT 'Hour' OF STRUCTURE <f_wa> TO <f_ws> .
+
+      IF lv_resolution =  cl_frn_fi_util=>granularity_hour.
+
+        <f_ws> = lv_gp-key1+8(2) .
+
+      ENDIF.
+
+
+      ASSIGN COMPONENT 'Date' OF STRUCTURE <f_wa> TO <f_ws> .
+
+      IF lv_resolution =  cl_frn_fi_util=>granularity_day.
+
+        CONCATENATE   lv_gp-key1(4) '-' lv_gp-key1+4(2) '-' lv_gp-key1+6(2)  INTO <f_ws>  .
+
+      ELSEIF  lv_resolution =  cl_frn_fi_util=>granularity_week.
+        CALL FUNCTION 'WEEK_GET_FIRST_DAY' "Calendar function: Return first day for a week
+          EXPORTING
+            week         = lv_week                  " scal-week     Week for which the date is to be determined
+          IMPORTING
+            date         = lv_date                  " scal-date     Date of the first day of the week
+          EXCEPTIONS
+            week_invalid = 1.         "               Week was incorrectly specified
+
+
+        CONCATENATE lv_date(4) '-' lv_date+4(2) '-' lv_date+6(2) INTO <f_ws>.
+
+      ELSEIF  lv_resolution =  cl_frn_fi_util=>granularity_year.
+
+        CONCATENATE lv_gp-key1(4) '-01-01'  INTO <f_ws>  .
+
+      ELSEIF  lv_resolution   = cl_frn_fi_util=>granularity_month.
+
+        CONCATENATE lv_gp-key1(4) '-' lv_gp-key1+4(2) '-01'  INTO <f_ws>  .
+
+      ENDIF.
+
+
+      LOOP AT GROUP lv_gp INTO DATA(ls_all_point).
+*              CONCATENATE 'Serie' LS_ALL_POINT-S INTO DATA(LV_SER_COM) .
+        ASSIGN COMPONENT ls_all_point-n OF STRUCTURE <f_wa> TO <f_ws> .
+        <f_ws> =  ls_all_point-y.
+        CONDENSE <f_ws> NO-GAPS.
+
+      ENDLOOP.
+      APPEND <f_wa> TO <f_fs> .
+      CLEAR <f_wa> .
+    ENDLOOP.
+
+
+
+
+    copy_data_to_ref( EXPORTING is_data = <f_fs>
+        CHANGING cr_data = er_entityset ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_FRN_FI_DP_DPC_EXT->SERIESSACSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        CL_FRN_FI_DP_MPC=>TT_SERIESSAC
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD seriessacset_get_entityset.
+
+
+    DATA:ls_filter_gadget    TYPE /iwbep/s_mgw_select_option,
+         ls_filter_dashboard TYPE /iwbep/s_mgw_select_option,
+         ls_gadget           TYPE /iwbep/s_cod_select_option,
+         ls_dashboard        TYPE /iwbep/s_cod_select_option.
+
+    DATA:ls_selectparams TYPE /iwbep/s_cod_select_option,
+         lt_selectparams TYPE STANDARD TABLE OF /iwbep/s_cod_select_option.
+
+
+    DATA  :  ls_gadgets TYPE cl_frn_fi_util=>ts_gadget.
+
+    DATA : lt_res  TYPE cl_frn_fi_dp_mpc=>tt_table .
+
+
+    READ TABLE it_filter_select_options INTO ls_filter_gadget WITH KEY property = 'IdGadget'.
+    READ TABLE it_filter_select_options INTO ls_filter_dashboard WITH KEY property = 'IdDashboard'.
+
+    READ TABLE  ls_filter_gadget-select_options INTO ls_gadget INDEX  1 .
+    READ TABLE  ls_filter_dashboard-select_options INTO ls_dashboard INDEX  1 .
+
+
+    DATA lo_message_container TYPE REF TO /iwbep/if_message_container.
+
+    lo_message_container = mo_context->get_message_container( ).
+
+    IF ls_dashboard IS NOT INITIAL.
+      IF strlen( ls_dashboard-low ) <> 32 .
+        CALL METHOD lo_message_container->add_message_text_only
+          EXPORTING
+            iv_msg_type = 'E'
+            iv_msg_text = 'Invalid IdDashboard Input'.
+
+        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+          EXPORTING
+            message_container = lo_message_container.
+      ENDIF.
+
+    ELSE.
+
+      CALL METHOD lo_message_container->add_message_text_only
+        EXPORTING
+          iv_msg_type = 'E'
+          iv_msg_text = 'Missing Filter Input'.
+
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = lo_message_container.
+    ENDIF.
+
+
+    IF ls_gadget IS NOT INITIAL .
+
+      IF strlen( ls_gadget-low ) <> 41 .
+        CALL METHOD lo_message_container->add_message_text_only
+          EXPORTING
+            iv_msg_type = 'E'
+            iv_msg_text = 'Invalid IdGadget Input'.
+
+        RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+          EXPORTING
+            message_container = lo_message_container.
+      ENDIF.
+
+    ELSE.
+
+      CALL METHOD lo_message_container->add_message_text_only
+        EXPORTING
+          iv_msg_type = 'E'
+          iv_msg_text = 'Missing Filter Input'.
+
+      RAISE EXCEPTION TYPE /iwbep/cx_mgw_busi_exception
+        EXPORTING
+          message_container = lo_message_container.
+
+
+    ENDIF.
+
+
+
+  ls_gadgets =  cl_frn_fi_util=>get_tab_requests(    iv_configid = ls_dashboard-low
+      iv_gadgetid = ls_gadget-low ) .
+
+
+
+
+  TRY.
+      CALL METHOD cl_frn_fi_util=>get_series_from_requests
+        EXPORTING
+          is_gadgets    = ls_gadgets
+        IMPORTING
+          ev_table_data = et_entityset.
+    CATCH cx_frun_dp_exception .
+  ENDTRY.
+
+
+
+
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_FRN_FI_DP_DPC_EXT->TABLEDATADPSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        CL_FRN_FI_DP_MPC=>TT_TABLE
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD tabledatadpset_get_entityset.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_FRN_FI_DP_DPC_EXT->TABLESACSET_GET_ENTITYSET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_NAME                 TYPE        STRING
+* | [--->] IV_ENTITY_SET_NAME             TYPE        STRING
+* | [--->] IV_SOURCE_NAME                 TYPE        STRING
+* | [--->] IT_FILTER_SELECT_OPTIONS       TYPE        /IWBEP/T_MGW_SELECT_OPTION
+* | [--->] IS_PAGING                      TYPE        /IWBEP/S_MGW_PAGING
+* | [--->] IT_KEY_TAB                     TYPE        /IWBEP/T_MGW_NAME_VALUE_PAIR
+* | [--->] IT_NAVIGATION_PATH             TYPE        /IWBEP/T_MGW_NAVIGATION_PATH
+* | [--->] IT_ORDER                       TYPE        /IWBEP/T_MGW_SORTING_ORDER
+* | [--->] IV_FILTER_STRING               TYPE        STRING
+* | [--->] IV_SEARCH_STRING               TYPE        STRING
+* | [--->] IO_TECH_REQUEST_CONTEXT        TYPE REF TO /IWBEP/IF_MGW_REQ_ENTITYSET(optional)
+* | [<---] ET_ENTITYSET                   TYPE        CL_FRN_FI_DP_MPC=>TT_TABLESAC
+* | [<---] ES_RESPONSE_CONTEXT            TYPE        /IWBEP/IF_MGW_APPL_SRV_RUNTIME=>TY_S_MGW_RESPONSE_CONTEXT
+* | [!CX!] /IWBEP/CX_MGW_BUSI_EXCEPTION
+* | [!CX!] /IWBEP/CX_MGW_TECH_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD tablesacset_get_entityset.
+
+    DATA:ls_filter_gadget    TYPE /iwbep/s_mgw_select_option,
+         ls_filter_dashboard TYPE /iwbep/s_mgw_select_option,
+         ls_gadget           TYPE /iwbep/s_cod_select_option,
+         ls_dashboard        TYPE /iwbep/s_cod_select_option.
+
+    DATA:ls_selectparams TYPE /iwbep/s_cod_select_option,
+         lt_selectparams TYPE STANDARD TABLE OF /iwbep/s_cod_select_option.
+
+
+    DATA  :  ls_gadgets TYPE cl_frn_fi_util=>ts_gadget.
+
+    DATA : lt_res  TYPE cl_frn_fi_dp_mpc=>tt_table .
+
+
+    READ TABLE it_filter_select_options INTO ls_filter_gadget WITH KEY property = 'GadgetId'.
+    READ TABLE it_filter_select_options INTO ls_filter_dashboard WITH KEY property = 'DashboardId'.
+
+    READ TABLE  ls_filter_gadget-select_options INTO ls_gadget INDEX  1 .
+    READ TABLE  ls_filter_dashboard-select_options INTO ls_dashboard INDEX  1 .
+
+    ls_gadgets =  cl_frn_fi_util=>get_tab_requests(    iv_configid = ls_dashboard-low
+        iv_gadgetid = ls_gadget-low ) .
+
+
+      TRY.
+          CALL METHOD cl_frn_fi_util=>get_table_from_requests
+            EXPORTING
+              is_gadgets    = ls_gadgets
+            IMPORTING
+              ev_table_data = et_entityset .
+        CATCH cx_frun_dp_exception .
+      ENDTRY.
+
+
+
+  ENDMETHOD.
+ENDCLASS.
