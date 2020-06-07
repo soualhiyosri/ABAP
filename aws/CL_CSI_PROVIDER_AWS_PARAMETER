@@ -1,0 +1,102 @@
+class CL_CSI_PROVIDER_AWS_PARAMETER definition
+  public
+  final
+  create public .
+
+public section.
+*"* public components of class CL_CSI_PROVIDER_AWS_PARAMETER
+*"* do not include other source files here!!!
+
+  methods ADD_PARAMETER
+    importing
+      !IV_NAME type STRING
+      !IV_VALUE type STRING .
+  methods GET_FORM_FIELDS
+    returning
+      value(RT_PARAMETER) type TIHTTPNVP .
+  methods GET_STRING_TO_SIGN
+    importing
+      !IV_METHOD type STRING
+      !IV_HOSTNAME type STRING
+      !IV_URL type STRING default '/'
+    returning
+      value(RV_STRINGTOSIGN) type STRING .
+  methods GET_CSI_PARAMETER
+    exporting
+      !ET_PARAMETER type CSIT_PARAMETER .
+  PROTECTED SECTION.
+private section.
+*"* private components of class CL_CSI_PROVIDER_AWS_PARAMETER
+*"* do not include other source files here!!!
+
+  data:
+    lt_parameter TYPE SORTED TABLE OF ihttpnvp WITH UNIQUE KEY name .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_PROVIDER_AWS_PARAMETER IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_AWS_PARAMETER->ADD_PARAMETER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NAME                        TYPE        STRING
+* | [--->] IV_VALUE                       TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD add_parameter.
+    DATA:
+          ls_param TYPE ihttpnvp.
+    ls_param-name = iv_name.
+    ls_param-value = iv_value.
+    INSERT ls_param INTO TABLE lt_parameter.
+  ENDMETHOD.                    "add_parameter
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_AWS_PARAMETER->GET_CSI_PARAMETER
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_csi_parameter.
+  DATA ls_parameter TYPE csis_parameter.
+  FIELD-SYMBOLS <ls_parameter> TYPE ihttpnvp.
+  LOOP AT lt_parameter ASSIGNING <ls_parameter>.
+    FREE ls_parameter.
+    ls_parameter-name = <ls_parameter>-name.
+    ls_parameter-value = <ls_parameter>-value.
+    INSERT ls_parameter INTO TABLE et_parameter.
+  ENDLOOP.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_AWS_PARAMETER->GET_FORM_FIELDS
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RT_PARAMETER                   TYPE        TIHTTPNVP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_form_fields.
+    rt_parameter = lt_parameter.  "sorted --> standard
+  ENDMETHOD.                    "get_form_table
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_AWS_PARAMETER->GET_STRING_TO_SIGN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_METHOD                      TYPE        STRING
+* | [--->] IV_HOSTNAME                    TYPE        STRING
+* | [--->] IV_URL                         TYPE        STRING (default ='/')
+* | [<-()] RV_STRINGTOSIGN                TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_STRING_TO_SIGN.
+    FIELD-SYMBOLS:
+      <ls_param> TYPE ihttpnvp.
+    rv_stringtosign = iv_method && |\n| && iv_hostname && |\n| && iv_url && |\n|.
+    LOOP AT lt_parameter ASSIGNING <ls_param>.
+      IF ( sy-tabix > 1 ).
+        rv_stringtosign = rv_stringtosign && `&`.
+      ENDIF.
+      rv_stringtosign = rv_stringtosign && cl_csi_provider_aws_helper=>aws_url_escape( <ls_param>-name ) && `=` && cl_csi_provider_aws_helper=>aws_url_escape( <ls_param>-value ).
+    ENDLOOP.
+  ENDMETHOD.                    "get_signature
+ENDCLASS.
