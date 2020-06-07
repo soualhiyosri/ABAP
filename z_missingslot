@@ -1,0 +1,85 @@
+*&---------------------------------------------------------------------*
+*& Report Z_MISSINGSLOT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_missingslot.
+
+
+PARAMETERS lv_res TYPE i .
+PARAMETERS end_time TYPE p .
+PARAMETERS str_time TYPE string .
+
+*        lv_end_time       TYPE timestamp,
+DATA : lv_time_str       TYPE string,
+       lv_start_str      TYPE string,
+       lv_index          LIKE sy-tabix,
+*        lv_secs           TYPE i VALUE 3600,
+       lt_ref_timestamps TYPE TABLE OF string,
+       lv_end_time       TYPE timestamp.
+
+DATA  lv_secs           TYPE i VALUE 3600.
+DATA :
+  lv_xaxis     TYPE timestamp,
+  lv_xaxis_str TYPE string,
+  lv_str       TYPE string,
+  lv_week      TYPE kweek,
+  lv_date      TYPE dats,
+ EV_XAXIS   TYPE STRING.
+
+lv_secs = lv_res.
+lv_end_time = end_time.
+WHILE lv_end_time >= str_time.
+
+  IF sy-index <> 1.
+    CALL METHOD cl_abap_tstmp=>subtractsecs
+      EXPORTING
+        tstmp   = lv_end_time
+        secs    = lv_secs
+      RECEIVING
+        r_tstmp = lv_end_time.
+  ENDIF.
+
+
+
+  IF lv_res IS NOT INITIAL AND  lv_end_time IS NOT INITIAL.
+    lv_xaxis_str = lv_end_time.
+    CASE  lv_res.
+      WHEN 3600.
+        CONCATENATE lv_xaxis_str(10) '00' INTO  ev_xaxis.
+      WHEN 86400.
+        CONCATENATE lv_xaxis_str(8) '0000' INTO ev_xaxis.
+      WHEN 604800.
+        lv_xaxis_str  = lv_end_time(8).
+        lv_date       = lv_xaxis_str.
+        CALL FUNCTION 'DATE_GET_WEEK'
+          EXPORTING
+            date         = lv_date
+          IMPORTING
+            week         = lv_week
+          EXCEPTIONS
+            date_invalid = 1
+            OTHERS       = 2.
+        IF sy-subrc <> 0.
+* Implement suitable error handling here
+        ENDIF.
+        ev_xaxis = lv_week.
+      WHEN 2592000 OR 2419200.
+        ev_xaxis = lv_xaxis_str(6).
+      WHEN 31104000.
+        ev_xaxis = lv_xaxis_str(4).
+      WHEN OTHERS.
+    ENDCASE.
+  ELSE.
+    ev_xaxis = lv_end_time.
+  ENDIF.
+  APPEND EV_XAXIS TO lt_ref_timestamps.
+ENDWHILE.
+IF    lv_start_str <> lv_time_str .
+  IF lt_ref_timestamps IS NOT INITIAL.
+    DESCRIBE TABLE lt_ref_timestamps LINES lv_index.
+    DELETE lt_ref_timestamps INDEX lv_index.
+  ENDIF.
+ENDIF.
+SORT lt_ref_timestamps ASCENDING.
+DELETE ADJACENT DUPLICATES FROM lt_ref_timestamps.
