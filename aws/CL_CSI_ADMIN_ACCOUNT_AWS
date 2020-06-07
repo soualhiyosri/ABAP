@@ -1,0 +1,171 @@
+class CL_CSI_ADMIN_ACCOUNT_AWS definition
+  public
+  final
+  create public
+
+  global friends CL_CSI_PROVIDER_ACCOUNT .
+
+public section.
+*"* public components of class CL_CSI_ADMIN_ACCOUNT_AWS
+*"* do not include other source files here!!!
+
+  interfaces IF_CSI_ADMIN_UI
+      data values GV_DYNNR = '0511'
+                  GV_PROGNAME = 'SAPLCSIF_ADMIN_AWS' .
+  interfaces IF_CSI_ADMIN_PROVIDER_ACCOUNT .
+
+  aliases GV_DYNNR
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~GV_DYNNR .
+  aliases GV_PROGNAME
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~GV_PROGNAME .
+  aliases CLEAR_SCREEN
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~CLEAR_SCREEN .
+  aliases GET_DATA
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_DATA .
+  aliases GET_SECRET_KEY
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_SECRET_KEY .
+  aliases GET_STATUS
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_STATUS .
+  aliases HAS_DATA_CHANGED
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~HAS_DATA_CHANGED .
+  aliases HAS_SECRET_KEY_CHANGED
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~HAS_SECRET_KEY_CHANGED .
+  aliases SET_DATA
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_DATA .
+  aliases SET_HANDLER_TO_UI
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_HANDLER_TO_UI .
+  aliases SET_SECRET_KEY
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_SECRET_KEY .
+  aliases SET_STATUS
+    for IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_STATUS .
+  PROTECTED SECTION.
+*"* protected components of class CL_CSI_ADMIN_ACCOUNT_AWS
+*"* do not include other source files here!!!
+private section.
+*"* private components of class CL_CSI_ADMIN_ACCOUNT_AWS
+*"* do not include other source files here!!!
+
+  types:
+    BEGIN OF mtys_key,
+        has_changed TYPE abap_bool,
+        secret_key TYPE csi_char200,
+      END OF mtys_key .
+
+  data MS_ACCOUNT type CSIS_PROVIDER_ACCOUNT .
+  data MS_STATUS type ref to DATA .
+  data MS_KEY type MTYS_KEY .
+  type-pools ABAP .
+  data MV_DATA_CHANGED type CSI_BOOL value ABAP_FALSE. "#EC NOTEXT .
+  data MO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_ADMIN_ACCOUNT_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_PROVIDER_ACCOUNT~CLEAR_SCREEN
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~clear_screen.
+  ENDMETHOD.                    "IF_CSI_ADMIN_PROVIDER_ACCOUNT~CLEAR_SCREEN
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RS_ACCOUNT                     TYPE        CSIS_PROVIDER_ACCOUNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~get_data.
+    rs_account = ms_account.
+  ENDMETHOD.                    "IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_DATA
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_SECRET_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_SECRET_KEY                  TYPE        CSI_CHAR200
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~get_secret_key.
+    rv_secret_key = ms_key-secret_key.
+  ENDMETHOD.                    "IF_CSI_ADMIN_PROVIDER_ACCOUNT~GET_SECRET_KEY
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_PROVIDER_ACCOUNT~HAS_SECRET_KEY_CHANGED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_CHANGED                     TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~has_secret_key_changed.
+    rv_changed = ms_key-has_changed.
+  ENDMETHOD.                    "if_csi_admin_provider_account~has_secret_key_changed
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_ACCOUNT                     TYPE        CSIS_PROVIDER_ACCOUNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~set_data.
+    ms_account = is_account.
+    mv_data_changed = abap_true.
+  ENDMETHOD.                    "IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_DATA
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_ADMIN_ACCOUNT_AWS=>IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_HANDLER_TO_UI
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_ADMIN_PROVIDER_ACCOUNT      TYPE REF TO IF_CSI_ADMIN_PROVIDER_ACCOUNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~set_handler_to_ui.
+    CALL FUNCTION 'CSIF_AWS_SET_HANDLER'
+      EXPORTING
+        io_handler = io_admin_provider_account.
+  ENDMETHOD.                    "if_csi_admin_provider_account~set_handler_to_ui
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_PROVIDER_ACCOUNT~SET_SECRET_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SECRET_KEY                  TYPE        CSI_CHAR200
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_provider_account~set_secret_key.
+    ms_key-secret_key = iv_secret_key.
+    ms_key-has_changed = abap_true.
+  ENDMETHOD.                    "if_csi_admin_provider_account~set_secret_key
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_UI~GET_STATUS
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ES_STATUS                      TYPE REF TO DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_ui~get_status.
+    es_status = ms_status.
+  ENDMETHOD.                    "IF_CSI_ADMIN_UI~GET_STATUS
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_UI~HAS_DATA_CHANGED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_CHANGED                     TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_ui~has_data_changed.
+    IF ( mv_data_changed = abap_true OR ms_key-has_changed = abap_true ).
+      rv_changed = abap_true.
+    ELSE.
+      rv_changed = abap_false.
+    ENDIF.
+  ENDMETHOD.                    "IF_CSI_ADMIN_UI~HAS_DATA_CHANGED
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_ADMIN_ACCOUNT_AWS->IF_CSI_ADMIN_UI~SET_STATUS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_STATUS                      TYPE REF TO DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_csi_admin_ui~set_status.
+    ms_status = is_status.
+  ENDMETHOD.                    "IF_CSI_ADMIN_UI~SET_STATUS
+ENDCLASS.
