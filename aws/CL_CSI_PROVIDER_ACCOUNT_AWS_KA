@@ -1,0 +1,31 @@
+class CL_CSI_PROVIDER_ACCOUNT_AWS_KA definition
+  public
+  final
+  create private
+
+  global friends CL_CSI_FILESTORE_FILE_AWS
+                 CL_CSI_PROVIDER_AWS_HELPER .
+
+public section.
+protected section.
+private section.
+
+  class-methods FACTORY
+    returning
+      value(RO_KEY_ACCESS) type ref to CL_CSI_PROVIDER_ACCOUNT_AWS_KA .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_PROVIDER_ACCOUNT_AWS_KA IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_PROVIDER_ACCOUNT_AWS_KA=>FACTORY
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RO_KEY_ACCESS                  TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS_KA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD factory.
+  CREATE OBJECT ro_key_access.
+ENDMETHOD.
+ENDCLASS.
