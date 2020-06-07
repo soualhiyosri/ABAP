@@ -1,0 +1,125 @@
+*"* components of interface IF_HTTP_CLIENT
+interface IF_HTTP_CLIENT
+  public .
+
+
+  constants VERSION type STRING value '1.0'. "#EC NOTEXT
+  data REQUEST type ref to IF_HTTP_REQUEST .
+  data RESPONSE type ref to IF_HTTP_RESPONSE .
+  data PROPERTYTYPE_LOGON_POPUP type I .
+  constants CO_DISABLED type I value 0. "#EC NOTEXT
+  constants CO_EVENT type I value 3. "#EC NOTEXT
+  constants CO_PROMPT type I value 2. "#EC NOTEXT
+  constants CO_ENABLED type I value 1. "#EC NOTEXT
+  data PROPERTYTYPE_REDIRECT type I .
+  data PROPERTYTYPE_APPLY_SPROXY type I .
+  data PROPERTYTYPE_ACCEPT_COOKIE type I .
+  data PROPERTYTYPE_SEND_SAP_PASSPORT type I .
+  constants CO_TIMEOUT_DEFAULT type I value 0. "#EC NOTEXT
+  constants CO_TIMEOUT_INFINITE type I value -1. "#EC NOTEXT
+  constants CO_COMPRESS_BASED_ON_MIME_TYPE type I value 2. "#EC NOTEXT
+  constants CO_COMPRESS_IN_ALL_CASES type I value 1. "#EC NOTEXT
+  constants CO_COMPRESS_NONE type I value 0. "#EC NOTEXT
+  data PROPERTYTYPE_ACCEPT_COMPRESS type I .
+
+  events EVENTKIND_HANDLE_COOKIE
+    exporting
+      value(CLIENT) type ref to IF_HTTP_CLIENT optional
+      value(COOKIES) type TIHTTPCKI optional .
+
+  class-methods ESCAPE_HTML
+    importing
+      !UNESCAPED type STRING
+    returning
+      value(ESCAPED) type STRING .
+  class-methods ESCAPE_URL
+    importing
+      !UNESCAPED type STRING
+    returning
+      value(ESCAPED) type STRING .
+  class-methods UNESCAPE_URL
+    importing
+      !ESCAPED type STRING
+    returning
+      value(UNESCAPED) type STRING .
+  class-methods LISTEN
+    returning
+      value(CLIENT) type ref to IF_HTTP_CLIENT
+    exceptions
+      HTTP_COMMUNICATION_FAILURE
+      HTTP_NO_OPEN_CONNECTION .
+  methods AUTHENTICATE
+    importing
+      !PROXY_AUTHENTICATION type C default ' '
+      !CLIENT type SYMANDT optional
+      !USERNAME type STRING
+      !PASSWORD type STRING
+      !LANGUAGE type SYLANGU optional .
+  methods APPEND_FIELD_URL
+    importing
+      !NAME type STRING
+      !VALUE type STRING
+    changing
+      !URL type STRING .
+  methods CREATE_ABS_URL
+    importing
+      !PROTOCOL type STRING default ''
+      !HOST type STRING default ''
+      !PORT type STRING default ''
+      !PATH type STRING default ''
+      !QUERYSTRING type STRING default ''
+      !STATEFUL type I default -1
+    returning
+      value(URL) type STRING .
+  methods CREATE_REL_URL
+    importing
+      !PATH type STRING default ''
+      !QUERYSTRING type STRING default ''
+      !STATEFUL type I default -1
+    returning
+      value(URL) type STRING .
+  methods CLOSE
+    exceptions
+      HTTP_INVALID_STATE .
+  methods RECEIVE
+    exceptions
+      HTTP_COMMUNICATION_FAILURE
+      HTTP_INVALID_STATE
+      HTTP_PROCESSING_FAILED .
+  methods GET_LAST_ERROR
+    exporting
+      !CODE type SYSUBRC
+      !MESSAGE type STRING
+      !MESSAGE_CLASS type ARBGB
+      !MESSAGE_NUMBER type MSGNR .
+  methods SEND
+    importing
+      !TIMEOUT type I default CO_TIMEOUT_DEFAULT
+    exceptions
+      HTTP_COMMUNICATION_FAILURE
+      HTTP_INVALID_STATE
+      HTTP_PROCESSING_FAILED
+      HTTP_INVALID_TIMEOUT .
+  methods REFRESH_COOKIE
+    exceptions
+      HTTP_ACTION_FAILED
+      HTTP_PROCESSING_FAILED .
+  methods REFRESH_REQUEST
+    exceptions
+      HTTP_ACTION_FAILED .
+  methods REFRESH_RESPONSE
+    exceptions
+      HTTP_ACTION_FAILED .
+  methods SET_COMPRESSION
+    importing
+      !OPTIONS type I default CO_COMPRESS_BASED_ON_MIME_TYPE
+    exceptions
+      COMPRESSION_NOT_POSSIBLE .
+  methods SEND_SAP_LOGON_TICKET .
+  methods SEND_SAP_ASSERTION_TICKET
+    importing
+      !CLIENT type SYMANDT
+      !SYSTEM_ID type SYSYSID
+    exceptions
+      ARGUMENT_NOT_FOUND .
+endinterface.
