@@ -1,0 +1,1137 @@
+class CL_CSI_PROVIDER_AWS_HELPER definition
+  public
+  final
+  create public .
+
+public section.
+  interface IF_CSI_SERVICE_C load .
+
+  constants MC_OK type CSI_INT value 200 ##NO_TEXT.
+  constants GC_REST_AUTH type CSI_STRING value 'Authorization' ##NO_TEXT.
+
+  class-methods AWS_URL_ESCAPE
+    importing
+      !IV_UNESCAPED type STRING
+    returning
+      value(RV_ESCAPED) type STRING .
+  class-methods GET_ZONE_BUFFER
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IV_REGION_ONLY type ABAP_BOOL optional
+      !IV_REGION type CSI_REGION optional
+    exporting
+      !ES_BUFFER type CSIS_AWS_BUFFER .
+  class-methods EC2_DO_REST_CALL
+    importing
+      !IV_URI type STRING
+      !IV_METHOD type STRING
+      !IV_TIMESTAMP type TIMESTAMP
+      !IV_HTTP_DESTINATION type RFCDEST
+      !IV_ACTION type STRING
+      !IO_PARAMETER type ref to CL_CSI_PROVIDER_AWS_PARAMETER
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+    exporting
+      !EV_CODE type INT4
+      !EV_REASON type STRING
+      !EV_CDATA type STRING
+      !EV_DATA type XSTRING
+    raising
+      CX_AI_SYSTEM_FAULT .
+  class-methods S3_SET_REST_REQUEST
+    importing
+      !IV_URI type STRING
+      !IV_METHOD type STRING
+      !IV_TIMESTAMP type TIMESTAMP
+      !IV_CONTENT_TYPE type STRING optional
+      !IV_CONTENT_MD5 type STRING optional
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_CONTENT_SHA256 type STRING
+      !IV_BUCKET type STRING optional
+      !IV_REGION type CSI_AWS_REGION
+    changing
+      !CO_REQUEST type ref to IF_HTTP_REQUEST .
+  class-methods S3_DO_REST_CALL
+    importing
+      !IV_URI type STRING
+      !IV_METHOD type STRING
+      !IV_TIMESTAMP type TIMESTAMP
+      !IV_CONTENT_TYPE type STRING optional
+      !IV_CONTENT_MD5 type STRING optional
+      !IV_HTTP_DESTINATION type RFCDEST
+      !IV_BUCKET type STRING optional
+      !IV_DATA type XSTRING optional
+      !IV_CDATA type STRING optional
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IT_REQUEST_HEADER_FIELDS type TIHTTPNVP optional
+      !IV_RAISE_EXCEPTION type CSI_BOOL default ABAP_TRUE
+      !IV_REGION type CSI_AWS_REGION optional
+    exporting
+      !EV_CODE type INT4
+      !EV_REASON type STRING
+      !EV_CDATA type STRING
+      !EV_DATA type XSTRING
+      !ET_RESPONSE_HEADER_FIELDS type TIHTTPNVP
+    raising
+      CX_AI_SYSTEM_FAULT .
+  class-methods S3_BUCKET_OPERATION
+    importing
+      !IV_QUERYTYPE type CSI_SERVICE_QUERYTYPE default IF_CSI_SERVICE_C=>QUERYTYPE_REST
+      !IV_BUCKET type STRING
+      !IV_LOGICALPORTNAME type PRX_LOGICAL_PORT_NAME optional
+      !IV_HTTP_DESTINATION type RFCDEST optional
+      !IV_DELETE type ABAP_BOOL default ABAP_FALSE
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+    exporting
+      !EV_CODE type CSI_INT
+      !EV_REASON type CSI_STRING
+    raising
+      CX_AI_SYSTEM_FAULT
+      CX_AI_APPLICATION_FAULT .
+  class-methods RFC_GET_HOSTNAME
+    importing
+      !IV_RFC_DEST type RFCDEST
+    returning
+      value(RV_HOSTNAME) type RFCHOST_EXT .
+  class-methods RFC_COPY_DEST
+    importing
+      !IV_OLD type RFCDEST
+      !IV_NEW type RFCDEST
+      !IV_HOSTNAME type RFCHOST_EXT
+      !IV_NAME type CSI_STRING optional .
+  class-methods GET_RFC_DEST
+    importing
+      !IV_NAME type CSI_STRING
+      !IV_DEFAULT type RFCDEST
+      !IV_ENDPOINT type RFCHOST_EXT optional
+      !IV_OVERWRITE type CSI_BOOL optional
+    returning
+      value(RV_RFCDEST) type RFCDEST .
+  class-methods GET_CANONCIAL_REQUEST_V4
+    importing
+      !IV_HTTP_METHOD type STRING
+      !IV_URL type STRING
+      !IV_QUERY type STRING
+      !IT_HEADERS type TIHTTPNVP
+      !IV_PAYLOAD_SHA256 type STRING
+    exporting
+      !EV_SIGNED_HEADERS type STRING
+      !RV_STRING_TO_RETURN type STRING .
+  class-methods GET_HEXHASH_SHA256
+    importing
+      !IV_TOHASH type STRING optional
+      !IV_X_TOHASH type XSTRING optional
+    returning
+      value(RV_HASHED) type HASH512_HEX .
+  class-methods GET_STRING_TO_SIGN_V4
+    importing
+      !IV_ALGORITHM type STRING default 'AWS4-HMAC-SHA256'
+      !IV_REQUEST_TIMESTAMP type TIMESTAMP optional
+      !IV_AWS_REGION type STRING
+      !IV_AWS_SERVICE type STRING
+      !IV_HASHED_CAN_REQUEST type HASH512_HEX
+    exporting
+      !RV_STRING_TO_RETURN type STRING
+      !EV_CRED_SCOPE type STRING .
+  class-methods GET_SIGNING_KEY
+    importing
+      !IV_AWS_SEC_KEY_HASHED type STRING optional
+      !IV_AWS_REGION type STRING
+      !IV_AWS_SERVICE type STRING
+      !IV_DATE type SYDATUM
+      !IV_SKIP_FIRST_STEP type ABAP_BOOL default ABAP_FALSE
+      !IV_AWS_SEC_XKEY_HASHED type XSTRING optional
+    returning
+      value(RV_STRING_TO_RETURN) type XSTRING .
+  PROTECTED SECTION.
+*"* protected components of class CL_CSI_PROVIDER_AWS_HELPER
+*"* do not include other source files here!!!
+  PRIVATE SECTION.
+
+    TYPES:
+      BEGIN OF ltys_rfc_buffer,
+        name TYPE csi_string,
+        dest TYPE rfcdest,
+      END OF ltys_rfc_buffer .
+    TYPES:
+      ltyt_rfc_buffer TYPE HASHED TABLE OF ltys_rfc_buffer WITH UNIQUE KEY name .
+
+    CLASS-DATA mt_zone_buffer TYPE csit_aws_buffer .
+    CLASS-DATA mt_rfc_buffer TYPE ltyt_rfc_buffer .
+    CONSTANTS mc_content_type TYPE csi_string VALUE 'Content-Type'. "#EC NOTEXT
+    CONSTANTS mc_content_length TYPE csi_string VALUE 'Content-Length'. "#EC NOTEXT
+    CONSTANTS mc_content_range TYPE csi_string VALUE 'Content-Range'. "#EC NOTEXT
+    CONSTANTS mc_partial_content TYPE csi_int VALUE 206.    "#EC NOTEXT
+    CONSTANTS mc_no_content TYPE csi_int VALUE 204.         "#EC NOTEXT
+    CONSTANTS mc_x_amz_date TYPE csi_string VALUE 'x-amz-date'. "#EC NOTEXT
+    TYPE-POOLS abap .
+    CLASS-DATA mv_zone_buffer_region TYPE abap_bool VALUE abap_false. "#EC NOTEXT .
+
+    CLASS-METHODS build_buffer
+      IMPORTING
+        !io_provider TYPE REF TO cl_csi_provider_aws
+        !io_account TYPE REF TO cl_csi_provider_account_aws
+        !iv_force_rebuild TYPE abap_bool OPTIONAL
+        !iv_region_only TYPE abap_bool OPTIONAL
+        !iv_region TYPE csi_region OPTIONAL
+      RAISING
+        cx_csi_node .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_PROVIDER_AWS_HELPER IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>AWS_URL_ESCAPE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_UNESCAPED                   TYPE        STRING
+* | [<-()] RV_ESCAPED                     TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD aws_url_escape.
+    rv_escaped = cl_abap_dyn_prg=>escape_xss_url( val = iv_unescaped ).
+    DATA:
+      lt_split TYPE STANDARD TABLE OF string.
+    SPLIT rv_escaped AT '%' INTO TABLE lt_split.
+    FIELD-SYMBOLS:
+      <ls_field> TYPE string.
+    LOOP AT lt_split ASSIGNING <ls_field>.
+      IF ( sy-tabix < 2 ).
+        rv_escaped = <ls_field>.
+        CONTINUE.
+      ENDIF.
+      rv_escaped = rv_escaped && `%` && |{ <ls_field>(2) CASE = UPPER }| && <ls_field>+2.
+    ENDLOOP.
+  ENDMETHOD.                    "AWS_URL_ESCAPE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_PROVIDER_AWS_HELPER=>BUILD_BUFFER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_FORCE_REBUILD               TYPE        ABAP_BOOL(optional)
+* | [--->] IV_REGION_ONLY                 TYPE        ABAP_BOOL(optional)
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD build_buffer.
+    IF ( io_provider IS NOT BOUND OR io_account IS NOT BOUND ).
+      RETURN.
+    ENDIF.
+
+    FIELD-SYMBOLS:
+      <lt_regions> TYPE csit_aws_buffer_region,
+      <ls_buffer> TYPE csis_aws_buffer,
+      <ls_region> TYPE csis_aws_buffer_region.
+    DATA:
+      ls_buffer TYPE csis_aws_buffer,
+      ls_region TYPE csis_aws_buffer_region.
+
+    READ TABLE mt_zone_buffer ASSIGNING <ls_buffer> WITH TABLE KEY provider_name = io_provider->gv_name account_name = io_account->gv_name.
+    IF ( <ls_buffer> IS NOT ASSIGNED ).
+      ls_buffer-provider_name = io_provider->gv_name.
+      ls_buffer-account_name = io_account->gv_name.
+      INSERT ls_buffer INTO TABLE mt_zone_buffer ASSIGNING <ls_buffer>.
+    ENDIF.
+    ASSIGN <ls_buffer>-regions TO <lt_regions>.
+
+
+    DATA:
+      lt_region TYPE csit_aws_region_item,
+      ls_region_item TYPE csis_aws_region_item,
+      lt_securitygroup TYPE csit_aws_security_group_item,
+      lt_keypair TYPE csit_aws_key_pair_item,
+      lt_availabilityzone TYPE csit_aws_availabilityzone_item,
+      lt_image TYPE csit_aws_image_item,
+      lt_addresse TYPE csit_aws_address_item,
+      lt_volume TYPE csit_aws_volume_item,
+      lt_subnet TYPE csit_aws_subnet_item,
+      lv_check TYPE timestamp.
+    DEFINE call_describe.
+      free lv_check.  "check it...
+      cl_csi_node_aws=>describe_&1s(
+        exporting
+          io_provider = io_provider
+          io_account = io_account
+          iv_http_destination = lv_new_dest
+        importing
+          et_&1s = lt_&1
+        changing
+          cv_last_check = lv_check
+      ).
+    END-OF-DEFINITION.
+
+    DATA:
+      lv_new_dest TYPE rfcdest,
+      lv_rfc_host TYPE rfchost_ext,
+      lv_region TYPE string.
+
+    IF ( <lt_regions> IS INITIAL OR iv_force_rebuild = abap_true OR iv_region_only = abap_true ).
+      FIELD-SYMBOLS:
+        <ls_region_item> TYPE csis_aws_region_item.
+      FREE <lt_regions>.  " rebuild means delete it
+      " make sure to NOT put in any region parameter => endless loop...
+      lv_new_dest = io_provider->get_node_destination( ).
+      call_describe region.
+      LOOP AT lt_region ASSIGNING <ls_region_item>.
+        UNASSIGN <ls_region>.
+        READ TABLE <lt_regions> WITH TABLE KEY region_name = <ls_region_item>-region_name TRANSPORTING NO FIELDS.
+        IF ( sy-subrc <> 0 ).
+          ls_region-region_name = <ls_region_item>-region_name.
+          ls_region-region_endpoint = <ls_region_item>-region_endpoint.
+          INSERT ls_region INTO TABLE <lt_regions>.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+    mv_zone_buffer_region = abap_false.
+    IF ( iv_region_only = abap_true ).
+      mv_zone_buffer_region = abap_true.
+      RETURN.
+    ENDIF.
+
+    LOOP AT <lt_regions> ASSIGNING <ls_region>.
+      " ignore those regions that are not passed in (if a region got passed in at all)
+      IF ( iv_region IS NOT INITIAL AND <ls_region>-region_name <> iv_region ).
+        CONTINUE.
+      ENDIF.
+      " all subsequent calls have to go to the regions-EndPoint
+      lv_rfc_host = <ls_region>-region_endpoint.
+      lv_region = <ls_region>-region_name.
+      lv_new_dest = get_rfc_dest( iv_name = lv_region iv_default = io_provider->get_node_destination( ) iv_endpoint = lv_rfc_host iv_overwrite = abap_false ).
+      call_describe:
+        securitygroup,
+        keypair,
+        availabilityzone,
+        image,
+        addresse,
+        volume.
+      " vpn subnets only available in certain regions -> all other will throw an 400 error
+      IF ( <ls_region>-region_name = 'us-east-1' OR <ls_region>-region_name = 'eu-west-1' ). "#EC NOTEXT
+        call_describe:
+          subnet.
+      ENDIF.
+      <ls_region>-availability_zones = lt_availabilityzone.
+*      LOOP AT lt_availabilityzone ASSIGNING <ls_availabilityzone>.
+*        free lv_check.
+*        cl_csi_node_aws=>describe_volumes(
+*          EXPORTING
+*            io_provider = io_provider
+*            io_account = io_account
+*            iv_http_destination = lv_new_dest
+*          IMPORTING
+*            et_volumes = lt_volume
+*          CHANGING
+*            cv_last_check = lv_check
+*        ).
+*        <ls_availabilityzone>-volumes = lt_volume.
+*        FREE lt_volume.
+*      ENDLOOP.
+      FREE lt_availabilityzone.
+      <ls_region>-key_pairs = lt_keypair.
+      FREE lt_keypair.
+      <ls_region>-security_groups = lt_securitygroup.
+      FREE lt_securitygroup.
+      <ls_region>-images = lt_image.
+      FREE lt_image.
+      <ls_region>-addresses = lt_addresse.
+      FREE lt_addresse.
+      <ls_region>-volumes = lt_volume.
+      FREE lt_volume.
+      <ls_region>-subnets = lt_subnet.
+      FREE lt_subnet.
+      GET TIME STAMP FIELD <ls_region>-last_check.
+      INSERT <ls_region> INTO TABLE <lt_regions>.
+    ENDLOOP.
+  ENDMETHOD.                    "build_buffer
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>EC2_DO_REST_CALL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_URI                         TYPE        STRING
+* | [--->] IV_METHOD                      TYPE        STRING
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [--->] IV_ACTION                      TYPE        STRING
+* | [--->] IO_PARAMETER                   TYPE REF TO CL_CSI_PROVIDER_AWS_PARAMETER
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [<---] EV_CODE                        TYPE        INT4
+* | [<---] EV_REASON                      TYPE        STRING
+* | [<---] EV_CDATA                       TYPE        STRING
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [!CX!] CX_AI_SYSTEM_FAULT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD ec2_do_rest_call.
+    define_param.
+
+    DATA:
+      lv_hostname TYPE string,
+      lv_signature TYPE string,
+      lo_http_client TYPE REF TO if_http_client,
+      lo_http_request TYPE REF TO if_http_request,
+      lo_http_response TYPE REF TO if_http_response,
+"      lt_fields TYPE tihttpnvp,
+      lv_stringtosign TYPE string,
+      lv_keyname TYPE csi_provider_account_keyname.
+
+    DATA:
+      lv_tmstmp_str TYPE string.
+    lv_tmstmp_str = |{ iv_timestamp TIMESTAMP = ISO }| && `.000Z`.
+    " 1) create the http-class with the default ec2-destination (specified in SM59)
+    cl_http_client=>create_by_destination( EXPORTING destination = iv_http_destination IMPORTING client = lo_http_client ).
+    lo_http_request = lo_http_client->request.
+    lv_hostname = rfc_get_hostname( iv_http_destination ).
+    lo_parameter = io_parameter.  " pass in known parameter
+    " default parameters
+    lv_keyname = io_account->get_keyname( ).
+    add_param:
+      'AWSAccessKeyId' lv_keyname,                          "#EC NOTEXT
+      'Action' iv_action,                                   "#EC NOTEXT
+      'SignatureMethod' 'HmacSHA1',                         "#EC NOTEXT
+      'SignatureVersion' '2',                               "#EC NOTEXT
+      'Timestamp' lv_tmstmp_str,                            "#EC NOTEXT
+      'Version' cl_csi_provider_aws=>gc_node_api_version.   "#EC NOTEXT
+    lv_stringtosign = io_parameter->get_string_to_sign(
+      iv_method       = iv_method
+      iv_hostname     = lv_hostname
+    ).
+    lv_signature = io_account->get_signature( iv_stringtosign = lv_stringtosign io_key_access = cl_csi_provider_account_aws_ka=>factory( ) ).
+
+    add_param 'Signature' lv_signature.                     "#EC NOTEXT
+    lo_http_request->set_form_fields( io_parameter->get_form_fields( ) ).
+    " 2) call the ec2-service and get the returning information
+    DATA:
+      lv_errortext TYPE string.
+    lo_http_client->send( EXCEPTIONS OTHERS = 1 ).
+    IF ( sy-subrc = 1 ).
+      IF ( sy-msgid IS NOT INITIAL ).
+        MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_errortext.
+      ENDIF.
+      RAISE EXCEPTION TYPE cx_ai_system_fault
+        EXPORTING
+          errortext = lv_errortext.
+    ENDIF.
+    lo_http_client->receive( EXCEPTIONS OTHERS = 1 ).
+    IF ( sy-subrc = 1 ).
+      IF ( sy-msgid IS NOT INITIAL ).
+        MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_errortext.
+      ENDIF.
+      RAISE EXCEPTION TYPE cx_ai_system_fault
+        EXPORTING
+          errortext = lv_errortext.
+    ENDIF.
+    " 3) returned the "data"
+    lo_http_response = lo_http_client->response.
+    lo_http_response->get_status( IMPORTING code = ev_code reason = ev_reason ).
+    IF ( ev_code = mc_ok ).
+      IF ( ev_data IS REQUESTED ).
+        ev_data = lo_http_response->get_data( ).
+      ENDIF.
+      IF ( ev_cdata IS REQUESTED ).
+        ev_cdata = lo_http_response->get_cdata( ).
+      ENDIF.
+      "cl_abap_browser=>show_xml( xml_string = lo_http_response->get_cdata( ) context_menu = abap_true ).
+    ELSEIF ( ev_code <> mc_partial_content ).
+      DATA:
+        lv_response TYPE string,
+        ls_error TYPE csis_aws_error.
+      FIELD-SYMBOLS:
+        <ls_error_detail> TYPE csis_aws_error_detail.
+      lv_response = lo_http_response->get_cdata( ).
+      IF ( 1 = 0 ). "reachable via debugger
+        "cl_abap_browser=>show_html( html_string = lv_response context_menu = abap_true ).
+      ENDIF.
+      TRY.
+          CALL TRANSFORMATION csixt_st_aws_errors
+            SOURCE XML lv_response
+            RESULT root = ls_error.
+        CATCH cx_root.                                  "#EC NO_HANDLER
+      ENDTRY.
+      IF ( lines( ls_error-errors ) > 0 ).
+        " we care about the first error only...
+        READ TABLE ls_error-errors INDEX 1 ASSIGNING <ls_error_detail>.
+        IF ( <ls_error_detail> IS ASSIGNED ).
+          lv_response = <ls_error_detail>-message.
+        ENDIF.
+      ENDIF.
+      "cl_abap_browser=>show_html( html_string = lv_response context_menu = abap_true ).
+      "cl_abap_browser=>show_xml( xml_string = lv_response context_menu = abap_true ).
+      lo_http_client->close( ).
+      IF ( iv_action = 'DescribeInstances' ).               "#EC NOTEXT
+        ev_reason = lv_response.  " describing instances can return different errors handled later...
+      ELSE.
+        RAISE EXCEPTION TYPE cx_ai_system_fault
+          EXPORTING
+            code      = ev_reason
+            errortext = lv_response.
+      ENDIF.
+    ENDIF.
+    lo_http_client->close( EXCEPTIONS http_invalid_state = 0 ).
+  ENDMETHOD.                    "ec2_do_rest_call
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>GET_CANONCIAL_REQUEST_V4
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_HTTP_METHOD                 TYPE        STRING
+* | [--->] IV_URL                         TYPE        STRING
+* | [--->] IV_QUERY                       TYPE        STRING
+* | [--->] IT_HEADERS                     TYPE        TIHTTPNVP
+* | [--->] IV_PAYLOAD_SHA256              TYPE        STRING
+* | [<---] EV_SIGNED_HEADERS              TYPE        STRING
+* | [<---] RV_STRING_TO_RETURN            TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_canoncial_request_v4.
+    FIELD-SYMBOLS:
+      <ls_header> TYPE ihttpnvp.
+
+    add_part_newlined: iv_http_method, iv_url, iv_query.
+
+    " we are required to sort the headers
+    DATA: lv_can_header TYPE string VALUE ''.
+    DATA: lv_header_name TYPE ihttpnam.
+    DATA: lt_headers TYPE SORTED TABLE OF ihttpnvp WITH NON-UNIQUE KEY name.
+    lt_headers[] = it_headers[].
+    ev_signed_headers = ''.
+    LOOP AT lt_headers ASSIGNING <ls_header>.
+      IF ( <ls_header>-name IS INITIAL OR <ls_header>-name(1) = '~' ).  " remote own headers cause they are either not transfered or aws removes them
+        CONTINUE.
+      ENDIF.
+      " Lowercase(HeaderName) + ':' + Trimall(HeaderValue) + '\n'
+      " => no trimming, but that should be ok for us
+      lv_header_name = |{ <ls_header>-name CASE = (cl_abap_format=>c_lower) }|.
+      lv_can_header = lv_can_header && lv_header_name && |:| && <ls_header>-value && |\n|.
+      " no \n at the end
+      IF ( ev_signed_headers IS NOT INITIAL ).
+        ev_signed_headers = ev_signed_headers && |;|.
+      ENDIF.
+      ev_signed_headers = ev_signed_headers && lv_header_name.
+    ENDLOOP.
+    add_part_newlined: lv_can_header, ev_signed_headers, iv_payload_sha256.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>GET_HEXHASH_SHA256
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TOHASH                      TYPE        STRING(optional)
+* | [--->] IV_X_TOHASH                    TYPE        XSTRING(optional)
+* | [<-()] RV_HASHED                      TYPE        HASH512_HEX
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_hexhash_sha256.
+    DATA lv_hashed TYPE string.
+    IF ( iv_tohash IS SUPPLIED ).
+      CALL FUNCTION 'CALCULATE_HASH_FOR_CHAR'
+        EXPORTING
+          alg        = 'SHA2'
+          data       = iv_tohash
+        IMPORTING
+          hashstring = lv_hashed.
+    ENDIF.
+    IF ( iv_x_tohash IS SUPPLIED ).
+      CALL FUNCTION 'CALCULATE_HASH_FOR_RAW'
+        EXPORTING
+          alg        = 'SHA2'
+          data       = iv_x_tohash
+        IMPORTING
+          hashstring = lv_hashed.
+    ENDIF.
+
+    rv_hashed = to_lower( lv_hashed ).
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>GET_RFC_DEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NAME                        TYPE        CSI_STRING
+* | [--->] IV_DEFAULT                     TYPE        RFCDEST
+* | [--->] IV_ENDPOINT                    TYPE        RFCHOST_EXT(optional)
+* | [--->] IV_OVERWRITE                   TYPE        CSI_BOOL(optional)
+* | [<-()] RV_RFCDEST                     TYPE        RFCDEST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_rfc_dest.
+    FIELD-SYMBOLS:
+      <ls_rfc_buffer> TYPE ltys_rfc_buffer.
+    IF ( iv_overwrite = abap_false ).
+      READ TABLE mt_rfc_buffer ASSIGNING <ls_rfc_buffer> WITH TABLE KEY name = iv_name.
+    ENDIF.
+    IF ( <ls_rfc_buffer> IS ASSIGNED ).
+      rv_rfcdest = <ls_rfc_buffer>-dest.
+      RETURN.
+    ELSEIF ( iv_default IS INITIAL OR iv_name IS INITIAL ).
+      RETURN. " raise exception?
+    ENDIF.
+    rv_rfcdest = iv_default && `_` && iv_name.
+    " what about error handling???
+    rfc_copy_dest( iv_old = iv_default iv_new = rv_rfcdest iv_hostname = iv_endpoint iv_name = iv_name ).
+  ENDMETHOD.                    "get_rfc_dest
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>GET_SIGNING_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_AWS_SEC_KEY_HASHED          TYPE        STRING(optional)
+* | [--->] IV_AWS_REGION                  TYPE        STRING
+* | [--->] IV_AWS_SERVICE                 TYPE        STRING
+* | [--->] IV_DATE                        TYPE        SYDATUM
+* | [--->] IV_SKIP_FIRST_STEP             TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [--->] IV_AWS_SEC_XKEY_HASHED         TYPE        XSTRING(optional)
+* | [<-()] RV_STRING_TO_RETURN            TYPE        XSTRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_signing_key.
+
+    CONSTANTS:
+      lc_aws_header         TYPE string VALUE 'AWS4',
+      lc_aws_req_terminator TYPE string VALUE 'aws4_request'.
+
+    DATA:
+      lv_k_secret  TYPE xstring,
+      lv_k_date    TYPE xstring,
+      lv_k_region  TYPE xstring,
+      lv_k_service TYPE xstring,
+      lv_k_signing TYPE xstring,
+      lv_sdate     TYPE string.
+    TRY.
+        lv_sdate = iv_date.
+        IF ( iv_skip_first_step = abap_false ).
+          DATA lo_conv_out TYPE REF TO cl_abap_conv_out_ce.
+          lo_conv_out = cl_abap_conv_out_ce=>create( encoding = 'UTF-8' endian = 'L' ).
+          IF ( iv_aws_sec_xkey_hashed IS SUPPLIED ).
+            lo_conv_out->convert( EXPORTING data = 'AWS4' IMPORTING buffer = lv_k_secret ).
+            lv_k_secret = lv_k_secret && iv_aws_sec_xkey_hashed.
+          ELSE.
+            lo_conv_out->convert( EXPORTING data = 'AWS4' && iv_aws_sec_key_hashed IMPORTING buffer = lv_k_secret ).
+          ENDIF.
+          cl_abap_hmac=>calculate_hmac_for_char( EXPORTING if_algorithm = 'SHA256' if_key = lv_k_secret if_data = lv_sdate IMPORTING ef_hmacxstring = lv_k_date ).
+        ELSE.
+          lv_k_date = iv_aws_sec_xkey_hashed.
+        ENDIF.
+        cl_abap_hmac=>calculate_hmac_for_char( EXPORTING if_algorithm = 'SHA256' if_key = lv_k_date if_data = |{ iv_aws_region CASE = (cl_abap_format=>c_lower) }| IMPORTING ef_hmacxstring = lv_k_region ).
+        cl_abap_hmac=>calculate_hmac_for_char( EXPORTING if_algorithm = 'SHA256' if_key = lv_k_region if_data = |{ iv_aws_service CASE = (cl_abap_format=>c_lower) }| IMPORTING ef_hmacxstring = lv_k_service ).
+        cl_abap_hmac=>calculate_hmac_for_char( EXPORTING if_algorithm = 'SHA256' if_key = lv_k_service if_data = lc_aws_req_terminator IMPORTING ef_hmacxstring = rv_string_to_return ).
+        "rv_string_to_return = to_lower( rv_string_to_return ).
+      CATCH cx_root.
+    ENDTRY.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>GET_STRING_TO_SIGN_V4
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ALGORITHM                   TYPE        STRING (default ='AWS4-HMAC-SHA256')
+* | [--->] IV_REQUEST_TIMESTAMP           TYPE        TIMESTAMP(optional)
+* | [--->] IV_AWS_REGION                  TYPE        STRING
+* | [--->] IV_AWS_SERVICE                 TYPE        STRING
+* | [--->] IV_HASHED_CAN_REQUEST          TYPE        HASH512_HEX
+* | [<---] RV_STRING_TO_RETURN            TYPE        STRING
+* | [<---] EV_CRED_SCOPE                  TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_string_to_sign_v4.
+
+    CONSTANTS:
+      lc_cred_scope_terminator TYPE string VALUE 'aws4_request'.
+
+    DATA:
+      lv_timestamp    TYPE timestamp,
+      lv_req_datetime TYPE string,
+      lv_date         TYPE sydatum.
+
+    IF ( iv_request_timestamp IS SUPPLIED ).
+      lv_timestamp = iv_request_timestamp.
+    ELSE.
+      GET TIME STAMP FIELD lv_timestamp.
+    ENDIF.
+    lv_req_datetime = cl_csi_common_helper=>get_iso8601_timestamp( lv_timestamp ).
+
+    CONVERT TIME STAMP lv_timestamp TIME ZONE '' INTO DATE lv_date.
+
+    ev_cred_scope = lv_date && |/| && |{ iv_aws_region CASE = (cl_abap_format=>c_lower) }| && |/| && |{ iv_aws_service CASE = (cl_abap_format=>c_lower) }| && |/| && lc_cred_scope_terminator.
+    add_part_newlined: iv_algorithm, lv_req_datetime, ev_cred_scope, iv_hashed_can_request.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>GET_ZONE_BUFFER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IV_REGION_ONLY                 TYPE        ABAP_BOOL(optional)
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<---] ES_BUFFER                      TYPE        CSIS_AWS_BUFFER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_zone_buffer.
+    DATA:
+      lo_account TYPE REF TO cl_csi_provider_account_aws,
+      lv_buffer_filled TYPE abap_bool VALUE abap_false,
+      lv_build_region TYPE abap_bool VALUE abap_false.
+    FIELD-SYMBOLS:
+      <ls_region> TYPE csis_aws_buffer_region.
+    IF ( io_provider IS NOT BOUND ).
+      RETURN.
+    ENDIF.
+    TRY.
+        lo_account ?= io_provider->get_active_account( ).
+      CATCH cx_csi_provider.
+        RETURN.
+    ENDTRY.
+    READ TABLE mt_zone_buffer INTO es_buffer WITH TABLE KEY provider_name = io_provider->gv_name account_name = lo_account->gv_name.
+    IF ( sy-subrc = 0 ).
+      lv_buffer_filled = abap_true.
+      IF ( iv_region IS NOT INITIAL ).
+        READ TABLE es_buffer-regions ASSIGNING <ls_region> WITH TABLE KEY region_name = iv_region.
+        IF ( <ls_region> IS ASSIGNED AND <ls_region>-last_check IS INITIAL ).
+          lv_build_region = abap_true.  " could have also used buffer_filled, but...
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    IF ( lv_buffer_filled = abap_false OR lv_build_region = abap_true OR ( iv_region_only = abap_false AND mv_zone_buffer_region = abap_true ) ).
+      TRY.
+          build_buffer( io_provider = io_provider io_account = lo_account iv_region_only = iv_region_only iv_region = iv_region ).
+          READ TABLE mt_zone_buffer INTO es_buffer WITH TABLE KEY provider_name = io_provider->gv_name account_name = lo_account->gv_name.
+        CATCH cx_csi_node.                              "#EC NO_HANDLER
+      ENDTRY.
+    ENDIF.
+  ENDMETHOD.                    "get_zone_buffer
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>RFC_COPY_DEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_OLD                         TYPE        RFCDEST
+* | [--->] IV_NEW                         TYPE        RFCDEST
+* | [--->] IV_HOSTNAME                    TYPE        RFCHOST_EXT
+* | [--->] IV_NAME                        TYPE        CSI_STRING(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD rfc_copy_dest.
+    CALL FUNCTION 'RFC_READ_DESTINATION_TYPE'
+      EXPORTING
+        destination             = iv_new
+        authority_check         = abap_false
+      EXCEPTIONS
+        authority_not_available = 1
+        destination_not_exist   = 2
+        OTHERS                  = 3.
+    IF sy-subrc = 2.
+      CALL FUNCTION 'RFC_MODIFY_HTTP_DEST_TO_EXT'
+        EXPORTING
+          destination     = iv_old
+          action          = 'C'
+          authority_check = abap_false
+          destcopy        = iv_new
+          server          = iv_hostname
+        EXCEPTIONS
+          OTHERS          = 1.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+    ENDIF.
+    CALL FUNCTION 'RFC_MODIFY_HTTP_DEST_TO_EXT'
+      EXPORTING
+        destination     = iv_new
+        action          = 'M'
+        authority_check = abap_false
+        server          = iv_hostname
+      EXCEPTIONS
+        OTHERS          = 1.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+    IF ( iv_name IS SUPPLIED ).
+      DATA:
+        ls_rfc_buffer TYPE ltys_rfc_buffer.
+      ls_rfc_buffer-name = iv_name.
+      ls_rfc_buffer-dest = iv_new.
+      INSERT ls_rfc_buffer INTO TABLE mt_rfc_buffer.
+    ENDIF.
+  ENDMETHOD.                    "RFC_COPY_DEST
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>RFC_GET_HOSTNAME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_RFC_DEST                    TYPE        RFCDEST
+* | [<-()] RV_HOSTNAME                    TYPE        RFCHOST_EXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD rfc_get_hostname.
+    CALL FUNCTION 'RFC_READ_HTTP_DESTINATION'
+      EXPORTING
+        destination             = iv_rfc_dest
+        authority_check         = abap_false
+*       BYPASS_BUF              =
+      IMPORTING
+        server                  = rv_hostname
+      EXCEPTIONS
+*       AUTHORITY_NOT_AVAILABLE = 1
+*       DESTINATION_NOT_EXIST   = 2
+*       INFORMATION_FAILURE     = 3
+*       INTERNAL_FAILURE        = 4
+*       NO_HTTP_DESTINATION     = 5
+        OTHERS                  = 1.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.                    "RFC_GET_HOSTNAME
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>S3_BUCKET_OPERATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_QUERYTYPE                   TYPE        CSI_SERVICE_QUERYTYPE (default =IF_CSI_SERVICE_C=>QUERYTYPE_REST)
+* | [--->] IV_BUCKET                      TYPE        STRING
+* | [--->] IV_LOGICALPORTNAME             TYPE        PRX_LOGICAL_PORT_NAME(optional)
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST(optional)
+* | [--->] IV_DELETE                      TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] EV_REASON                      TYPE        CSI_STRING
+* | [!CX!] CX_AI_SYSTEM_FAULT
+* | [!CX!] CX_AI_APPLICATION_FAULT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD s3_bucket_operation.
+    DATA:
+      lv_timestamp TYPE xsddatetime_z.
+
+*    CASE iv_querytype.
+*      WHEN if_csi_service_c=>querytype_soap.
+*      " 1) create the webservice
+*      DATA:
+*            lo_s3_ws TYPE REF TO co_rcc_aws_amazon_s3.
+*      CREATE OBJECT lo_s3_ws
+*        EXPORTING
+*          logical_port_name = iv_logicalportname.
+*      " 2) create the bucket
+*      DATA:
+*        ls_s3_create_request  TYPE rcc_aws_create_bucket_request,
+*        ls_s3_create_response TYPE rcc_aws_create_bucket_response,
+*        ls_s3_delete_request  TYPE rcc_aws_delete_bucket_request,
+*        ls_s3_delete_response TYPE rcc_aws_delete_bucket_response.
+*
+*      ls_s3_create_request-awsaccess_key_id = iv_awskey.
+*      ls_s3_create_request-bucket           = iv_bucket.
+*      GET TIME STAMP FIELD lv_timestamp.
+*      ls_s3_create_request-timestamp = lv_timestamp.
+*      IF ( iv_delete = abap_true ).
+*        lv_stringtosign = `AmazonS3` && `DeleteBucket` && |{ lv_timestamp TIMESTAMP = ISO }| && `.000Z`.
+*      ELSE.
+*        lv_stringtosign = `AmazonS3` && `CreateBucket` && |{ lv_timestamp TIMESTAMP = ISO }| && `.000Z`.
+*      ENDIF.
+*      ls_s3_create_request-signature = get_signature( iv_recordnumber = iv_recordnumber iv_stringtosign = lv_stringtosign ).
+*      MOVE-CORRESPONDING ls_s3_create_request TO ls_s3_delete_request. "#EC ENHOK
+*      IF ( iv_delete = abap_true ).
+*        lo_s3_ws->delete_bucket(
+*          EXPORTING
+*            delete_bucket_request = ls_s3_delete_request
+*          IMPORTING
+*            delete_bucket_response = ls_s3_delete_response
+*        ).
+*      ELSE.
+*        TRY.
+*            lo_s3_ws->create_bucket(
+*              EXPORTING
+*                create_bucket_request = ls_s3_create_request
+*              IMPORTING
+*                create_bucket_response = ls_s3_create_response
+*            ).
+*          CATCH cx_ai_system_fault.                     "#EC NO_HANDLER
+*            " generation error?
+*
+*        ENDTRY.
+*      ENDIF.
+*      "if ( ls_s3_response-create_bucket_return-bucket_name = iv_bucket ).
+*      "  rv_status = abap_true.
+*      "  return.
+*      "endif.
+*      WHEN OTHERS.  " rest = default
+    IF ( iv_http_destination IS INITIAL ).
+      RETURN.
+    ENDIF.
+    csiaw_m_split_define.
+    DATA:
+      lv_method TYPE string.
+    IF ( iv_delete = abap_true ).
+      lv_method = 'DELETE'.
+    ELSE.
+      lv_method = 'PUT'.
+    ENDIF.
+    " **********************************************************************
+    " in case we create a directory which is in a bucket, we have to
+    " workaround that by creating a 0-size file with a directory ID
+    " This is due to the fact that S3 has only a level0 Bucket with keys in
+    " it.
+    " So we create / delete keys (=files) with names like abc/def/ghi_FOLDERID
+    " to simulate directories
+    " ==> this has to be handled by this call
+    " **********************************************************************
+    " 1) check if this is a director INSIDE a bucket
+    lv_rel_url = iv_bucket.
+    csiaw_m_split_path.
+    DATA:
+      lv_region          TYPE csi_aws_region.
+    TRY.
+        lv_region = cl_csi_filestore_object_aws=>get_bucket_region_for_account( iv_bucket = lv_bucket io_account = io_account iv_http_destination = iv_http_destination ).
+      CATCH cx_csi_filestore.
+    ENDTRY.
+    " 2) if no, create a bucket (either if we want to create a directory or we delete the BUCKET itself)
+    IF ( iv_delete = abap_false OR lv_directory IS INITIAL ).
+      GET TIME STAMP FIELD lv_timestamp.
+      s3_do_rest_call(
+        EXPORTING
+          iv_uri              = ''
+          iv_bucket           = lv_bucket
+          iv_method           = lv_method
+          iv_timestamp        = lv_timestamp
+          iv_http_destination = iv_http_destination
+          io_account = io_account
+          iv_region           = lv_region
+        IMPORTING
+          ev_code             = ev_code
+          ev_reason           = ev_reason
+      ).
+    ENDIF.
+    " 3) if yes, create/delete the file with the FOLDERID at the end
+    IF ( lv_directory IS NOT INITIAL AND ( ev_code = mc_ok OR iv_delete = abap_true ) ).
+      csiaw_m_split_makesubpath.
+      GET TIME STAMP FIELD lv_timestamp.
+      s3_do_rest_call(
+        EXPORTING
+          iv_uri              = lv_rel_url
+          iv_bucket           = lv_bucket
+          iv_method           = lv_method
+          iv_timestamp        = lv_timestamp
+          iv_http_destination = iv_http_destination
+          io_account = io_account
+          iv_region           = lv_region
+        IMPORTING
+          ev_code             = ev_code
+          ev_reason           = ev_reason
+      ).
+    ENDIF.
+*    ENDCASE.
+  ENDMETHOD.                    "S3_BUCKET_OPERATION
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>S3_DO_REST_CALL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_URI                         TYPE        STRING
+* | [--->] IV_METHOD                      TYPE        STRING
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP
+* | [--->] IV_CONTENT_TYPE                TYPE        STRING(optional)
+* | [--->] IV_CONTENT_MD5                 TYPE        STRING(optional)
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [--->] IV_BUCKET                      TYPE        STRING(optional)
+* | [--->] IV_DATA                        TYPE        XSTRING(optional)
+* | [--->] IV_CDATA                       TYPE        STRING(optional)
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IT_REQUEST_HEADER_FIELDS       TYPE        TIHTTPNVP(optional)
+* | [--->] IV_RAISE_EXCEPTION             TYPE        CSI_BOOL (default =ABAP_TRUE)
+* | [--->] IV_REGION                      TYPE        CSI_AWS_REGION(optional)
+* | [<---] EV_CODE                        TYPE        INT4
+* | [<---] EV_REASON                      TYPE        STRING
+* | [<---] EV_CDATA                       TYPE        STRING
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [<---] ET_RESPONSE_HEADER_FIELDS      TYPE        TIHTTPNVP
+* | [!CX!] CX_AI_SYSTEM_FAULT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD s3_do_rest_call.
+    DATA:
+      lo_http_client TYPE REF TO if_http_client,
+      lo_http_request TYPE REF TO if_http_request,
+      lv_errortext TYPE string,
+      lo_http_response  TYPE REF TO if_http_response,
+      lv_content_sha256 TYPE string,
+      lv_host           TYPE string,
+      lv_region         TYPE csi_aws_region.
+
+    IF ( io_account IS NOT BOUND ).
+      lv_errortext = 'Account not bound'(e01).
+      RAISE EXCEPTION TYPE cx_ai_system_fault
+        EXPORTING
+          textid    = cx_ai_system_fault=>cx_ai_system_fault
+          errortext = lv_errortext.
+    ENDIF.
+
+    lv_region = iv_region.
+
+    " 1) create the http-class with the default S3-destination (specified in SM59)
+    "cl_http_client=>create_by_destination( EXPORTING destination = iv_http_destination IMPORTING client = lo_http_client ).
+    IF ( iv_bucket IS NOT INITIAL ).
+      cl_csi_common_helper=>create_http_client_by_dest( EXPORTING iv_destination = iv_http_destination iv_host = iv_bucket IMPORTING eo_http_client = lo_http_client ev_host = lv_host ).
+    ELSE.
+      cl_csi_common_helper=>create_http_client_by_dest( EXPORTING iv_destination = iv_http_destination IMPORTING eo_http_client = lo_http_client ev_host = lv_host ).
+    ENDIF.
+    lo_http_request = lo_http_client->request.
+    lo_http_request->set_content_type( iv_content_type ).
+    lo_http_request->suppress_content_type( ).  " do not use text/html as default
+    lo_http_request->set_header_field( name = 'host' value = lv_host ). " abap http client will set that field on its own, but AWS requires this in the signature, thus set it as well
+    DATA:
+      lv_content_length TYPE csi_string.
+    IF ( iv_data IS SUPPLIED ).
+      lo_http_request->set_data( iv_data ).
+      lv_content_length = xstrlen( iv_data ).
+      lv_content_sha256 = get_hexhash_sha256( iv_x_tohash = iv_data ).
+    ENDIF.
+    IF ( iv_cdata IS SUPPLIED ).
+      lo_http_request->set_cdata( iv_cdata ).
+      lv_content_length = strlen( iv_cdata ).
+      lv_content_sha256 = get_hexhash_sha256( iv_tohash = iv_cdata ).
+    ENDIF.
+    IF ( lv_content_sha256 IS INITIAL ).
+      " no data (or errror, but...) use the empty data hash
+      lv_content_sha256 = get_hexhash_sha256( iv_tohash = ' ' ).
+    ENDIF.
+    IF ( lv_content_length IS NOT INITIAL ).
+      lo_http_request->set_header_field( name = mc_content_length value = lv_content_length ).
+    ENDIF.
+    " add user-defined header-data
+    IF ( it_request_header_fields IS SUPPLIED ).
+      DATA lt_header_fields TYPE tihttpnvp.
+      lo_http_request->get_header_fields( CHANGING fields = lt_header_fields ).
+      INSERT LINES OF it_request_header_fields INTO TABLE lt_header_fields.
+      lo_http_request->set_header_fields( lt_header_fields ).
+    ENDIF.
+    s3_set_rest_request(
+      EXPORTING
+        iv_uri            = iv_uri
+        iv_bucket         = iv_bucket
+        iv_method         = iv_method
+        iv_timestamp      = iv_timestamp
+        iv_content_type   = iv_content_type
+        iv_content_md5    = iv_content_md5
+        io_account        = io_account
+        iv_region         = lv_region
+        iv_content_sha256 = lv_content_sha256
+      CHANGING
+        co_request      = lo_http_request
+    ).
+    " 2) call the S3-service and get the returning information
+    lo_http_client->send( EXCEPTIONS OTHERS = 1 ).
+    IF ( sy-subrc = 1 ).
+      IF ( sy-msgid IS NOT INITIAL ).
+        MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_errortext.
+      ENDIF.
+      RAISE EXCEPTION TYPE cx_ai_system_fault
+        EXPORTING
+          errortext = lv_errortext.
+    ENDIF.
+    lo_http_client->receive( EXCEPTIONS OTHERS = 1 ).
+    IF ( sy-subrc = 1 ).
+      IF ( sy-msgid IS NOT INITIAL ).
+        MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_errortext.
+      ENDIF.
+      RAISE EXCEPTION TYPE cx_ai_system_fault
+        EXPORTING
+          errortext = lv_errortext.
+    ENDIF.
+    " 3) returned the "data"
+    lo_http_response = lo_http_client->response.
+    lo_http_response->get_status( IMPORTING code = ev_code reason = ev_reason ).
+    IF ( ev_code = mc_ok ).
+      IF ( ev_data IS REQUESTED ).
+        ev_data = lo_http_response->get_data( ).
+      ENDIF.
+      IF ( ev_cdata IS REQUESTED ).
+        ev_cdata = lo_http_response->get_cdata( ).
+      ENDIF.
+      IF ( et_response_header_fields IS REQUESTED ).
+        lo_http_response->get_header_fields( CHANGING fields = et_response_header_fields ).
+      ENDIF.
+      "cl_abap_browser=>show_xml( xml_xstring = ev_data context_menu = abap_true ).
+    ELSEIF ( ev_code <> mc_partial_content AND ev_code <> mc_no_content ).
+      IF ( et_response_header_fields IS REQUESTED ).
+        lo_http_response->get_header_fields( CHANGING fields = et_response_header_fields ).
+      ENDIF.
+      DATA:
+        lv_response TYPE string.
+      lv_response = lo_http_response->get_cdata( ).
+      "cl_abap_browser=>show_xml( xml_string = lv_response context_menu = abap_true ).
+      IF ( iv_raise_exception = abap_true ).
+        " raise exceptions only for those callers not interested in the error_code
+        lo_http_client->close( ).
+        RAISE EXCEPTION TYPE cx_ai_system_fault
+          EXPORTING
+            code      = ev_reason
+            errortext = lv_response.
+      ENDIF.
+    ENDIF.
+    lo_http_client->close( ).
+  ENDMETHOD.                    "s3_do_rest_call
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_AWS_HELPER=>S3_SET_REST_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_URI                         TYPE        STRING
+* | [--->] IV_METHOD                      TYPE        STRING
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP
+* | [--->] IV_CONTENT_TYPE                TYPE        STRING(optional)
+* | [--->] IV_CONTENT_MD5                 TYPE        STRING(optional)
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_CONTENT_SHA256              TYPE        STRING
+* | [--->] IV_BUCKET                      TYPE        STRING(optional)
+* | [--->] IV_REGION                      TYPE        CSI_AWS_REGION
+* | [<-->] CO_REQUEST                     TYPE REF TO IF_HTTP_REQUEST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD s3_set_rest_request.
+    CONSTANTS:
+      lc_aws_rest_content_md5    TYPE string VALUE 'Content-MD5', "#EC NOTEXT
+      lc_aws_rest_content_sha256 TYPE string VALUE 'x-amz-content-sha256'. "#EC NOTEXT
+    DATA:
+      lt_headers         TYPE tihttpnvp,
+      lv_stringtosign TYPE string VALUE '',
+      lv_signature TYPE string,
+      lv_uri TYPE string,
+      lv_query           TYPE string,
+      lv_dummy           TYPE string,
+      lv_signed_headers  TYPE string,
+      lv_hex_can_request TYPE hash512_hex,
+      lv_cred_scope      TYPE string,
+      lv_can_request     TYPE string.                       "#EC NEEDED
+
+    co_request->set_method( iv_method ).
+    " parse the URI and replace incorrect parameter
+    lv_uri = iv_uri.
+    IF ( strlen( lv_uri ) = 0 OR lv_uri(1) <> '/' ).
+      lv_uri = '/' && lv_uri.
+    ENDIF.
+    cl_http_utility=>set_request_uri( request = co_request uri = lv_uri ).
+
+    " get rid of the query-parameters as for string-signing in S3 we don't want them
+    SPLIT lv_uri AT '?' INTO lv_uri lv_query.
+
+*.. 1) add custom headers (content-type, md5, x-amz-date)
+    DATA:
+      lv_tmstmp_str TYPE string.
+    lv_tmstmp_str = cl_csi_common_helper=>get_iso8601_timestamp( iv_timestamp ).
+    " as our http-client does not transfer a date-field we have to transfer our own
+    co_request->set_header_field( name = mc_x_amz_date value = lv_tmstmp_str ).
+    IF ( iv_content_md5 IS NOT INITIAL ).
+      co_request->set_header_field( name = lc_aws_rest_content_md5 value = iv_content_md5 ).
+    ENDIF.
+    co_request->set_header_field( name = lc_aws_rest_content_sha256 value = iv_content_sha256 ).
+
+*.. 2) generate StringToSign
+
+    co_request->get_header_fields( CHANGING fields = lt_headers ).
+
+    get_canoncial_request_v4( EXPORTING iv_http_method = iv_method it_headers = lt_headers iv_query = lv_query iv_url = lv_uri iv_payload_sha256 = iv_content_sha256
+                              IMPORTING rv_string_to_return = lv_can_request ev_signed_headers = lv_signed_headers ).
+    lv_dummy = iv_region. " stringToSign should work with strings, otherwise we end up having empty characters being converted
+    lv_hex_can_request = get_hexhash_sha256( iv_tohash = lv_can_request ).
+    get_string_to_sign_v4( EXPORTING iv_aws_region = lv_dummy iv_aws_service = 'S3' iv_hashed_can_request = lv_hex_can_request iv_request_timestamp = iv_timestamp
+                            IMPORTING rv_string_to_return = lv_stringtosign ev_cred_scope = lv_cred_scope ).
+
+    DATA:
+      lv_authz type string.
+    lv_signature = io_account->get_signature( iv_stringtosign = lv_stringtosign io_key_access = cl_csi_provider_account_aws_ka=>factory( ) iv_version = 4 iv_region = lv_dummy iv_service = 'S3' iv_timestamp = iv_timestamp ).
+    lv_authz = `AWS4-HMAC-SHA256 ` && 'Credential=' && io_account->get_keyname( ) && |/| && lv_cred_scope && |, SignedHeaders=| && lv_signed_headers && |, Signature=| && lv_signature. "EC NOTEXT
+    " the authorization.method also does not work, so we provide our own field
+*.. 3) sign the request with a new header field
+    co_request->set_header_field( name = gc_rest_auth value = lv_authz ).
+  ENDMETHOD.                    "S3_SET_REST_REQUEST
+ENDCLASS.
