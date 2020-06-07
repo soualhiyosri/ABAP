@@ -1,0 +1,3483 @@
+class CL_XMS_PLSRV_IE_ADAPTER definition
+  public
+  create public .
+
+public section.
+*"* public components of class CL_XMS_PLSRV_IE_ADAPTER
+*"* do not include other source files here!!!
+  interface IF_XMS_PERSIST load .
+
+  interfaces IF_XMS_MAIN .
+  interfaces IF_XMS_MAIN_CONST .
+  interfaces IF_XMS_PLSRV .
+  interfaces IF_XMS_TRACE_CONST .
+
+  types:
+    BEGIN OF before_map,
+      sender TYPE sxi_fromorto,
+      receiver TYPE sxi_fromorto,
+      message TYPE REF TO if_xms_message_xmb,
+      END OF before_map .
+  types:
+    before_map_ttyp TYPE TABLE OF before_map WITH DEFAULT KEY .
+
+  methods ENTER_PING
+    importing
+      !IM_PIPELINE_SERVICE_ID type SXMSPSID
+    changing
+      !CH_MESSAGE type ref to IF_XMS_MESSAGE_XMB
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods CONSTRUCTOR .
+  class-methods GET_ATTR_OF_INDIRECT_ENDPOINT
+    importing
+      !IM_DESTINATION type RFCDEST
+    exporting
+      !EX_RFCTYPE type RFCDISPLAY-RFCTYPE
+      !EX_HOST type STRING
+      !EX_PORT type STRING
+      !EX_CLIENT type RFCDISPLAY-RFCCLIENT
+      !EX_USER type STRING
+      !EX_LANGUAGE type RFCDISPLAY-RFCLANG
+      !EX_PATH type STRING
+      !EX_NOT_FOUND type SXMSFLAG
+      !EX_SSL_ACTIVE type RFCSNC
+      !EX_SSL_CLIENT_CERT type SSFAPPLSSL .
+  class-methods CHECK_RECEIVER_RESPONSE
+    importing
+      !IM_RECEIVER_RESPONSE type ref to IF_XMS_MESSAGE
+      !IM_RECEIVER_REQUEST type ref to IF_XMS_MESSAGE
+    raising
+      CX_XMS_SYSTEM_ERROR .
+protected section.
+
+  data RO type ref to CL_XMS_RUN_TIME_ENV .
+  data OUTB type ref to IF_SRV_OUTBINDING_XMS_PROP .
+  data _BEFORE_MAP_TAB type BEFORE_MAP_TTYP .
+  data _INTERFACE type ref to CL_XMS_INTERFACE .
+
+  methods CONVERT_REQ_TO_RCV
+    importing
+      value(LS_VERSION_RECEIVER_REQUEST) type SXMS_VERSION
+      !MESSAGE type ref to IF_XMS_MESSAGE
+    returning
+      value(LV_MOINT_RECEIVER_REQUEST) type ref to IF_XMS_MESSAGE
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods PROCESS_HTTP_HEADERS
+    importing
+      value(LT_HEADER_FIELD) type TIHTTPNVP
+    changing
+      value(INFOKIND) type SXMS_INFO_KIND
+      value(LS_CONTENTTYPE) type STRING
+      value(LS_DESCRIPTION) type STRING
+      value(LS_HEADER_FIELD) type IHTTPNVP
+      value(LT_XMS_HEADER) type SXMS_NV_T
+      value(LV_ICMCLNTERROR_TEXT) type STRING
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods SET_ICM_TEXT
+    importing
+      value(LV_ICMCLNTERROR) type STRING
+    returning
+      value(LV_ICMCLNTERROR_TEXT) type STRING .
+  methods CALL_XMS_HTTP
+    importing
+      !IM_MESSAGE type ref to IF_XMS_MESSAGE
+      !IM_CHANNEL type ref to CL_SRV_CHANNEL
+      !IM_ISERVER_URL type SXMSVALUE
+      !IM_ADAPTER_NAME type SSRV_ADAPTER_NAME
+      !IM_MESSAGE_VERSION type SXMS_VERSION
+    exporting
+      !EX_MESSAGE type ref to IF_XMS_MESSAGE
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods SET_TRACE_OBJECT
+    importing
+      !IM_MESSAGE type ref to IF_XMS_MESSAGE
+    returning
+      value(RE_TRACE) type ref to IF_XMS_TRACE .
+  methods CHECK_CONTENT_TYPE
+    importing
+      !CONTENT_TYPE type STRING
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods SET_TEST
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE
+      !HTTP_REQUEST type ref to IF_HTTP_REQUEST .
+  methods SET_HEADER_MAP_AND_ALT_PARTY
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE_XMB
+    returning
+      value(DENORMALIZATION_DONE) type CHAR1
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods UNDO_HEADER_MAP_AND_ALT_PARTY .
+  methods MODIFY_HOPLIST
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE_XMB .
+  methods RESOLVE_MTOM_ATTACHMENTS
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE_XMB
+    raising
+      CX_XMS_SYSTEM_ERROR .
+  methods MODIFY_CALLERINFO
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE_XMB .
+  methods DELETE_SYS_ATT
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE_XMB .
+private section.
+
+*"* private components of class CL_XMS_PLSRV_IE_ADAPTER
+*"* do not include other source files here!!!
+  aliases AO
+    for IF_XMS_MAIN~AO .
+  aliases CO_FALSE
+    for IF_XMS_MAIN~CO_FALSE .
+  aliases CO_TRUE
+    for IF_XMS_MAIN~CO_TRUE .
+  aliases DG
+    for IF_XMS_MAIN~DG .
+  aliases EO
+    for IF_XMS_MAIN~EO .
+  aliases HLO
+    for IF_XMS_MAIN~HLO .
+  aliases HO
+    for IF_XMS_MAIN~HO .
+  aliases IO
+    for IF_XMS_MAIN~IO .
+  aliases MO
+    for IF_XMS_MAIN~MO .
+  aliases MOINT
+    for IF_XMS_MAIN~MOINT .
+  aliases PFO
+    for IF_XMS_MAIN~PFO .
+  aliases RM
+    for IF_XMS_MAIN~RM .
+  aliases STRING1
+    for IF_XMS_MAIN~STRING1 .
+  aliases STRING2
+    for IF_XMS_MAIN~STRING2 .
+  aliases STRING3
+    for IF_XMS_MAIN~STRING3 .
+  aliases STRING4
+    for IF_XMS_MAIN~STRING4 .
+  aliases TO
+    for IF_XMS_MAIN~TO .
+
+  methods LOG_DATA_AS_MSG
+    importing
+      !DATA type XSTRING
+      !REMOTE_ADDR type STRING .
+  methods CONVERT_HTML_ERROR
+    importing
+      !CONTENT_TYPE type STRING
+      !INPUT type XSTRING
+    returning
+      value(OUTPUT) type XSTRING .
+  methods GET_INTERFACE_ID
+    importing
+      !I_INTERFACE type SXMSINTERFACE
+    returning
+      value(RET_TAB) type SXMS_SITE_TAB .
+  methods CREATE_URL_ENGINE
+    importing
+      !ENGINE_NAME type SSRV_ENGINE_NAME
+    returning
+      value(RETURN) type SXMSVALUE .
+  methods GET_URL_OF_IS
+    importing
+      !MESSAGE type ref to IF_XMS_MESSAGE_XMB
+    returning
+      value(RE_URL) type STRING
+    raising
+      CX_XMS_SYSERR_ENGINE .
+  methods SET_PASSPORT
+    importing
+      !CLIENT type ref to IF_HTTP_CLIENT
+      !URI type STRING
+      !MAIN type ref to CL_XMS_MSGHDR30_MAIN .
+ENDCLASS.
+
+
+
+CLASS CL_XMS_PLSRV_IE_ADAPTER IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->CALL_XMS_HTTP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_MESSAGE                     TYPE REF TO IF_XMS_MESSAGE
+* | [--->] IM_CHANNEL                     TYPE REF TO CL_SRV_CHANNEL
+* | [--->] IM_ISERVER_URL                 TYPE        SXMSVALUE
+* | [--->] IM_ADAPTER_NAME                TYPE        SSRV_ADAPTER_NAME
+* | [--->] IM_MESSAGE_VERSION             TYPE        SXMS_VERSION
+* | [<---] EX_MESSAGE                     TYPE REF TO IF_XMS_MESSAGE
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD call_xms_http .
+
+*in case of system exception:
+*   - the response message is initial!
+*   - trace is written to request message
+*   - no error message is created!
+  TRY.
+      m_set_package if_xms_config=>co_subparam_http_handler_out.
+      CLASS cl_xms_factory DEFINITION LOAD.
+      INTERFACE if_xms_config LOAD.
+
+      DATA: lv_scheme TYPE i.
+      DATA: lv_http_client_ref TYPE REF TO if_http_client.
+      DATA: lv_subrc TYPE sysubrc.
+      DATA: ls_mo_xstring TYPE xstring.
+      DATA: lv_message_len TYPE int4.
+      DATA: lv_http_error_code TYPE sysubrc.
+      DATA: lv_http_error_message TYPE string.
+      DATA: lv_part_ref TYPE REF TO if_xms_part.
+
+      DATA: lt_header_field TYPE tihttpnvp.
+      DATA: ls_header_field TYPE ihttpnvp.
+
+      DATA: ls_contenttype TYPE string.
+      DATA: ls_description TYPE string.
+      DATA: ls_status_code TYPE char3.                      "#EC NEEDED
+      DATA: ls_status_reason TYPE string.
+
+      DATA: lt_xms_header TYPE sxms_nv_t.
+
+      DATA: lv_part_util_ref TYPE REF TO cl_xms_part_util.
+      DATA: lv_factory_ref TYPE REF TO if_xms_factory.      "#EC NEEDED
+      DATA: ls_response TYPE string.
+
+      DATA: lv_mo_receiver_response TYPE REF TO if_xms_message_xmb.
+
+      DATA: lv_addressing_mode TYPE string.
+      DATA: ls_transport_protocol TYPE ssrv_transport_protocol.
+      DATA: ls_message_protocol TYPE ssrv_message_protocol.
+      DATA: lv_host TYPE string.
+      DATA: lv_port TYPE string.
+      DATA: lv_transport_prot TYPE string.
+      DATA: lv_transport_prot_vers TYPE string.
+      DATA: lv_destination TYPE rfcdest.
+
+      DATA: lv_uri TYPE string.
+      DATA: lv_logon_client_ch TYPE char3.
+      DATA: lv_logon_language_ch TYPE char2.
+      DATA: lv_logon_language_rfc TYPE rfcdisplay-rfclang.
+      DATA: lv_ssl TYPE rfcdisplay-rfcsnc.
+      DATA: lv_logon_client TYPE string.
+      DATA: lv_logon_language TYPE string.
+      DATA: lv_logon_user TYPE string.
+      DATA: lv_logon_password TYPE string.
+      DATA: lv_ssl_id TYPE ssfapplssl.
+
+      DATA lv_proxy_host     TYPE string.
+      DATA lv_proxy_service  TYPE string.
+      DATA lv_proxy_user     TYPE string.
+      DATA lv_proxy_password TYPE string.
+
+      DATA: lv_timeout TYPE i.
+      DATA: lv_exception_name TYPE string.
+      DATA: lt_header TYPE tihttpnvp.
+      DATA: lt_header2 TYPE tihttpnvp.
+
+      DATA: ls_header TYPE LINE OF tihttpnvp.
+      DATA: lv_value TYPE sxmsvalue.
+      DATA: lv_status_code TYPE i.
+      DATA: lv_icmclnterror_text TYPE string.
+
+      DATA: ls_file_name TYPE string.
+      DATA: ls_string1 TYPE string.
+      DATA: ls_string2 TYPE string.
+      DATA: ls_debug_string TYPE string.
+
+      DATA: lv_auth_mode TYPE string.
+      DATA: lv_p1 TYPE string.
+      DATA: lv_p2 TYPE string.
+      DATA: lv_http_client_created TYPE sxmsflag.
+
+      DATA: lv_engine_type TYPE ssrv_engine_type.
+      DATA: lv_engine_name TYPE ssrv_engine_name.
+      DATA: lv_info TYPE string.
+
+      DATA: lv_ae_url TYPE string.
+      DATA: lv_ae_user TYPE string.
+      DATA: lv_ae_password TYPE string.
+      DATA: lv_was_cached TYPE abap_bool.
+      DATA: lv_url TYPE string.
+      DATA: lv_exception TYPE REF TO cx_xms_system_error.
+      DATA: lv_response_received TYPE sxmsflag.
+      data lv_dest_not_found  TYPE sxmsflag.
+
+      DATA: lv_channel_exception TYPE REF TO cx_srv_channel_error.
+
+      DATA: lv_outbinding           TYPE REF TO cl_srv_binding,
+            lv_propagate_principal  TYPE c.
+
+      DATA l_data  type char200.
+      DATA l_cguid TYPE sxmspeguid.
+      DATA l_xmb   type ref to if_xms_message_xmb.
+
+      moint = im_message.
+      mo ?= moint.
+
+      m_trc_function_begin 'CL_XMS_PLSRV_IE_ADAPTER-CALL_XMS_HTTP'.
+
+      l_xmb ?= im_message.
+      l_cguid = l_xmb->GET_MESSAGE_ID( ).
+
+      TRY.
+
+*-----Case: IS->IE via channel
+          IF im_channel IS NOT INITIAL.
+*           get the propagate principal configuration from receiver agreement (is -> receiver)
+            IF outb IS INITIAL.
+              outb ?= moint->getheaderbyname(
+                                nsuri  = if_srv_outbinding_xms_prop=>co_prop_nsuri
+                                lcname = if_srv_outbinding_xms_prop=>co_prop_lcname ).
+            ENDIF.
+            lv_outbinding = outb->get_binding( ).
+            IF lv_outbinding IS NOT INITIAL.
+              lv_propagate_principal = lv_outbinding->get_attribute( im_attribute_name = if_xi_adapter_const_ie=>co_attr_propagate_principal ).
+            ENDIF.
+
+            lv_engine_type = im_channel->get_engine_type( ).
+            lv_engine_name = im_channel->get_engine_name( ).
+
+            CASE lv_engine_type.
+*---------EngineType = AdatperEngine
+              WHEN if_srv_constants=>co_adapter_engine.
+
+                ro->set_adapter_out_name( lv_engine_name ).
+*-----------Get url+logon info
+                m_begin_ts '2' 'SAI_AE_DETAILS_GET'
+                               cl_xms_run_time_perf=>co_category_plsrv.
+                CALL FUNCTION 'SAI_AE_DETAILS_GET'
+                  EXPORTING
+                    ae_name                  = lv_engine_name
+                    trace                    = to
+                  IMPORTING
+                    ae_msg_url               = lv_ae_url
+                    is_service_user_name     = lv_ae_user
+                    is_service_user_password = lv_ae_password
+                    was_cached               = lv_was_cached
+                  EXCEPTIONS
+                    no_adapter_engine_found  = 1
+                    no_messaging_url_found   = 2
+                    no_logon_parameter_found = 3
+                    unspecified_exception    = 4
+                    OTHERS                   = 5.
+* error handling with secure storage problems
+            if sy-subrc = 3.
+* delete AFW-cache to force to reread from SLD & Exchange Profile
+              if lv_engine_name is initial.
+                delete from SXISLDAEC where TYPE = 'CA'.
+              else.
+                delete from SXISLDAEC where name = lv_engine_name.
+              endif.
+
+            concatenate 'Error GUID' '&' l_cguid '&'       "#EC NOTEXT
+                        'SXI_CACHE AFW deleted' into l_data. "#EC NOTEXT
+            CALL 'C_WRITE_SYSLOG_ENTRY'
+                  ID 'TYP'  FIELD space
+                  ID 'KEY'  FIELD 'D43'
+                  ID 'DATA' FIELD l_data.
+* now SLD and Exchange Profile must be online !
+* adapter engine will be stored under new ID
+* password will be stored in Secure Store under new ID
+             CALL FUNCTION 'SAI_AE_DETAILS_GET'
+              EXPORTING
+                ae_name                  = lv_engine_name
+                trace                    = to
+                BYPASSING_CACHE          = 'X'
+              IMPORTING
+                ae_msg_url               = lv_ae_url
+                is_service_user_name     = lv_ae_user
+                is_service_user_password = lv_ae_password
+                was_cached               = lv_was_cached
+              EXCEPTIONS
+                no_adapter_engine_found  = 1
+                no_messaging_url_found   = 2
+                no_logon_parameter_found = 3
+                unspecified_exception    = 4
+                OTHERS                   = 5.
+            endif.
+                IF sy-subrc <> 0.
+                  MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                          INTO lv_info
+                          WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+                  lv_p1 = lv_engine_name.
+                  RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                    EXPORTING
+                      id   = cx_xms_syserr_engine=>co_id_ae_details_get_error
+                      p1   = lv_p1
+                      info = lv_info.
+                ENDIF.
+            m_end_ts '2' 'SAI_AE_DETAILS_GET'
+                         cl_xms_run_time_perf=>co_category_plsrv.
+
+                m_trc1 'Get logon data for adapter engine (SAI_AE_DETAILS_GET):'
+                       lv_engine_name.
+                m_trc1 'URL = ' lv_ae_url.
+                m_trc1 'User = ' lv_ae_user.
+                m_trc1 'Cached = ' lv_was_cached.
+
+                IF if_xi_adapter_const_ie=>co_adapter_name_jpr = im_channel->get_adapter_name( ).
+                  REPLACE '/AFW/' IN lv_ae_url WITH '/JPR/'.
+                  REPLACE '\AFW\' IN lv_ae_url WITH '\JPR\'.
+                  m_trc3 'Java Proxy: change URL in case of ack' ''.
+                  m_trc3 'URL = ' lv_ae_url.
+                ENDIF.
+
+
+                lcl_util=>split_url( EXPORTING im_url = lv_ae_url
+                                     IMPORTING ex_addressing_mode = lv_addressing_mode
+                                               ex_destination = lv_destination
+                                               ex_host = lv_host
+                                               ex_port = lv_port
+                                               ex_uri = lv_uri
+                                               ex_transport_protocol = ls_transport_protocol ).
+
+                IF ls_transport_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+                  lv_scheme =  cl_http_client=>schemetype_http.
+                ELSEIF ls_transport_protocol-protocol_name = 'HTTPS'.
+                  lv_scheme =  cl_http_client=>schemetype_https.
+                ELSE.
+                  lv_p1 = ls_transport_protocol-protocol_name.
+                  RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                    EXPORTING
+                      id = cx_xms_syserr_engine=>co_id_transport_prot_invalid
+                      p1 = lv_p1.
+                ENDIF.
+                lv_transport_prot = ls_transport_protocol-protocol_name.
+                lv_transport_prot_vers = ls_transport_protocol-protocol_version. "'HTTP/1.0'.  "1.1
+                lv_auth_mode = if_xi_adapter_const_ie=>co_val_auth_mode_basic_non_sap.
+                lv_logon_user = lv_ae_user.
+                lv_logon_password = lv_ae_password.
+                ls_message_protocol = if_xms_msghdr=>co_message_version.
+*??         ls_message_protocol = im_channel->get_message_protocol( ).
+                IF mo->get_quality_of_service( ) = if_xms_msghdr30_rm=>co_qos_eoio AND lv_propagate_principal NE '1'.
+                  DATA value TYPE sxmsvalue.
+                  CALL FUNCTION 'SXMB_GET_CONFIG'
+                    EXPORTING
+                      im_area             = if_xms_config=>co_area_runtime
+                      im_param            = if_xms_config=>co_param_ae_eoio_optimize
+                    IMPORTING
+                      ex_value            = value
+                    EXCEPTIONS
+                      parameter_not_found = 1.
+                  IF sy-subrc = 0 AND value = co_true.
+                    cl_xms_cookie_store=>set_trace( to ).
+                    TRY.
+                        cl_xms_cookie_store=>add_jsessionid_cookie( ro->get_queueid_int( ) ).
+                      CATCH cx_xms_system_error.
+                        m_trc1 'The creation of the JSESSION cookie failed' space.
+                    ENDTRY.
+                  ENDIF.
+                ENDIF.
+
+*---------EngineType = IntegrationServer
+              WHEN if_srv_constants=>co_integration_server.
+                IF NOT lv_engine_name IS INITIAL.
+*-----------Get url+logon info
+                m_begin_ts '2' 'SAI_IS_DETAILS_GET'
+                               cl_xms_run_time_perf=>co_category_plsrv.
+                  CALL FUNCTION 'SAI_IS_DETAILS_GET'
+                    EXPORTING
+                      is_name                     = lv_engine_name
+                    IMPORTING
+                      is_msg_url                  = lv_ae_url
+                      is_service_user_name        = lv_ae_user
+                      is_service_user_password    = lv_ae_password
+                      was_cached                  = lv_was_cached
+                      is_service_user_language    = lv_logon_language_ch
+                      is_mandt                    = lv_logon_client_ch
+                    EXCEPTIONS
+                      no_integration_server_found = 1
+                      no_messaging_url_found      = 2
+                      no_logon_parameter_found    = 3
+                      cache_refresh_error         = 4
+                      no_business_system_found    = 5
+                      no_bc_client_found          = 6
+                      unspecified_exception       = 7
+                      OTHERS                      = 8.
+            if sy-subrc = 3.
+* delete AFW-cache to force to reread from SLD & Exchange Profile
+              delete from SXISLDAEC
+                     where name = lv_engine_name and type = 'IS'.
+             concatenate 'Error GUID' '&' l_cguid '&'       "#EC NOTEXT
+                         'SXI_CACHE AFW deleted' into l_data. "#EC NOTEXT
+             CALL 'C_WRITE_SYSLOG_ENTRY'
+                  ID 'TYP'  FIELD space
+                  ID 'KEY'  FIELD 'D43'
+                  ID 'DATA' FIELD l_data.
+* now SLD and Exchange Profile must be online !
+* adapter engine will be stored under new ID
+* password will be stored in Secure Store under new ID
+              CALL FUNCTION 'SAI_IS_DETAILS_GET'
+                EXPORTING
+                  is_name                     = lv_engine_name
+                  BYPASSING_CACHE             = 'X'
+                IMPORTING
+                  is_msg_url                  = lv_ae_url
+                  is_service_user_name        = lv_ae_user
+                  is_service_user_password    = lv_ae_password
+                  was_cached                  = lv_was_cached
+                  is_service_user_language    = lv_logon_language_ch
+                  is_mandt                    = lv_logon_client_ch
+                EXCEPTIONS
+                  no_integration_server_found = 1
+                  no_messaging_url_found      = 2
+                  no_logon_parameter_found    = 3
+                  cache_refresh_error         = 4
+                  no_business_system_found    = 5
+                  no_bc_client_found          = 6
+                  unspecified_exception       = 7
+                  OTHERS                      = 8.
+             endif.
+             m_end_ts '2' 'SAI_IS_DETAILS_GET'
+                          cl_xms_run_time_perf=>co_category_plsrv.
+                  IF sy-subrc <> 0.
+                    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                            INTO lv_info
+                            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+                    lv_p1 = lv_engine_name.
+                    RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                      EXPORTING
+                        id   = cx_xms_syserr_engine=>co_id_is_details_get_error
+                        p1   = lv_p1
+                        info = lv_info.
+                  ENDIF.
+
+                  lv_logon_client = lv_logon_client_ch.
+                  lv_logon_language = lv_logon_language_ch.
+
+                  m_trc1 'Get logon data for adapter engine (SAI_AE_DETAILS_GET):'
+                         lv_engine_name.
+                  m_trc1 'URL = ' lv_ae_url.
+                  m_trc1 'User = ' lv_ae_user.
+                  m_trc1 'Cached = ' lv_was_cached.
+                  m_trc1 'Client = ' lv_logon_client.
+                  m_trc1 'Language = ' lv_logon_language.
+
+                  lcl_util=>split_url( EXPORTING im_url = lv_ae_url
+                                       IMPORTING ex_addressing_mode = lv_addressing_mode
+                                                 ex_destination = lv_destination
+                                                 ex_host = lv_host
+                                                 ex_port = lv_port
+                                                 ex_uri = lv_uri
+                                                 ex_transport_protocol = ls_transport_protocol ).
+
+                  IF ls_transport_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+                    lv_scheme =  cl_http_client=>schemetype_http.
+                  ELSEIF ls_transport_protocol-protocol_name = 'HTTPS'.
+                    lv_scheme =  cl_http_client=>schemetype_https.
+                  ELSE.
+                    lv_p1 = ls_transport_protocol-protocol_name.
+                    RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                      EXPORTING
+                        id = cx_xms_syserr_engine=>co_id_transport_prot_invalid
+                        p1 = lv_p1.
+                  ENDIF.
+
+                  lv_transport_prot = ls_transport_protocol-protocol_name.
+                  lv_transport_prot_vers = ls_transport_protocol-protocol_version. "'HTTP/1.0'.  "1.1
+
+                  lv_auth_mode = if_xi_adapter_const_ie=>co_val_auth_mode_basic_sap.
+                  lv_logon_user = lv_ae_user.
+                  lv_logon_password = lv_ae_password.
+
+                  ls_message_protocol = im_channel->get_message_protocol( ).
+                ELSE.
+*-----------Use adapter within integration server
+                  CASE im_adapter_name.
+*-------------Adapter: IE
+                    WHEN if_xi_adapter_const_ie=>co_adapter_name.
+
+                      lv_addressing_mode = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_addr_mode ).
+                      lv_auth_mode = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_auth_mode_basic_anon ).
+
+                      m_trc1 'Addressing mode:' lv_addressing_mode.
+
+                      CASE lv_addressing_mode.
+                        WHEN if_xi_adapter_const_ie=>co_val_addr_mode_url.
+                          lv_host = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_host ).
+                          lv_port = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_port ).
+                          ls_transport_protocol = im_channel->get_transport_protocol( ).
+                          lv_transport_prot = ls_transport_protocol-protocol_name.
+                          lv_transport_prot_vers = ls_transport_protocol-protocol_version. "'HTTP/1.0'.  "1.1
+                          lv_uri = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_path ).
+
+                          m_trc1 'Host = ' lv_host.
+                          m_trc1 'Port = ' lv_port.
+                          m_trc1 'Transport protocol = ' ls_transport_protocol.
+                          m_trc1 'Message protocol = ' ls_message_protocol.
+                          m_trc1 'Path = ' lv_uri.
+*  proxy configuration
+*  proxy-host for firewall, e.g. mysap.com , service for firewall, eg 1081
+                          lv_proxy_host     = im_channel->get_attribute( if_xi_adapter_const_http=>co_attr_proxy_host ).
+                          lv_proxy_service  = im_channel->get_attribute( if_xi_adapter_const_http=>co_attr_proxy_port ).
+                          lv_proxy_user     = im_channel->get_attribute( if_xi_adapter_const_http=>co_attr_proxy_user ).
+                          TRY.
+                              if im_message->ro is bound and  "not bound in case of XI 2.0 protocol
+                                im_message->ro->get_external_pl_id( ) = cl_xms_byd=>c_xi_adp_sender_pipeline.
+                                lv_proxy_password = im_channel->get_attribute( if_xi_adapter_const_http=>co_attr_proxy_password ).
+                              ELSE.
+                                lv_proxy_password = im_channel->get_attribute_as_password(
+                                                if_xi_adapter_const_http=>co_attr_proxy_password  ).
+                              ENDIF.
+                            CATCH cx_srv_channel_error INTO lv_channel_exception.
+                              RAISE EXCEPTION TYPE cx_xms_syserr_outbinding
+                                EXPORTING
+                                  id       = cx_xms_syserr_outbinding=>co_id_channel_password_error
+                                  previous = lv_channel_exception.
+                          ENDTRY.
+
+                          IF lv_transport_prot = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+                            lv_scheme =  cl_http_client=>schemetype_http.
+                          ELSEIF lv_transport_prot = if_xi_adapter_const_ie=>co_val_trns_prt_name_https.
+                            lv_scheme =  cl_http_client=>schemetype_https.
+                          ELSE.
+                            lv_p1 = lv_transport_prot.
+                            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                              EXPORTING
+                                id = cx_xms_syserr_engine=>co_id_transport_prot_invalid
+                                p1 = lv_p1.
+                          ENDIF.
+
+                          m_trc1 'Auth mode:' lv_auth_mode.
+
+                          IF lv_auth_mode <> if_xi_adapter_const_ie=>co_val_auth_mode_anonymous.
+                            lv_logon_user = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_logon_user ).
+                            TRY.
+                                if im_message->ro is bound and  "not bound in case of XI 2.0 protocol
+                                  im_message->ro->get_external_pl_id( ) = cl_xms_byd=>c_xi_adp_sender_pipeline.
+                                  lv_logon_password = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_logon_password ).
+                                ELSE.
+                                  lv_logon_password = im_channel->get_attribute_as_password( if_xi_adapter_const_ie=>co_attr_logon_password ).
+                                ENDIF.
+                              CATCH cx_srv_channel_error INTO lv_channel_exception.
+                                RAISE EXCEPTION TYPE cx_xms_syserr_outbinding
+                                  EXPORTING
+                                    id       = cx_xms_syserr_outbinding=>co_id_channel_password_error
+                                    previous = lv_channel_exception.
+                            ENDTRY.
+                            lv_logon_client = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_logon_client ).
+                            lv_logon_language = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_logon_language ).
+
+                            m_trc3 'Conversion of language from char2 to char1'
+                                   lv_logon_language.
+
+                            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+                              EXPORTING
+                                input            = lv_logon_language
+                              IMPORTING
+                                output           = lv_logon_language
+                              EXCEPTIONS
+                                unknown_language = 1
+                                OTHERS           = 2.
+
+                            IF sy-subrc <> 0.
+                              m_trc1 'Cannot convert logon language to internal format'
+                                     lv_logon_language.
+*                         we keep language and choose default language or
+*                         handle logon error later
+                            ENDIF.
+
+                            m_trc1 'User = ' lv_logon_user.
+                            m_trc1 'Client = ' lv_logon_client.
+                            m_trc1 'Language = ' lv_logon_language.
+
+                          ENDIF.
+
+                          IF lv_scheme = cl_http_client=>schemetype_https.
+                            lv_ssl_id = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_client_certificate ).
+                          ENDIF.
+                        WHEN if_xi_adapter_const_ie=>co_val_addr_mode_destination.
+                          lv_destination = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_http_destination ).
+                          m_trc1 'Destination = ' lv_destination.
+
+                        WHEN OTHERS.
+                          lv_p1 = lv_addressing_mode.
+                          lv_p2 = im_adapter_name.
+                          RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                            EXPORTING
+                              id = cx_xms_syserr_engine=>co_id_chnl_addr_mode_invalid
+                              p1 = lv_p1
+                              p2 = lv_p2.
+                      ENDCASE.
+
+                    WHEN OTHERS.
+                      lv_p1 = im_adapter_name.
+                      RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                        EXPORTING
+                          id = cx_xms_syserr_engine=>co_id_adapter_name_invalid
+                          p1 = lv_p1.
+                  ENDCASE.
+                ENDIF.
+*---------EngineType = Unknown
+              WHEN OTHERS.
+                lv_p1 = lv_engine_type.
+                RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                  EXPORTING
+                    id = cx_xms_syserr_engine=>co_id_engine_type_invalid
+                    p1 = lv_p1.
+            ENDCASE.
+
+
+*-----Case: IE->IS via url
+          ELSE.
+            lv_url = im_iserver_url.
+            m_trc1 'Addressing mode:' 'CallIntegrationServer'.
+            m_trc1 'URL = ' im_iserver_url.
+
+            lcl_util=>split_url( EXPORTING im_url = lv_url
+                                 IMPORTING ex_addressing_mode = lv_addressing_mode
+                                           ex_destination = lv_destination
+                                           ex_host = lv_host
+                                           ex_port = lv_port
+                                           ex_uri = lv_uri
+                                           ex_transport_protocol = ls_transport_protocol ).
+
+            ls_message_protocol = if_xms_msghdr=>co_message_version.
+            lv_transport_prot = ls_transport_protocol-protocol_name.
+            lv_transport_prot_vers = ls_transport_protocol-protocol_version. "'HTTP/1.0'.  "1.1
+
+            m_trc1 'Host = ' lv_host.
+            m_trc1 'Port = ' lv_port.
+            m_trc1 'Transport protocol = ' ls_transport_protocol.
+            m_trc1 'Message protocol = ' ls_message_protocol.
+            m_trc1 'Path = ' lv_uri.
+
+            IF lv_destination IS INITIAL.
+              IF lv_transport_prot = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+                lv_scheme =  cl_http_client=>schemetype_http.
+              ELSEIF lv_transport_prot = if_xi_adapter_const_ie=>co_val_trns_prt_name_https.
+                lv_scheme =  cl_http_client=>schemetype_https.
+                lv_ssl_id = 'ANONYM'.
+              ELSE.
+                lv_p1 = lv_transport_prot.
+                RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                  EXPORTING
+                    id = cx_xms_syserr_engine=>co_id_transport_prot_invalid
+                    p1 = lv_p1.
+              ENDIF.
+            ENDIF.
+*           set the principal propagation on IE (Sender) if user context exist
+            DATA: lv_user_context_id TYPE userinfo_guid.
+            lv_user_context_id = ro->get_userinfo( ).
+            IF NOT lv_user_context_id IS INITIAL.
+              lv_propagate_principal = '1'.
+            ENDIF.
+          ENDIF.
+
+          IF lv_destination IS NOT INITIAL.
+            lcl_util=>init_dest_uri( ).
+            lcl_util=>trace_attr_of_destination( lv_destination ).
+            lv_uri = lcl_util=>get_dest_uri( ).
+          ENDIF.
+          DATA dsr TYPE char1.
+          IF ro->get_bulk_error( ) = 'D'.
+            dsr = 'X'.
+          ENDIF.
+          IF lv_propagate_principal = '1'.
+
+            IF lv_destination IS NOT INITIAL.
+              me->get_attr_of_indirect_endpoint(
+                EXPORTING im_destination = lv_destination
+                  IMPORTING
+*                    ex_rfctype     = lv_dest_type
+                    ex_host        = lv_host
+                    ex_port        = lv_port
+                    ex_client      = lv_logon_client_ch
+*                    ex_user        = lv_dest_user
+                    ex_language    = lv_logon_language_rfc
+                    ex_path        = lv_uri
+                    ex_ssl_active  = lv_ssl
+                    ex_not_found   = lv_dest_not_found
+                    ).
+              case lv_dest_not_found.
+                when '1'.    " destination not found
+
+                when '2'.    "PP user  missing authorization 'S_RFC_ADM' '3'
+                  RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                     EXPORTING
+*                      id = cx_xms_syserr_engine=>co_id_no_exec_permission
+                      id = cx_xms_syserr_engine=>co_id_no_run_permission
+                      p1 = 'Authority object S_RFC_ADM'
+                      p2 = 'Activity 03 (DISPLAY)'
+                      p3 = 'suggested role SAP_XI_APPL_SERV_USER'.
+                when others.  "everything OK
+              endcase.
+              lv_logon_client = lv_logon_client_ch.
+              lv_logon_language = lv_logon_language_rfc.
+
+              IF lv_ssl IS INITIAL.
+                lv_scheme = cl_http_client=>schemetype_http.
+                lv_transport_prot = 'HTTP'.
+                lv_transport_prot_vers = '1.0'.
+              ELSE.
+                lv_scheme = cl_http_client=>schemetype_https.
+                lv_transport_prot = 'HTTPS'.
+                lv_transport_prot_vers = '1.0'.
+              ENDIF.
+
+              CLEAR lv_destination.
+            ENDIF.
+            IF lv_scheme = cl_http_client=>schemetype_https.
+              lv_ssl_id = 'ANONYM'.
+            ENDIF.
+            lv_auth_mode = if_xi_adapter_const_ie=>co_attr_propagate_principal.
+
+            m_trc1 'Principal Propagation connection attributes' ''.
+            m_trc1 'Host = ' lv_host.
+            m_trc1 'Port = ' lv_port.
+            m_trc1 'Transport protocol = ' lv_transport_prot.
+            m_trc1 'Transport protocol vers = ' lv_transport_prot_vers.
+            m_trc1 'Message protocol = ' ls_message_protocol.
+            m_trc1 'Path = ' lv_uri.
+
+          ENDIF.
+
+*-----create http client
+          lv_http_client_ref = lcl_util=>create_http_client( im_destination = lv_destination
+                                                             im_host = lv_host
+                                                             im_port = lv_port
+                                                             im_proxy_host     = lv_proxy_host
+                                                             im_proxy_service  = lv_proxy_service
+                                                             im_proxy_user     = lv_proxy_user
+                                                             im_proxy_password = lv_proxy_password
+                                                             im_scheme = lv_scheme
+                                                             im_ssl_id = lv_ssl_id
+                                                             dsr = dsr ).
+          lv_http_client_created = co_true.
+
+*-----setup http request
+          ls_header-name = '~request_method'.
+          ls_header-value = 'POST'.
+          APPEND ls_header TO lt_header.
+
+*-----calling via channel
+          IF lv_destination IS INITIAL.
+*-----set type (pipeline) by setting uri or by setting form field?!
+
+            cl_http_utility=>set_request_uri(
+                             request = lv_http_client_ref->request
+                             uri = lv_uri ).
+
+            ls_header-name = '~server_protocol'.
+            CONCATENATE lv_transport_prot '/' lv_transport_prot_vers INTO ls_header-value. " 'HTTP/1.1' or 'HTTP/1.0'
+            REPLACE 'HTTPS' IN ls_header-value WITH 'HTTP'.
+            APPEND ls_header TO lt_header.
+
+            ls_header-name = 'sap-xi-messageid'.            "#EC NOTEXT
+            ls_header-value = mo->get_message_id( ).
+            APPEND ls_header TO lt_header.
+*-------set logon data
+*-------todo: case lv_addressing_mode !!!!
+            CASE lv_auth_mode.
+              WHEN if_xi_adapter_const_ie=>co_val_auth_mode_anonymous.
+                m_trc1 'Security: Anonymous authentication' ''.
+              WHEN if_xi_adapter_const_ie=>co_val_auth_mode_basic_sap.
+                m_trc1 'Security: Basic authentication SAP' ''.
+                ls_header-name = 'sap-client'.              "#EC NOTEXT
+                ls_header-value = lv_logon_client.
+                APPEND ls_header TO lt_header.
+
+                ls_header-name = 'sap-language'.            "#EC NOTEXT
+                ls_header-value = lv_logon_language.
+                APPEND ls_header TO lt_header.
+
+                ls_header-name = 'sap-user'.                "#EC NOTEXT
+                ls_header-value = lv_logon_user.
+                APPEND ls_header TO lt_header.
+
+                ls_header-name = 'sap-password'.            "#EC NOTEXT
+                ls_header-value = lv_logon_password.
+                APPEND ls_header TO lt_header.
+
+              WHEN if_xi_adapter_const_ie=>co_val_auth_mode_basic_non_sap.
+
+                m_trc1 'Security: Basic authentication' ''.
+                CALL METHOD lv_http_client_ref->authenticate(
+                  username = lv_logon_user
+                  password = lv_logon_password ).
+
+              WHEN if_xi_adapter_const_ie=>co_attr_propagate_principal.
+                ls_header-name = 'sap-client'.              "#EC NOTEXT
+                ls_header-value = lv_logon_client.
+                APPEND ls_header TO lt_header.
+
+                ls_header-name = 'sap-language'.            "#EC NOTEXT
+                ls_header-value = lv_logon_language.
+                APPEND ls_header TO lt_header.
+
+                m_trc1 'Security: Logon Ticket' ''.
+                lv_http_client_ref->send_sap_logon_ticket( ).
+
+            ENDCASE.
+          ENDIF.
+
+* note 2256501 passport for synchronous AFW XI-messages
+*          IF ho->get_processing_mode( ) = if_xms_msghdr30_main=>co_procmode_sync.
+*            set_passport( client = lv_http_client_ref uri = lv_uri main = ho ).
+*          endif.
+          DATA l_passport TYPE REF TO cl_xms_passport.
+          create object l_passport.
+          if l_passport->IS_ACTIVATED( ) = 'X'.
+             lv_http_client_ref->propertytype_send_sap_passport = if_http_client=>co_enabled.
+          endif.
+
+          ls_header-name = 'sap-xi-messageid'.
+          ls_header-value = mo->get_message_id( ).
+          APPEND ls_header TO lt_header.
+
+          DATA: lv_version_uri TYPE string.
+          IF im_message_version = if_xms_msghdr=>co_message_version_xi20.
+            lv_version_uri = if_xms_msghdr=>co_nsuri_sap_20.
+            CONCATENATE '"' lv_version_uri '"' INTO lv_version_uri.
+          ELSE.
+            lv_version_uri = if_xms_msghdr=>co_nsuri_sap_30.
+            CONCATENATE '"' lv_version_uri '"' INTO lv_version_uri.
+          ENDIF.
+          ls_header-name = 'soapaction'.                    "#EC NOTEXT
+          ls_header-value = lv_version_uri.
+          APPEND ls_header TO lt_header.
+
+
+*-----serialize message object
+          m_trc1 'Serializing message object...' ''.
+          set_test( message = im_message http_request = lv_http_client_ref->request ).
+
+          cl_xms_main=>serialize_message(
+                          EXPORTING im_message = moint
+                          IMPORTING ex_content = ls_mo_xstring
+                                    ex_header = lt_header2 ).
+
+          APPEND LINES OF lt_header2 TO lt_header.
+          cl_xms_cookie_store=>set_cookies_in_http_client( lv_http_client_ref ).
+          CALL METHOD lv_http_client_ref->request->set_header_fields
+            EXPORTING
+              fields = lt_header.
+
+          lv_message_len = xstrlen( ls_mo_xstring ).
+
+          DATA l_sxmsvalue      TYPE sxmsvalue.
+          DATA l_subparam       TYPE sxmsparam.
+* J2EE HTTP Provider in NWA can limit the http content size
+* with parameter MAXREQUESTCONTENTLENGTH
+* J2EE receives the full http request, recognizes the limitation
+* and initiate a rollback => garbage collection (GC)
+* many retries leads to a "non productive" AFW
+* check is done in R/3 to avoid sending request to J2EE
+          IF lv_engine_type = if_srv_constants=>co_adapter_engine.
+            l_subparam = lv_engine_name.
+            CALL FUNCTION 'SXMB_GET_CONFIG'
+              EXPORTING
+                im_area             = if_xms_config=>co_area_tuning
+                im_param            = 'AFW_MAXREQUESTCONTENTLENGTH'
+                im_subparam         = l_subparam
+              IMPORTING
+                ex_value            = l_sxmsvalue
+              EXCEPTIONS
+                parameter_not_found = 1
+                OTHERS              = 2.
+
+            IF sy-subrc = 0.
+              m_trc1 'Tuning - AFW_MAXREQUESTCONTENTLENGTH' l_sxmsvalue.
+              IF  l_sxmsvalue > 0 AND lv_message_len > l_sxmsvalue .
+
+                CONCATENATE 'TUNING-AFW_MAXREQUESTCONTENTLENGTH = ' l_sxmsvalue
+                        INTO lv_p1.
+                lv_p2 = lv_message_len.
+                CONCATENATE 'serialisierte Message-Größe ='(111) lv_p2 INTO lv_p2.
+* raise a manual error
+                RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                  EXPORTING
+                    id   = cx_xms_syserr_engine=>CO_ID_HTTP_REQUEST_TOO_BIG
+                    p1   = lv_p1
+                    p2   = lv_p2
+                    info = 'Request HTTP size protection of J2EE HTTP Provider'.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+
+* Ping Extension no soap envelope for head request
+          IF ro->get_serviceping( ) NE 'X'.
+            ls_header-value = lv_message_len.
+            CALL METHOD lv_http_client_ref->request->set_header_field
+              EXPORTING
+                name  = 'sap-xi-length'
+                value = ls_header-value.
+
+            m_trc1 'HTTP Multipart document length:' lv_message_len.
+* setup payload for client call
+            data l_cx_root type ref to cx_root.
+            data l_virus_scan_text type string.
+            DATA l_xms_syserr_virus_scan TYPE REF TO cx_xms_syserr_virus_scan.
+            try.   "note 2813254 catch CX_VSI from virus scanner
+            CALL METHOD lv_http_client_ref->request->set_data
+              EXPORTING
+                data   = ls_mo_xstring
+                length = lv_message_len.
+            catch cx_root into l_cx_root.
+              l_virus_scan_text  = l_cx_root->get_text( ).
+              create object l_xms_syserr_virus_scan
+                  exporting  previous = l_cx_root
+                                   id = cx_xms_syserr_virus_scan=>id_cx_xms_syserr_virus_scan
+                                   p1 = 'CLIENT'     "#EC NOTEXT
+                                   p2 = 'SET_DATA'   "#EC NOTEXT
+                                 info = l_virus_scan_text.
+               RAISE EXCEPTION l_xms_syserr_virus_scan.
+            endtry.
+          ENDIF.
+
+          IF moint->debug CP 'HTTP_CLIENT_SENT:MESSAGE_TO_FILE:*'.
+            ls_debug_string = moint->debug.
+            SPLIT ls_debug_string AT ':' INTO ls_string1 ls_string2 ls_file_name.
+            CALL METHOD cl_xms_main=>download_xstring(
+              im_file_name = ls_file_name
+              im_xstring = ls_mo_xstring ).
+          ENDIF.
+
+* sending HTTP request
+          m_trc3 'HTTP-client:' 'sending http-request...'.
+
+          lv_timeout = 0.
+          IF im_message->sys IS NOT INITIAL AND im_message->rm->get_qos( ) =  if_xms_msghdr30_rm=>co_qos_be.
+            lv_timeout = im_message->sys->get_sync_timeout( ).
+            if lv_timeout <> 0.
+              m_trc1 'HTTP Timeout: SYSTEM("http://sap.com/xi/XI/Message/30/general" "syncTimeout" )' lv_timeout. "#EC NOTEXT
+            endif.
+          ENDIF.
+          IF NOT im_channel IS INITIAL AND lv_timeout = 0.
+            lv_timeout = im_channel->get_attribute( if_xi_adapter_const_ie=>co_attr_http_timeout ).
+            if lv_timeout <> 0.
+              m_trc1 'HTTP Timeout: Receiver Channel("HTTPTimeout")' lv_timeout. "#EC NOTEXT
+            endif.
+          ENDIF.
+          IF lv_timeout = 0.
+            CALL FUNCTION 'SXMB_GET_CONFIG'
+              EXPORTING
+                im_area  = if_xms_config=>co_area_runtime
+                im_param = if_xms_config=>co_param_http_timeout
+              IMPORTING
+                ex_value = lv_value
+              EXCEPTIONS
+                OTHERS   = 1.
+
+            IF sy-subrc <> 0 OR
+               lv_value IS INITIAL OR
+               lv_value = 0.
+              lv_timeout = 0.
+            ELSE.
+              lv_timeout = lv_value.
+              m_trc1 'HTTP Timeout: XI ABAP Configuration("RUNTIME" "HTTP_TIMEOUT")' lv_timeout. "#EC NOTEXT
+            ENDIF.
+          ENDIF.
+          m_trc1 'Timeout: ' lv_timeout.
+          IF moint->debug = 'SIMULATE_RETRY_ERROR'.
+            lv_subrc = 1.
+            m_trc3 'Simulation of retry error!!' ''.
+          ELSE.
+
+            m_trc1 'HTTP-client:' 'request sent'.
+            m_begin_ts '1' 'HTTP_SEND'
+                       cl_xms_run_time_perf=>co_category_plsrv.
+* Ping Extension
+            IF ro->get_serviceping( ) EQ 'X'.
+              lv_http_client_ref->request->set_method( 'HEAD' ). " set head method
+            ENDIF.
+
+            CALL METHOD lv_http_client_ref->send
+              EXPORTING
+                timeout                    = lv_timeout
+              EXCEPTIONS
+                http_communication_failure = 1
+                http_invalid_state         = 2
+                http_processing_failed     = 3
+                http_invalid_timeout       = 4.
+
+            lv_subrc = sy-subrc.
+          ENDIF.
+
+          IF lv_subrc <> 0.
+            CASE lv_subrc.
+              WHEN 1.
+                lv_exception_name = 'HTTP_COMMUNICATION_FAILURE'.
+              WHEN 2.
+                lv_exception_name = 'HTTP_INVALID_STATE'.
+              WHEN 3.
+                lv_exception_name = 'HTTP_PROCESSING_FAILED'.
+              WHEN 4.
+                lv_exception_name = 'HTTP_INVALID_TIMEOUT'.
+            ENDCASE.
+            CALL METHOD lv_http_client_ref->get_last_error
+              IMPORTING
+                code    = lv_http_error_code
+                message = lv_http_error_message.
+
+            m_trc_syserr 'Exception when sending HTTP-request' lv_exception_name.
+            lv_p1 = lv_http_error_code.
+            lv_p2 = lv_http_error_message.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id = cx_xms_syserr_engine=>co_id_client_send_failed
+                p1 = lv_p1
+                p2 = lv_p2.
+          ENDIF.
+          m_trc3 'HTTP-client:' 'request sent'.
+
+*-----receive response
+          m_trc3 'HTTP-client:' 'Receiving http-response...'.
+
+          CALL METHOD lv_http_client_ref->receive
+            EXCEPTIONS
+              http_communication_failure = 1
+              http_invalid_state         = 2
+              http_processing_failed     = 3.
+
+          lv_subrc = sy-subrc.
+
+          m_end_ts '1' 'HTTP_SEND'
+                      cl_xms_run_time_perf=>co_category_plsrv.
+          m_begin_ts '2' 'HTTP_POST_PROCESS'
+                          cl_xms_run_time_perf=>co_category_plsrv.
+          DATA infokind TYPE sxms_info_kind.
+
+          IF lv_subrc <> 0.
+            CASE lv_subrc.
+              WHEN 1.
+                lv_exception_name = 'HTTP_COMMUNICATION_FAILURE'.
+              WHEN 2.
+                lv_exception_name = 'HTTP_INVALID_STATE'.
+              WHEN 3.
+                lv_exception_name = 'HTTP_PROCESSING_FAILED'.
+            ENDCASE.
+            CALL METHOD lv_http_client_ref->get_last_error
+              IMPORTING
+                code    = lv_http_error_code
+                message = lv_http_error_message.
+
+            ls_response = lv_http_client_ref->response->get_cdata( ).
+            lv_response_received = co_true.
+*  add trace and logg entries for analyzing timeout problems
+            DATA l_text TYPE char100.
+            DATA l_value TYPE sxmsvalue.
+            IF lv_http_error_code = '402' AND
+                  lv_http_error_message = 'ICM_HTTP_TIMEOUT'.
+              m_trc1 '402' 'ICM_HTTP_TIMEOUT'.
+              CALL FUNCTION 'SXMB_GET_CONFIG'
+                EXPORTING
+                  im_area  = if_xms_config=>co_area_runtime
+                  im_param = if_xms_config=>co_param_http_timeout
+                IMPORTING
+                  ex_value = l_value
+                EXCEPTIONS
+                  OTHERS   = 1.
+* check which http processing timeout value was used
+              IF sy-subrc = 0 AND l_value > 0.
+                m_trc1 'SXMB_ADMIN RUNTIME HTTP_TIMEOUT = ' l_value .
+              ENDIF.
+              DATA l_t_servlist TYPE TABLE OF icm_sinfo.
+              DATA l_servlist   TYPE  icm_sinfo.
+              CALL FUNCTION 'ICM_GET_INFO'
+                TABLES
+                  servlist    = l_t_servlist
+                EXCEPTIONS
+                  icm_error   = 1
+                  icm_timeout = 2
+                  OTHERS      = 3.
+              IF sy-subrc = 0.
+                LOOP AT l_t_servlist INTO l_servlist
+                    WHERE ( protocol = 1 OR protocol = 2 )
+                    AND active = 'X'.
+                  IF l_servlist-protocol = 1.
+                    CONCATENATE 'HTTP: ' l_servlist-hostname ':'
+                        l_servlist-service ' PROCTIMEOUT = ' INTO l_text.
+                  ENDIF.
+                  IF l_servlist-protocol = 2.
+                    CONCATENATE 'HTTPS: ' l_servlist-hostname ':'
+                        l_servlist-service ' PROCTIMEOUT = ' INTO l_text.
+                  ENDIF.
+                  m_trc1 l_text l_servlist-proc_timeout.
+                ENDLOOP.
+              ENDIF.
+            ENDIF.
+            m_trc_syserr 'HTTP-Client: exception during receive:'
+                         lv_exception_name.
+            m_trc_function_end.
+            m_end_ts '2' 'HTTP_POST_PROCESS'
+                       cl_xms_run_time_perf=>co_category_plsrv.
+            lv_p1 = lv_http_error_code.
+            lv_p2 = lv_http_error_message.
+            CALL METHOD lv_http_client_ref->response->get_header_fields
+              CHANGING
+                fields = lt_header_field.
+            READ TABLE lt_header_field WITH KEY name = 'xi_host_wp'  "#EC NOTEXT
+                                          INTO ls_header_field.
+            if sy-subrc = 0.   "note 2128657
+               m_trc1 'Receiver Application Server/WP :' ls_header_field-value. "#EC NOTEXT
+            endif.
+            READ TABLE lt_header_field WITH KEY name = 'content-type' INTO ls_header_field.
+            IF sy-subrc = 0.
+              ls_contenttype = ls_header_field-value.
+            ENDIF.
+            TRY.
+                check_content_type( ls_contenttype ).
+              CATCH cx_xms_html_error.
+                infokind = cx_xms_system_error=>co_infokind_html.
+            ENDTRY.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id       = cx_xms_syserr_engine=>co_id_client_receive_failed
+                p1       = lv_p1
+                p2       = lv_p2
+                info     = ls_response
+                infokind = infokind.
+          ENDIF.
+          m_trc1 'HTTP-client:' 'response received'.
+
+* get header fields of http request
+          m_trc3 'HTTP-client:' 'checking status code...'.
+
+          CALL METHOD lv_http_client_ref->response->get_header_fields
+            CHANGING
+              fields = lt_header_field.
+          process_http_headers(
+          EXPORTING
+            lt_header_field = lt_header_field
+          CHANGING
+            infokind = infokind
+            ls_contenttype = ls_contenttype
+            ls_description = ls_description
+            ls_header_field = ls_header_field
+            lt_xms_header = lt_xms_header
+            lv_icmclnterror_text = lv_icmclnterror_text
+          ).
+
+          lv_http_client_ref->response->get_status(
+                       IMPORTING code = lv_status_code
+                                 reason = ls_status_reason ).
+          ls_status_code = lv_status_code.
+          m_trc1 'HTTP-client: status code = ' ls_status_code.
+
+          IF lv_status_code EQ 401.
+            ls_response = lv_http_client_ref->response->get_cdata( ).
+            lv_p1 = lv_status_code.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id       = cx_xms_syserr_engine=>co_id_unauthorized
+                p1       = lv_p1
+                p2       = ls_status_reason
+                info     = ls_response
+                infokind = infokind.
+
+          ELSEIF lv_status_code NE 500 AND ls_status_code+0(1) NE '2'.
+            ls_response = lv_http_client_ref->response->get_cdata( ).
+            lv_p1 = lv_status_code.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id       = cx_xms_syserr_engine=>co_id_client_send_failed
+                p1       = lv_p1
+                p2       = ls_status_reason
+                info     = ls_response
+                infokind = infokind.
+
+          ELSEIF  ls_status_code(1) NE 2 AND ro->get_serviceping( ) EQ 'X'.
+            ls_response = lv_http_client_ref->response->get_cdata( ).
+            lv_p1 = lv_status_code.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id       = cx_xms_syserr_engine=>co_id_client_send_failed
+                p1       = lv_p1
+                p2       = ls_status_reason
+                info     = ls_response
+                infokind = infokind.
+          ENDIF.
+
+
+*XI2.0:
+*     in case of async processing we expect a
+*     technical okay response
+*     1) http 2* + empty payload                  -> ok
+*     2) http 2* code(eo(mo)) initial             -> ok
+*     3) http 2* + code(eo(mo)) not initial       -> not ok
+*     4) http 2* + eo(mo) not exists              -> ok
+*     5) http <> 2* + eo(http-header) not initial -> not ok
+*     6) http <> 2* + eo(http-header) initial     -> not ok
+
+* deserializing message object
+* get xstring of http request
+          IF lv_status_code NE 202.
+            m_trc1 'Deserializing message object...' ''.
+            CLEAR ls_mo_xstring.
+            try.   "note 2813254 catch CX_VSI from virus scanner
+              ls_mo_xstring = lv_http_client_ref->response->get_data( ).
+            catch cx_root into l_cx_root.
+              l_virus_scan_text  = l_cx_root->get_text( ).
+              create object l_xms_syserr_virus_scan
+                  exporting  previous = l_cx_root
+                                   id = cx_xms_syserr_virus_scan=>id_cx_xms_syserr_virus_scan
+                                   p1 = 'CLIENT'     "#EC NOTEXT
+                                   p2 = 'GET_DATA'   "#EC NOTEXT
+                                 info = l_virus_scan_text.
+               RAISE EXCEPTION l_xms_syserr_virus_scan.
+            endtry.
+            IF lv_status_code = 500.
+              ls_mo_xstring = CONVERT_HTML_ERROR( CONTENT_TYPE = ls_contenttype INPUT = ls_mo_xstring  ).
+            endif.
+
+            IF ls_mo_xstring IS INITIAL.
+              m_trc1 'Empty response received!' ''.
+            ENDIF.
+
+            lv_part_util_ref = cl_xms_part_util=>getinstance( ).
+            lv_part_ref = lv_part_util_ref->createpart( ).
+
+* create xms factory
+            lv_factory_ref = cl_xms_factory=>createinstance( ).
+
+            IF moint->debug CP 'HTTP_CLIENT_RECEIVED:MESSAGE_TO_FILE:*'.
+              ls_debug_string = moint->debug.
+              SPLIT ls_debug_string AT ':' INTO ls_string1 ls_string2 ls_file_name.
+              CALL METHOD cl_xms_main=>download_xstring(
+                im_file_name = ls_file_name
+                im_xstring = ls_mo_xstring ).
+            ENDIF.
+* Ping Extension
+            IF ro->get_serviceping( ) <> 'X'.
+*XI2.0 tech OK
+              IF ho->get_processing_mode( ) = if_xms_msghdr30_main=>co_procmode_async
+*        check_content_type( ls_contenttype ).
+                AND ls_mo_xstring IS INITIAL AND
+                  ls_status_code+0(1) = '2' AND
+                  im_message_version = if_xms_msghdr=>co_message_version_xi20.
+
+*           technical response case 1)
+                ex_message =  moint.
+              ELSE.
+              data lx_CX_XMS_EXCEPTION type ref to CX_XMS_EXCEPTION.
+              try.
+                CALL METHOD lv_part_ref->readfromcomponents
+                  EXPORTING
+                    contenttype = ls_contenttype
+                    description = ls_description
+                    headers     = lt_xms_header
+                    body        = ls_mo_xstring.
+              catch CX_XMS_EXCEPTION into lx_CX_XMS_EXCEPTION.
+                LOG_DATA_AS_MSG( remote_addr = 'XI_RECEIVER' data = ls_mo_xstring ).
+                raise EXCEPTION lx_CX_XMS_EXCEPTION.
+              endtry.
+
+                DATA error TYPE REF TO cx_xms_system_error.
+                DATA error_attr TYPE sxmssyserr.
+                TRY.
+                    lv_mo_receiver_response = cl_xms_main=>deserialize_message( im_message_part = lv_part_ref ).
+
+                    " Note 2708871 The following section is important only for synch request/response msgs;
+                    "              It must not be executed if the proccessing mode is asynchronous.
+                    IF ho->get_processing_mode( ) = if_xms_msghdr30_main=>co_procmode_sync.
+                      " copy the inbound binding from the request to the response
+                      "SAP Note 1741189
+                      lv_mo_receiver_response->set_inbound_binding( mo->get_inbound_binding( ) ).
+                      mo->set_ref_to_message_id( lv_mo_receiver_response->get_message_id( ) ).
+                    endif.
+                  CATCH cx_xms_system_error INTO error.
+* if special parsing error then response is not xml but html. Therefore no parser error should be raised
+                    error_attr = error->get_attributes( ).
+                    IF error_attr-category = cx_xms_system_error=>co_category_xiprotocol
+                    AND error_attr-area = cx_xms_syserr_parser=>co_area_parser
+                    AND error_attr-id = cx_xms_syserr_parser=>co_id_xml_item_missing
+                    AND error->p1 = '{http://schemas.xmlsoap.org/soap/envelope/}Envelope'. "#EC NOTEXT
+*                AND ls_status_code(1) NE '2'.
+                      ls_response = lv_http_client_ref->response->get_cdata( ).
+                      lv_p1 = lv_status_code.
+                      IF ls_status_code(1) = '2'.
+                        m_trc1 'HTTP-client: parsing failed, status code =  '
+                                ls_status_code.
+                        ls_status_reason = 'Fehler beim Parsen der Response. Es wurde keine XI-Response empfangen'(123).
+                        RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                          EXPORTING
+                            id       = cx_xms_syserr_engine=>co_id_ok_but_no_xi_message
+                            info     = ls_response
+                            infokind = infokind
+                            previous = error.
+                      ELSE.
+                        m_trc1 'HTTP-client: parsing failed, status code =  '
+                        ls_status_code.
+                        RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                          EXPORTING
+                            id       = cx_xms_syserr_engine=>co_id_client_send_failed
+                            p1       = lv_p1
+                            p2       = ls_status_reason
+                            info     = ls_response
+                            infokind = infokind.
+                      ENDIF.
+                    ELSE.
+                      RAISE EXCEPTION error.
+                    ENDIF.
+                ENDTRY.
+                moint ?= lv_mo_receiver_response.
+                ex_message = moint.
+
+              ENDIF.
+            ENDIF. " end of ping extension
+
+            m_trc1 'HTTP-client:' 'parsed & response message object created'.
+            DATA: lv_soap_fault TYPE REF TO cl_xms_msghdr30_soap_fault.
+            DATA: lv_xi_error TYPE REF TO cl_xms_msghdr30_error.
+
+            lv_soap_fault ?= moint->getbodybyname( nsuri = if_xms_msghdr30_soap_fault=>co_nsuri
+                                                   lcname = if_xms_msghdr30_soap_fault=>co_lcname ).
+            IF lv_soap_fault IS NOT INITIAL.
+              lv_xi_error = lv_soap_fault->get_xi_error( ).
+*       to = moint->to.
+              ls_string1 = lv_soap_fault->get_fault_code( ).
+              ls_string2 = lv_soap_fault->get_fault_string( ).
+              m_trc_syserr 'SOAP fault message received' ''.
+              m_trc_syserr 'SOAP fault code:' ls_string1.
+              m_trc_syserr 'SOAP fault string:' ls_string2.
+
+              RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                EXPORTING
+                  id           = cx_xms_syserr_engine=>co_id_error_object
+                  error_object = lv_xi_error.
+
+            ENDIF.
+          ELSE.
+            IF im_message_version NE if_xms_msghdr=>co_message_version_xi31.
+              RAISE EXCEPTION TYPE cx_xms_inconstent_state
+                EXPORTING
+                  id = cx_xms_inconstent_state=>co_id_wrong_protocol.
+            ENDIF.
+          ENDIF.
+          m_trc3 'HTTP-client:' 'closing...'.
+          CALL METHOD lv_http_client_ref->close
+            EXCEPTIONS
+              http_invalid_state = 1.
+*---if received response could not be parsed in case of status code 500
+*-----no valid soap fault message was received
+*-----raise a generic exception
+        CATCH cx_xms_system_error INTO lv_exception.
+*---i
+*-----analyze http status code (status 2xx = OK)
+*-------is not initial only after response was received
+          error_attr = lv_exception->get_attributes( ).
+          IF ( lv_response_received = co_true AND
+             lv_soap_fault IS INITIAL AND ls_status_code+0(1) <> '2' )
+             OR error_attr-area = cx_xms_syserr_parser=>co_area_parser.
+
+
+            IF NOT lv_icmclnterror_text IS INITIAL.
+              CONCATENATE ls_status_reason
+                          ' ('
+                          lv_icmclnterror_text
+                          ')'
+                          INTO ls_status_reason.
+            ENDIF.
+
+            m_trc_syserr 'HTTP-client: error response=' ls_response.
+
+            IF lv_http_client_created = co_true.
+              m_trc3 'HTTP-client:' 'closing...'.
+              CALL METHOD lv_http_client_ref->close
+                EXCEPTIONS
+                  http_invalid_state = 1.
+            ENDIF.
+            m_end_ts '2' 'HTTP_POST_PROCESS'
+                          cl_xms_run_time_perf=>co_category_plsrv.
+            m_trc_function_end.
+            IF error_attr-area = cx_xms_syserr_parser=>co_area_parser.
+              lv_exception->info = ls_response.
+            ENDIF.
+          ENDIF.
+* note 2006842
+          data l_soap_fault_string type string.
+          data l_soap_fault_detail type string.
+          data l_xi_error type ref to CL_XMS_MSGHDR30_ERROR.
+          data l_t_error_stack type SXMS_TAG_ATTRIBUTES.
+          data l_error_stack type SXMSTAGATT.
+          if not lv_soap_fault is initial.
+             l_soap_fault_string = lv_soap_fault->GET_FAULT_STRING( ).
+             l_soap_fault_detail = lv_soap_fault->GET_FAULT_DETAIL( ).
+             if l_soap_fault_string cs 'Server Error' and l_soap_fault_detail cs 'area="PARSING">GENERAL'.
+                l_xi_error = lv_soap_fault->GET_XI_ERROR( ).
+                if not l_xi_error is initial.
+                  l_t_error_stack = l_xi_error->GET_STACK( ).
+                  loop at l_t_error_stack  into l_error_stack.
+                     if l_error_stack-value cs 'retrieve inbound binding for the given P/S/A values'.
+                     m_trc3 'HTTP-client:' 'closing...'.
+                     CALL METHOD lv_http_client_ref->close
+                       EXCEPTIONS  http_invalid_state = 1.
+                     RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                       EXPORTING
+                          id           = cx_xms_syserr_engine=>CO_ID_CLIENT_RECEIVE_FAILED
+                          p1           = 'Configuration error on Adapter-Framework(AFW)-Server'
+                          p2           = l_error_stack-value
+                          p3           = 'Please check configuration for SOAP/XI sender agreement'.
+                        exit.
+                     endif.
+                     data l_afw_text type string. " SAP Note 2058289
+                     data l_buffer type string.
+                     if l_error_stack-value cs 'messaging.api.exception'.
+                     m_trc3 'HTTP-client:' 'closing...'.
+                     CALL METHOD lv_http_client_ref->close
+                       EXCEPTIONS  http_invalid_state = 1.
+                     split l_error_stack-value at 'messaging.api.exception.' into l_buffer l_afw_text.
+                     split l_afw_text at ':' into l_afw_text l_buffer.
+                     concatenate 'More details about AFW error can be found in XI monitor ': l_afw_text
+                        into l_afw_text SEPARATED BY space.
+                     RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                       EXPORTING
+                          id           = cx_xms_syserr_engine=>CO_ID_CLIENT_RECEIVE_FAILED
+                          p1           = 'Configuration error on Adapter-Framework(AFW)-Server'
+                          p2           = l_error_stack-value
+                          p3           = l_afw_text.
+                        exit.
+                     endif.
+                  endloop.
+                endif.
+             endif.
+          endif.
+          RAISE EXCEPTION lv_exception.
+          DATA root_error TYPE REF TO cx_root.
+        CLEANUP INTO root_error.
+          DATA: error_text TYPE string.
+          error_text = root_error->get_text( ).
+          m_trc_syserr error_text ''.
+          IF lv_http_client_created = co_true.
+            m_trc3 'HTTP-client:' 'closing...'.
+            CALL METHOD lv_http_client_ref->close
+              EXCEPTIONS
+                http_invalid_state = 1.
+          ENDIF.
+          m_end_ts '2' 'HTTP_POST_PROCESS'
+                        cl_xms_run_time_perf=>co_category_plsrv.
+          m_trc_function_end.
+
+          m_set_package_back.
+
+      ENDTRY.
+      m_end_ts '2' 'HTTP_POST_PROCESS'
+                    cl_xms_run_time_perf=>co_category_plsrv.
+      m_trc_function_end.
+      m_set_package_back.
+    CLEANUP.
+      m_set_package_back.
+  ENDTRY.
+ENDMETHOD.                    "CALL_XMS_HTTP
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->CHECK_CONTENT_TYPE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] CONTENT_TYPE                   TYPE        STRING
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD check_content_type.
+
+*in this method build up the part object out of its components: generic
+*header fields, special header fields and the body
+
+
+  DATA: xcontent_type TYPE xstring.
+  DATA: lcontenttype TYPE string.
+  DATA:  lnv_s TYPE sxms_nv_s.
+  DATA: lstr1 TYPE string.
+  DATA: lstr_t TYPE STANDARD TABLE OF string.
+  DATA: boundary TYPE string.
+  DATA: charset TYPE string.
+  DATA: ls_help1 TYPE string.
+  DATA: l_headerfield TYPE sxms_hd_s.
+  DATA contenttype TYPE REF TO cl_xms_contenttype.
+  DATA part_util TYPE REF TO cl_xms_part_util.
+  CONSTANTS c_tab TYPE x VALUE '09'.
+  CONSTANTS c_sp TYPE x VALUE '20'.
+  CONSTANTS kind_multipart TYPE char1 VALUE 'M'.
+* tab->sp
+  part_util = cl_xms_part_util=>getinstance( ).
+  CREATE OBJECT contenttype.
+  xcontent_type = part_util->convert_string_to_xstring( in = content_type ).
+  REPLACE ALL OCCURRENCES OF c_tab IN xcontent_type WITH c_sp IN BYTE MODE.
+  lcontenttype = part_util->convert_xstring_to_string( in = xcontent_type ).
+
+  contenttype->valuesfromstring( lcontenttype ).
+  DATA kind TYPE char1.
+** determine kind cout of content-type
+  kind = contenttype->getkind(  ).
+
+*now create content according header information and do some checks to
+*ensure a minimum of consistence ...
+*  IF kind NE kind_multipart.
+  IF lcontenttype NE cl_xms_contenttype=>mimetype_text_xml.
+    RAISE EXCEPTION TYPE cx_xms_html_error
+      EXPORTING
+        id = cx_xms_html_error=>co_id_html_error_response.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_XMS_PLSRV_IE_ADAPTER=>CHECK_RECEIVER_RESPONSE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_RECEIVER_RESPONSE           TYPE REF TO IF_XMS_MESSAGE
+* | [--->] IM_RECEIVER_REQUEST            TYPE REF TO IF_XMS_MESSAGE
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD check_receiver_response.
+
+  DATA: lv_moint_request TYPE REF TO if_xms_message.
+  DATA: lv_moint_response TYPE REF TO if_xms_message.
+  DATA: lv_mo_request TYPE REF TO if_xms_message_xmb. "#EC NEEDED
+  DATA: lv_mo_response TYPE REF TO if_xms_message_xmb.
+
+  DATA: lv_p1 TYPE string.
+  DATA: lv_p2 TYPE string.
+  DATA: lv_p3 TYPE string.
+
+  DATA: lv_message_id_response TYPE sxmsmguid.
+  DATA: lv_message_id_request TYPE sxmsmguid.
+  DATA: lv_qos_response TYPE sxmsqos.
+  DATA: lv_qos_request TYPE sxmsqos.
+  DATA: lv_ref_to_message_id_response TYPE sxmsmguid.
+  DATA: ls_version_receiver_response TYPE sxms_version.
+  DATA: lv_prop TYPE REF TO if_xms_prop.
+
+  DATA: lv_ho_20_request TYPE REF TO cl_xms_message_header.
+  DATA: lv_ho_20_response TYPE REF TO cl_xms_message_header.
+
+  DATA: lv_ho_30_request TYPE REF TO cl_xms_msghdr30_main.
+  DATA: lv_ho_30_response TYPE REF TO cl_xms_msghdr30_main.
+  DATA: lv_rm_30_request TYPE REF TO cl_xms_msghdr30_rm.
+
+  DATA: lv_msgclass TYPE sxmsmsgcl. "#EC NEEDED
+
+  lv_moint_response = im_receiver_response.
+  lv_moint_request = im_receiver_request.
+  lv_mo_response ?= im_receiver_response.
+  lv_mo_request ?= im_receiver_request.
+
+  ls_version_receiver_response = lv_moint_response->get_version( ).
+
+  CASE ls_version_receiver_response(3).
+*---XI 2.0
+    WHEN if_xms_msghdr=>co_message_version_xi20(3).
+      lv_prop = lv_moint_response->getheaderbyname( nsuri = cl_xms_message_header=>co_nsuri
+                                                    lcname = cl_xms_message_header=>co_lcname ).
+      IF lv_prop IS INITIAL.
+        lv_p1 = cl_xms_message_header=>co_lcname.
+        RAISE EXCEPTION TYPE cx_xms_syserr_parser
+          EXPORTING
+            id = cx_xms_syserr_parser=>co_id_xml_item_missing
+            p1 = lv_p1.
+      ENDIF.
+      lv_ho_20_response ?= lv_prop.
+
+      lv_prop = lv_moint_request->getheaderbyname( nsuri = cl_xms_message_header=>co_nsuri
+                                                   lcname = cl_xms_message_header=>co_lcname ).
+      IF lv_prop IS INITIAL.
+        lv_p1 = cl_xms_message_header=>co_lcname.
+        RAISE EXCEPTION TYPE cx_xms_syserr_parser
+          EXPORTING
+            id = cx_xms_syserr_parser=>co_id_xml_item_missing
+            p1 = lv_p1.
+      ENDIF.
+      lv_ho_20_request ?= lv_prop.
+
+      lv_message_id_response = lv_ho_20_response->getmessageid( ).
+      lv_message_id_request = lv_ho_20_request->getmessageid( ).
+      lv_qos_response = lv_ho_20_response->getqos( ).
+      lv_qos_request = lv_ho_20_request->getqos( ).
+      lv_ref_to_message_id_response = lv_ho_20_response->getreftomessageid( ).
+
+      IF lv_message_id_response <> lv_message_id_request.
+        lv_mo_response->set_message_id( lv_message_id_request ).
+        lv_p1 = 'MessageId'.                                "#EC NOTEXT
+        lv_p2 = lv_message_id_response.
+        lv_p3 = lv_message_id_request.
+        RAISE EXCEPTION TYPE cx_xms_syserr_engine
+          EXPORTING
+            id = cx_xms_syserr_engine=>co_id_attribute_unexpec_value
+            p1 = lv_p1
+            p2 = lv_p2
+            p3 = lv_p3.
+      ENDIF.
+
+      IF lv_qos_response <> lv_qos_request.
+        lv_mo_response->set_quality_of_service( lv_qos_request ).
+        lv_p1 = 'QualityOfService'.                         "#EC NOTEXT
+        lv_p2 = lv_qos_response.
+        lv_p3 = lv_qos_request.
+        RAISE EXCEPTION TYPE cx_xms_syserr_engine
+          EXPORTING
+            id = cx_xms_syserr_engine=>co_id_attribute_unexpec_value
+            p1 = lv_p1
+            p2 = lv_p2
+            p3 = lv_p3.
+      ENDIF.
+
+*---XI 3.0
+    WHEN if_xms_msghdr=>co_message_version_xi30 or if_xms_msghdr=>co_message_version(3).
+*     read request data
+      lv_prop = lv_moint_request->getheaderbyname( nsuri = if_xms_msghdr30_main=>co_nsuri
+                                                   lcname = if_xms_msghdr30_main=>co_lcname ).
+      IF lv_prop IS INITIAL.
+        lv_p1 = if_xms_msghdr30_main=>co_lcname.
+        RAISE EXCEPTION TYPE cx_xms_syserr_parser
+          EXPORTING
+            id = cx_xms_syserr_parser=>co_id_xml_item_missing
+            p1 = lv_p1.
+      ENDIF.
+      lv_ho_30_request ?= lv_prop.
+      lv_msgclass = lv_ho_30_request->get_message_class( ).
+
+      lv_prop = lv_moint_request->getheaderbyname( nsuri = if_xms_msghdr30_rm=>co_nsuri
+                                                   lcname = if_xms_msghdr30_rm=>co_lcname ).
+      IF lv_prop IS INITIAL.
+        lv_p1 = if_xms_msghdr30_rm=>co_lcname.
+        RAISE EXCEPTION TYPE cx_xms_syserr_parser
+          EXPORTING
+            id = cx_xms_syserr_parser=>co_id_xml_item_missing
+            p1 = lv_p1.
+      ENDIF.
+      lv_rm_30_request ?= lv_prop.
+
+      lv_message_id_request = lv_ho_30_request->get_message_id( ).
+      lv_qos_request = lv_rm_30_request->get_qos( ).
+
+*     read response data
+      lv_prop = lv_moint_response->getheaderbyname( nsuri = if_xms_msghdr30_main=>co_nsuri
+                                                    lcname = if_xms_msghdr30_main=>co_lcname ).
+      IF lv_prop IS INITIAL.
+        lv_p1 = if_xms_msghdr30_main=>co_lcname.
+        RAISE EXCEPTION TYPE cx_xms_syserr_parser
+          EXPORTING
+            id = cx_xms_syserr_parser=>co_id_xml_item_missing
+            p1 = lv_p1.
+      ENDIF.
+      lv_ho_30_response ?= lv_prop.
+
+      lv_message_id_response = lv_ho_30_response->get_message_id( ).
+      lv_ref_to_message_id_response = lv_ho_30_response->get_ref_to_message_id( ).
+
+      IF lv_message_id_response = lv_message_id_request.
+        lv_mo_response->set_message_id( lv_message_id_request ).
+        lv_p1 = 'MessageId'.                                "#EC NOTEXT
+        lv_p2 = lv_message_id_request.
+        lv_p3 = 'NewMessageId'.                             "#EC NOTEXT
+        RAISE EXCEPTION TYPE cx_xms_syserr_engine
+          EXPORTING
+            id = cx_xms_syserr_engine=>co_id_attribute_unexpec_value
+            p1 = lv_p1
+            p2 = lv_p2
+            p3 = lv_p3.
+      ENDIF.
+
+      IF lv_ref_to_message_id_response <> lv_message_id_request.
+        lv_p1 = 'RefToMessageId'.                           "#EC NOTEXT
+        lv_p2 = lv_ref_to_message_id_response.
+        lv_p3 = lv_message_id_request.
+        RAISE EXCEPTION TYPE cx_xms_syserr_engine
+          EXPORTING
+            id = cx_xms_syserr_engine=>co_id_attribute_unexpec_value
+            p1 = lv_p1
+            p2 = lv_p2
+            p3 = lv_p3.
+      ENDIF.
+
+*---Unknwon version
+    WHEN OTHERS.
+      CASE ls_version_receiver_response-major.
+        WHEN if_xms_msghdr=>co_message_version_xi20(3) OR if_xms_msghdr=>co_message_version_xi30(3).
+          lv_p2 = ls_version_receiver_response-minor.
+          lv_p3 = if_xms_msghdr=>co_message_version_xi30+3(3).
+          RAISE EXCEPTION TYPE cx_xms_syserr_parser
+            EXPORTING
+              id = cx_xms_syserr_parser=>co_id_xml_item_unexp_value
+              p1 = cl_xms_msghdr30_main=>co_path_minor
+              p2 = lv_p2
+              p3 = lv_p3.
+        WHEN OTHERS.
+          lv_p2 = ls_version_receiver_response-major.
+          lv_p3 = if_xms_msghdr=>co_message_version_xi30(3).
+          RAISE EXCEPTION TYPE cx_xms_syserr_parser
+            EXPORTING
+              id = cx_xms_syserr_parser=>co_id_xml_item_unexp_value
+              p1 = cl_xms_msghdr30_main=>co_path_major
+              p2 = lv_p2
+              p3 = lv_p3.
+      ENDCASE.
+
+  ENDCASE.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_XMS_PLSRV_IE_ADAPTER->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD constructor.
+  lcl_util=>create_util( im_ref = me ).
+ _interface = cl_xms_interface=>get_instance( ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_XMS_PLSRV_IE_ADAPTER->CONVERT_HTML_ERROR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] CONTENT_TYPE                   TYPE        STRING
+* | [--->] INPUT                          TYPE        XSTRING
+* | [<-()] OUTPUT                         TYPE        XSTRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_html_error.
+* if conversion failed due to unknown codepage or conversion error no conversion is done
+  DATA l_charset      TYPE string.
+  DATA l_buffer       TYPE string.
+  DATA l_xstring      TYPE xstring.
+  DATA l_encoding     TYPE abap_encoding.
+  DATA l_sap_codepage TYPE cpcodepage.
+  DATA l_conv_x2x     TYPE REF TO cl_abap_conv_x2x_ce.
+  DATA l_len          TYPE i.
+
+  SPLIT content_type AT 'charset=' INTO l_buffer l_charset.
+
+  if input is initial.
+     output = input.  " no conversion necessary
+     exit.
+  endif.
+
+  IF l_charset IS INITIAL OR  l_charset CS 'UTF-8' OR  l_charset CS 'utf-8'.
+    output = input.  " no conversion necessary
+    exit.
+  ENDIF.
+* conversion from external charset to internal codepage
+  l_encoding  =  l_charset.
+  CALL FUNCTION 'SCP_CODEPAGE_BY_EXTERNAL_NAME'
+    EXPORTING
+      external_name = l_encoding
+      kind          = 'H'
+    IMPORTING
+      sap_codepage  = l_sap_codepage
+    EXCEPTIONS
+      not_found     = 1
+      OTHERS        = 2.
+  IF sy-subrc <> 0.
+    output = input.  " no conversion possible
+    exit.
+  ENDIF.
+
+  l_encoding = l_sap_codepage.
+  TRY.
+      l_conv_x2x = cl_abap_conv_x2x_ce=>create(
+             in_encoding                   = l_encoding
+             out_encoding                  = '4110'
+             input                         = input ).
+
+    CATCH cx_parameter_invalid_type  cx_parameter_invalid_range cx_sy_codepage_converter_init.
+      output = input.  " no conversion possible
+      exit.
+  ENDTRY.
+
+  TRY.
+      l_conv_x2x->convert_c( IMPORTING len = l_len ).
+    CATCH cx_sy_codepage_converter_init cx_sy_conversion_codepage.
+      output = input.  " no conversion possible
+      exit.
+  ENDTRY.
+
+  output = l_conv_x2x->get_out_buffer( ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->CONVERT_REQ_TO_RCV
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LS_VERSION_RECEIVER_REQUEST    TYPE        SXMS_VERSION
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE
+* | [<-()] LV_MOINT_RECEIVER_REQUEST      TYPE REF TO IF_XMS_MESSAGE
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_req_to_rcv.
+*-----convert request (current message format) into receiver message format
+  cl_xms_conversion=>convert_receiver_request(
+    EXPORTING im_request = message
+              im_sender_request = moint->moint_sender_request
+              im_version_receiver_request = ls_version_receiver_request
+    IMPORTING ex_receiver_request = lv_moint_receiver_request ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_XMS_PLSRV_IE_ADAPTER->CREATE_URL_ENGINE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ENGINE_NAME                    TYPE        SSRV_ENGINE_NAME
+* | [<-()] RETURN                         TYPE        SXMSVALUE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_url_engine.
+  DATA l_subparam    TYPE sxmsconfvlv-subparam.
+  DATA l_iserver_url TYPE sxmsvalue.
+  DATA l_sxmsconfvl TYPE sxmsconfvl.
+
+  CLEAR l_sxmsconfvl.
+  l_subparam = engine_name.
+  TRANSLATE l_subparam  to UPPER CASE.  "#EC TRANSLANG
+  CASE  l_subparam(2).
+    WHEN 'IS'.
+      CALL FUNCTION 'SXMB_GET_CONFIG'
+        EXPORTING
+          im_area             = if_xms_config=>co_area_runtime
+          im_param            = if_xms_config=>co_param_is_url
+          im_subparam         = space
+        IMPORTING
+          ex_value            = l_iserver_url
+        EXCEPTIONS
+          parameter_not_found = 1
+          OTHERS              = 2.
+      IF sy-subrc = 0 AND l_iserver_url IS NOT INITIAL.
+        l_sxmsconfvl-value    = l_iserver_url.
+      ELSE.
+        l_sxmsconfvl-value    = 'REPLACE_WITH_IS_DESTINATION'.
+      ENDIF.
+    WHEN others.  "'AF' case for AFW
+      l_sxmsconfvl-value    = 'REPLACE_WITH_IS_DESTINATION'.
+  ENDCASE.
+
+  l_sxmsconfvl-area     = if_xms_config=>co_area_runtime.
+  l_sxmsconfvl-param    = if_xms_config=>co_param_is_url.
+  l_sxmsconfvl-subparam = l_subparam.
+  l_sxmsconfvl-generic = '0'.
+  l_sxmsconfvl-chguser = sy-uname.
+  GET TIME STAMP FIELD l_sxmsconfvl-chgtstamp.
+  MODIFY sxmsconfvl FROM l_sxmsconfvl.
+
+  return = l_sxmsconfvl-value.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->DELETE_SYS_ATT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE_XMB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD delete_sys_att.
+  message->delete_payload_by_type( im_type = if_xms_msghdr30_manifest=>co_payloadtype_sys ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_XMS_PLSRV_IE_ADAPTER->ENTER_PING
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_PIPELINE_SERVICE_ID         TYPE        SXMSPSID
+* | [<-->] CH_MESSAGE                     TYPE REF TO IF_XMS_MESSAGE_XMB
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD enter_ping.
+  DATA: lv_channel TYPE REF TO cl_srv_channel.
+  DATA: ls_transport_protocol TYPE ssrv_transport_protocol.
+  DATA: ls_message_protocol TYPE ssrv_message_protocol.
+  DATA: lv_adapter_name TYPE ssrv_adapter_name.
+  DATA: ls_sender TYPE sxi_fromorto.
+  DATA: lv_iserver_url TYPE sxmsvalue.
+  DATA: lv_qos TYPE sxmsqos.
+  DATA: lv_log_nr_old TYPE sxmslsqnbr.
+  DATA: lv_direction TYPE sxmsmsgdir.
+  DATA: lv_moint_request TYPE REF TO if_xms_message.
+  DATA: lv_moint_receiver_response TYPE REF TO if_xms_message.
+  DATA: lv_p1 TYPE string.
+  DATA: lv_p2 TYPE string.
+  DATA: lv_mo_request TYPE REF TO if_xms_message_xmb.
+  DATA: lv_engine_type TYPE ssrv_engine_type.
+  DATA: lv_engine_name TYPE ssrv_engine_name.
+  DATA: lv_passhoplist  TYPE ssrv_attribute_value.
+  DATA: ls_receiver_map TYPE sxi_towithmap.
+  DATA: ls_receiver TYPE sxi_fromorto.
+  DATA: lt_receiver TYPE sxi_tos.
+  DATA: lv_denormalization_done TYPE c.
+
+
+
+  m_mo_setup.
+  m_ho_setup.
+  m_rm_setup.
+  m_dg_setup.
+  m_hlo_setup.
+  m_io_setup.
+  to = set_trace_object( im_message = moint ).
+  m_eo_setup.
+  m_ro_setup.
+  m_pfo_setup.
+
+  m_trc_function_begin 'CL_XMS_PLSRV_IE_ADAPTER-ENTER_PING'.
+
+
+  TRY.
+      lv_mo_request = mo.
+      lv_moint_request = moint.
+
+      lcl_util=>check_pipeline_service_id( im_id = im_pipeline_service_id ).
+
+      ls_sender = mo->get_sender( ).   " get sender for synch AE-Call
+      IF im_pipeline_service_id = 'PLSRV_CALL_INTEGRATION_SERVER'.
+*-----URL of integration server is defined in global configuration
+        lv_iserver_url = get_url_of_is( mo ).
+        ro->set_adapter_out( cl_xms_internal_attributes=>co_val_adapter_xmb ).
+        lv_direction = mo->get_direction( ).
+        ls_transport_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+        ls_transport_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_trns_prt_vers_1_0.
+        ls_message_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_msg_prt_vers_3_0.
+        ls_message_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_msg_prt_name_xi.
+
+
+
+
+      ELSE.
+*-----get channel by receiver agreement stored in xms message
+                outb ?= moint->getheaderbyname(
+                          nsuri  = if_srv_outbinding_xms_prop=>co_prop_nsuri
+                          lcname = if_srv_outbinding_xms_prop=>co_prop_lcname ).
+        lv_channel = lcl_util=>get_outbinding_channel( im_header = outb ).
+        lv_adapter_name = lv_channel->get_adapter_name( ).
+        lv_engine_type = lv_channel->get_engine_type( ).
+        lv_engine_name = lv_channel->get_engine_name( ).
+        lv_passhoplist =
+            lv_channel->get_attribute( im_attribute_name = if_xi_adapter_const_ie=>co_attr_pass_hop_list ).
+
+        lcl_util=>check_adapter_name( im_adapter_name = lv_adapter_name
+                                      im_engine_type = lv_engine_type
+                                      im_engine_name = lv_engine_name
+                                      im_pipeline_service_id = im_pipeline_service_id ).
+
+        ls_receiver_map = mo->get_receiver_with_map( ).
+        IF lv_engine_type = if_srv_constants=>co_integration_server.
+
+          IF lv_passhoplist = cl_xms_main=>co_false.
+            modify_hoplist( ch_message ).
+          ENDIF.
+
+          lt_receiver = mo->get_receivers( ).
+          READ TABLE lt_receiver INTO ls_receiver INDEX 1.
+
+
+          lv_denormalization_done = set_header_map_and_alt_party( mo ).
+
+          ls_transport_protocol = lv_channel->get_transport_protocol( ).
+          ls_message_protocol = lv_channel->get_message_protocol( ).
+*
+*         outbound security handling
+          DATA: lv_pipeline_id TYPE sxmspidext.
+*          DATA: lv_security_stat TYPE sxmsflag.
+          DATA: ls_xml_archive TYPE string VALUE IS INITIAL.
+          DATA: ls_bin_archive TYPE xstring VALUE IS INITIAL.
+          lv_pipeline_id = moint->ro->get_external_pl_id( ).
+*
+*         apply security handling for messages in xmb or amf format
+          CALL METHOD cl_xms_amf_security=>apply_profile
+            EXPORTING
+              im_message = mo
+              im_pid     = lv_pipeline_id.
+
+*       security handling will be performed in the http caller
+        ELSEIF lv_engine_type = if_srv_constants=>co_adapter_engine.
+          ls_transport_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+          ls_transport_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_trns_prt_vers_1_0.
+          ls_message_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_msg_prt_name_xi.
+          ls_message_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_msg_prt_vers_3_0.
+
+        ELSE.
+          lv_p1 = lv_engine_type.
+          lv_p2 = im_pipeline_service_id.
+          RAISE EXCEPTION TYPE cx_xms_syserr_engine
+            EXPORTING
+              id = cx_xms_syserr_engine=>co_id_engine_type_invalid
+              p1 = lv_p1
+              p2 = lv_p2.
+
+        ENDIF.
+
+
+
+
+*------------------------------------------------------------
+      ENDIF.
+
+
+          lv_qos    = lv_moint_request->rm->get_qos( ).
+          lv_log_nr_old = lv_moint_request->ro->get_log_seq_number( ).
+
+*-----delete payloads of type system (trace, context)
+          mo->delete_payload_by_type( im_type = if_xms_msghdr30_manifest=>co_payloadtype_sys ).
+
+          IF ls_message_protocol-protocol_name <> if_xi_adapter_const_ie=>co_val_msg_prt_name_xi.
+            lv_p1 = ls_message_protocol-protocol_name.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id = cx_xms_syserr_engine=>co_id_msg_prot_name_invalid
+                p1 = lv_p1.
+          ENDIF.
+
+          DATA: ls_version_receiver_request TYPE sxms_version.
+          DATA: ls_version_receiver_response TYPE sxms_version. "#EC NEEDED
+          DATA: lv_moint_receiver_request TYPE REF TO if_xms_message.
+          DATA: lv_moint_response TYPE REF TO if_xms_message.
+          DATA: lv_string1 TYPE string.
+          DATA: lv_string2 TYPE string.
+          DATA: lv_mo_response TYPE REF TO if_xms_message_xmb.
+
+          SPLIT ls_message_protocol-protocol_version AT '.' INTO
+            lv_string1 lv_string2.
+          ls_version_receiver_request-major = lv_string1.
+          ls_version_receiver_request-minor = lv_string2.
+
+*-----convert request (current message format) into receiver message format
+          cl_xms_conversion=>convert_receiver_request(
+            EXPORTING im_request = moint
+                      im_sender_request = moint->moint_sender_request
+                      im_version_receiver_request = ls_version_receiver_request
+            IMPORTING ex_receiver_request = lv_moint_receiver_request ).
+
+*-----call integration engine
+
+          ro->set_serviceping( ).
+*         create user context
+
+          Data: lv_propagate_principal TYPE CHAR1,
+                lv_user  TYPE syuname.
+
+          lv_user = sy-uname.
+
+          lv_propagate_principal = cl_xms_main=>get_principal_conf_sender( service = ls_sender user = lv_user ).
+          IF lv_propagate_principal = '1'.
+            ro->set_userinfo( cl_xms_main=>CO_PROPAGATE_PRINCIPAL_FLAG ).
+          ENDIF.
+
+
+
+          CASE ls_transport_protocol-protocol_name.
+            WHEN if_xi_adapter_const_ie=>co_val_trns_prt_name_http OR
+                 if_xi_adapter_const_ie=>co_val_trns_prt_name_https.
+              CALL METHOD call_xms_http
+                EXPORTING
+                  im_message         = lv_moint_receiver_request
+                  im_channel         = lv_channel
+                  im_iserver_url     = lv_iserver_url
+                  im_adapter_name    = lv_adapter_name
+                  im_message_version = ls_version_receiver_request
+                IMPORTING
+                  ex_message         = lv_moint_receiver_response.
+
+
+            WHEN OTHERS.
+              lv_p1 = ls_transport_protocol-protocol_name.
+              lv_p2 = im_pipeline_service_id.
+              RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                EXPORTING
+                  id = cx_xms_syserr_engine=>co_id_transp_protocol_invalid
+                  p1 = lv_p1
+                  p2 = lv_p2.
+          ENDCASE.
+endtry.
+
+
+    ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_XMS_PLSRV_IE_ADAPTER=>GET_ATTR_OF_INDIRECT_ENDPOINT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_DESTINATION                 TYPE        RFCDEST
+* | [<---] EX_RFCTYPE                     TYPE        RFCDISPLAY-RFCTYPE
+* | [<---] EX_HOST                        TYPE        STRING
+* | [<---] EX_PORT                        TYPE        STRING
+* | [<---] EX_CLIENT                      TYPE        RFCDISPLAY-RFCCLIENT
+* | [<---] EX_USER                        TYPE        STRING
+* | [<---] EX_LANGUAGE                    TYPE        RFCDISPLAY-RFCLANG
+* | [<---] EX_PATH                        TYPE        STRING
+* | [<---] EX_NOT_FOUND                   TYPE        SXMSFLAG
+* | [<---] EX_SSL_ACTIVE                  TYPE        RFCSNC
+* | [<---] EX_SSL_CLIENT_CERT             TYPE        SSFAPPLSSL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_attr_of_indirect_endpoint .
+
+  DATA dest_excp     TYPE REF TO cx_dest_api.   "#EC NEEDED
+  data l_destination  TYPE rfcdest.             "#EC NEEDED
+
+  DATA if_dest_abap     TYPE REF TO if_dest_rfc_abap.  "#EC NEEDED
+  DATA if_dest_log      TYPE REF TO if_dest_logical.   "#EC NEEDED
+  DATA if_dest_http     TYPE REF TO if_dest_http_abap. "#EC NEEDED
+  DATA if_dest_http_ext TYPE REF TO if_dest_http_ext.  "#EC NEEDED
+  DATA l_type           TYPE rfctype_d.             "#EC NEEDED
+  DATA lv_rfctype       TYPE rfcdisplay-rfctype.    "#EC NEEDED
+  DATA lv_language      TYPE rfcdisplay-rfclang.    "#EC NEEDED
+  DATA lv_client        TYPE rfcdisplay-rfcclient.  "#EC NEEDED
+  DATA lv_user          TYPE rfcdisplay-rfcalias.   "#EC NEEDED
+  DATA lv_server        TYPE rfcdisplay-rfchost.    "#EC NEEDED
+  DATA lv_servicenr     TYPE rfcdisplay-rfcsysid.   "#EC NEEDED
+  DATA lv_ssl_active    TYPE rfcdisplay-rfcsnc.     "#EC NEEDED
+  DATA lv_rfcslogin     TYPE rfcdisplay-rfcslogin.  "#EC NEEDED
+  DATA lv_sslapplic     TYPE rfcdisplay-sslapplic.  "#EC NEEDED
+  DATA lv_path_prefix   TYPE string.                "#EC NEEDED
+
+  l_destination = IM_DESTINATION.
+  ex_not_found = '1'.  "default value: destination not found
+*---------------------------------------------------------------*
+* only 4 logical destinatinos are supported
+* avoid infinity loops for referenced destinations
+  DO 5 TIMES.
+
+    TRY.   "existing check for current destination
+        l_type = cl_dest_factory=>get_type( l_destination ).
+      CATCH  cx_dest_api.
+        RETURN.
+    ENDTRY.
+
+    CASE l_type.
+*----------------------------------------------------
+      WHEN IF_DEST_ROOT=>CO_TYPE_LOGICAL. " type 'L'
+        TRY.   "get configuration of current destination
+            if_dest_log  ?= cl_dest_factory=>create( l_destination  ).
+          CATCH cx_dest_api INTO dest_excp.
+            ex_not_found = '1'.
+            RETURN.
+        ENDTRY.
+        IF lv_rfctype IS INITIAL. "use data of first logical destination
+          lv_rfctype  = if_dest_log->type.
+          lv_language = if_dest_log->logon_language.
+          lv_client   = if_dest_log->logon_client.
+          lv_user     = if_dest_log->logon_user.
+        ENDIF.
+        l_destination = if_dest_log->reference.
+        CONTINUE.
+*----------------------------------------------------
+* XI adapter supports only HTTP protocol (type 'H' or 'G')
+* for compatible issues the destination type '3' is supported
+      WHEN IF_DEST_ROOT=>CO_TYPE_RFC_ABAP. "type '3'
+        TRY.
+            if_dest_abap ?= cl_dest_factory=>create( l_destination  ).
+          CATCH cx_dest_api INTO dest_excp.
+            if dest_excp->IF_T100_MESSAGE~T100KEY-MSGID = 'SDEST' and
+               dest_excp->IF_T100_MESSAGE~T100KEY-MSGNO = '017'.
+              ex_not_found = '2'.
+            else.
+              ex_not_found = '1'.
+            endif.
+            RETURN.
+        ENDTRY.
+        lv_rfctype = if_dest_abap->type.
+        lv_server    = if_dest_abap->server_name.
+        IF lv_rfctype <> 'L'.   "no logical destination used
+          lv_language  = if_dest_abap->logon_language.
+          lv_client    = if_dest_abap->logon_client.
+          lv_user      = if_dest_abap->logon_user.
+        ENDIF.
+        ex_not_found = '0'.
+        EXIT.
+*----------------------------------------------------
+      WHEN IF_DEST_ROOT=>CO_TYPE_HTTP_ABAP.  "type 'H'
+        TRY.
+            if_dest_http ?= cl_dest_factory=>create( l_destination  ).
+          CATCH cx_dest_api INTO dest_excp.
+            if dest_excp->IF_T100_MESSAGE~T100KEY-MSGID = 'SDEST' and
+               dest_excp->IF_T100_MESSAGE~T100KEY-MSGNO = '017'.
+              ex_not_found = '2'.
+            else.
+              ex_not_found = '1'.
+            endif.
+            RETURN.
+        ENDTRY.
+        lv_servicenr   = if_dest_http->service_number.
+        lv_server      = if_dest_http->server_name.
+        IF lv_rfctype <> 'L'.     "no logical destination used
+          lv_language    = if_dest_http->logon_language.
+          lv_client      = if_dest_http->logon_client.
+          lv_user        = if_dest_http->logon_user.
+        ENDIF.
+        lv_rfctype     = if_dest_http->type.
+        lv_path_prefix = if_dest_http->path_prefix.
+        lv_ssl_active  = if_dest_http->ssl_active.
+        lv_rfcslogin   = if_dest_http->logon_method.
+        lv_sslapplic   = if_dest_http->ssl_application.
+        ex_not_found = '0'.
+        EXIT.
+*----------------------------------------------------
+      WHEN IF_DEST_ROOT=>CO_TYPE_HTTP_EXT. "type 'G'
+        TRY.
+            if_dest_http_ext ?= cl_dest_factory=>create( l_destination  ).
+          CATCH cx_dest_api INTO dest_excp.
+            if dest_excp->IF_T100_MESSAGE~T100KEY-MSGID = 'SDEST' and
+               dest_excp->IF_T100_MESSAGE~T100KEY-MSGNO = '017'.
+              ex_not_found = '2'.
+            else.
+              ex_not_found = '1'.
+            endif.
+            RETURN.
+        ENDTRY.
+        lv_servicenr   = if_dest_http_ext->service_number.
+        lv_server      = if_dest_http_ext->server_name.
+        lv_path_prefix = if_dest_http_ext->path_prefix.
+        IF lv_rfctype <> 'L'.     "no logical destination used
+          lv_user        = if_dest_http_ext->logon_user.
+        ENDIF.
+        lv_rfctype     = if_dest_http_ext->type.
+        lv_ssl_active  = if_dest_http_ext->ssl_active.
+        lv_rfcslogin   = if_dest_http_ext->logon_method.
+        lv_sslapplic   = if_dest_http_ext->ssl_application.
+        ex_not_found = '0'.
+        EXIT.
+*----------------------------------------------------
+      WHEN OTHERS.  "other destination types are not supported
+        exit.
+    ENDCASE.
+
+  ENDDO.
+*---------------------------------------------------------------*
+  IF ex_not_found = '0'.
+    ex_rfctype  = lv_rfctype.
+          ex_host = lv_server.
+          ex_port = lv_servicenr.
+          ex_client = lv_client.
+          ex_user = lv_user.
+          ex_language = lv_language.
+    ex_path     = lv_path_prefix.
+    ex_ssl_active = lv_ssl_active.
+    IF lv_ssl_active  = 'X' AND NOT lv_sslapplic IS INITIAL.
+      ex_ssl_client_cert = lv_sslapplic.
+    ELSE.
+      CLEAR ex_ssl_client_cert.
+    ENDIF.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_XMS_PLSRV_IE_ADAPTER->GET_INTERFACE_ID
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_INTERFACE                    TYPE        SXMSINTERFACE
+* | [<-()] RET_TAB                        TYPE        SXMS_SITE_TAB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_INTERFACE_ID.
+  DATA l_t_interface   TYPE sxmsinterface_ttyp.
+  DATA l_sxms_site     TYPE sxms_site.
+
+  FIELD-SYMBOLS <fs> TYPE sxmsinterface.
+
+* step 1: get all possible service/party interfacde ID
+  l_t_interface = _interface->get_all_ids( ' ' ).
+  REFRESH ret_tab.
+
+  DATA l_count TYPE n.
+* step 2: reduce list to possible entries
+  LOOP AT l_t_interface ASSIGNING <fs>.
+    IF ( <fs>-service = '*' OR <fs>-service = i_interface-service )
+       AND  ( <fs>-party = '' OR <fs>-party = '*' OR <fs>-party = i_interface-party ).
+      l_count = 0.
+      IF <fs>-service   = i_interface-service.
+        l_count = l_count + 1.
+      ELSE.
+        IF <fs>-service <> '*'.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      IF <fs>-party     = i_interface-party.
+        l_count = l_count + 1.
+      ELSE.
+        IF <fs>-party <> '*'.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      IF <fs>-name      = i_interface-name.
+        l_count = l_count + 1.
+      ELSE.
+        IF <fs>-name <> '*'.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      IF <fs>-namespace = i_interface-namespace.
+        l_count = l_count + 1.
+      ELSE.
+        IF <fs>-namespace <> '*'.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      l_sxms_site-interface = <fs>-interface.
+      l_sxms_site-longname  = l_count.
+      APPEND l_sxms_site TO ret_tab.
+      CONTINUE.
+    ENDIF.
+*     delete l_t_interface.
+  ENDLOOP.
+  SORT ret_tab BY longname DESCENDING interface ASCENDING.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_XMS_PLSRV_IE_ADAPTER->GET_URL_OF_IS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE_XMB
+* | [<-()] RE_URL                         TYPE        STRING
+* | [!CX!] CX_XMS_SYSERR_ENGINE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_url_of_is.
+  DATA lv_iserver_url TYPE sxmsvalue.
+  DATA lv_is_default  TYPE sxmsflag.
+  DATA lv_subparam    TYPE sxmsconfvlv-subparam.
+  DATA l_mo           TYPE REF TO if_xms_message.
+  DATA l_site_id      TYPE sxmssite.
+  DATA l_found        TYPE char1.
+  DATA l_t_site_id    TYPE sxms_site_tab.
+  DATA l_interface    TYPE sxmsinterface.
+  DATA l_sender       TYPE sxi_fromorto.
+  DATA l_pipelineid   TYPE sxmspidext.
+  data l_engine_name  type SSRV_ENGINE_NAME.
+
+  FIELD-SYMBOLS: <site_wa> TYPE LINE OF sxms_site_tab.
+
+  CLEAR re_url.
+  l_mo ?= message.
+  l_pipelineid  = l_mo->ro->get_external_pl_id( ).
+
+  if l_pipelineid = 'RECEIVER_BACK'.
+    l_engine_name = l_mo->ro->GET_ENGINE_NAME( ).
+    if not l_engine_name is initial.
+      lv_subparam = l_engine_name.
+      TRANSLATE lv_subparam to UPPER CASE. "#EC TRANSLANG
+      CALL FUNCTION 'SXMB_GET_CONFIG'
+        EXPORTING
+          im_area             = if_xms_config=>co_area_runtime
+          im_param            = if_xms_config=>co_param_is_url
+          im_subparam         = lv_subparam
+        IMPORTING
+          ex_value            = lv_iserver_url
+        EXCEPTIONS
+          parameter_not_found = 1
+          OTHERS              = 2.
+      IF sy-subrc = 0 AND lv_iserver_url IS NOT INITIAL.
+        l_mo->ro->set_is_url( lv_iserver_url ).
+        m_trc3 'IS_URL_BACK Engine = ' lv_subparam.
+        l_found = 'X'.
+      else.
+        lv_iserver_url = CREATE_URL_ENGINE( l_engine_name ).
+        if not lv_iserver_url is initial.
+           m_trc3 'IS_URL_BACK Engine = ' lv_subparam.
+          l_found = 'X'.
+        endif.
+      endif.
+    endif.
+  else.
+  l_site_id = l_mo->ro->GET_SITE_ID( ).
+
+  IF l_site_id IS INITIAL.  " Fallback in case of error
+    l_sender = message->get_sender( ).
+    l_interface-party     = l_sender-party.
+    l_interface-service   = l_sender-service.
+    l_interface-name      = l_sender-name.
+    l_interface-namespace = l_sender-namespace.
+    l_t_site_id  = get_interface_id( l_interface ).
+
+    LOOP AT l_t_site_id ASSIGNING <site_wa>.
+      lv_subparam = <site_wa>-interface.
+      CALL FUNCTION 'SXMB_GET_CONFIG'
+        EXPORTING
+          im_area             = if_xms_config=>co_area_runtime
+          im_param            = if_xms_config=>co_param_is_url
+          im_subparam         = lv_subparam
+        IMPORTING
+          ex_value            = lv_iserver_url
+        EXCEPTIONS
+          parameter_not_found = 1
+          OTHERS              = 2.
+      IF sy-subrc = 0 AND lv_iserver_url IS NOT INITIAL.
+        l_mo->ro->set_is_url( lv_iserver_url ).
+        l_mo->ro->set_adapter_out( 'IS_URL' ).
+        l_site_id = lv_subparam.
+        l_mo->ro->set_site_id( l_site_id ).
+        m_trc1 'URL for integration server is interface specific, subparameter=' lv_subparam.
+        l_found = 'X'.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+  ELSE.
+    lv_subparam = l_site_id.
+    CALL FUNCTION 'SXMB_GET_CONFIG'
+      EXPORTING
+        im_area             = if_xms_config=>co_area_runtime
+        im_param            = if_xms_config=>co_param_is_url
+        im_subparam         = lv_subparam
+      IMPORTING
+        ex_value            = lv_iserver_url
+      EXCEPTIONS
+        parameter_not_found = 1
+        OTHERS              = 2.
+    IF sy-subrc = 0 AND lv_iserver_url IS NOT INITIAL.
+      l_mo->ro->set_is_url( lv_iserver_url ).
+      l_mo->ro->set_adapter_out( 'IS_URL' ).
+      m_trc1 'URL for integration server is interface specific, subparameter=' lv_subparam.
+      l_found = 'X'.
+    ENDIF.
+  ENDIF.
+  endif.
+  IF l_found = space.
+    CALL FUNCTION 'SXMB_GET_CONFIG'
+      EXPORTING
+        im_area             = if_xms_config=>co_area_runtime
+        im_param            = if_xms_config=>co_param_is_url
+        im_subparam         = space
+      IMPORTING
+        ex_value            = lv_iserver_url
+        ex_is_default       = lv_is_default
+      EXCEPTIONS
+        parameter_not_found = 1
+        OTHERS              = 2.
+
+    IF lv_iserver_url IS INITIAL OR
+       lv_is_default = if_xms_main=>co_true OR
+       sy-subrc <> 0.
+
+      m_trc_syserr 'URL for Integration Server missing in global settings' ''. "#EC NOTEXT
+
+      RAISE EXCEPTION TYPE cx_xms_syserr_engine
+        EXPORTING
+          id = cx_xms_syserr_engine=>co_id_integr_srv_url_missing.
+    ELSE.
+      m_trc1 'URL for integration server read from global configuration' ''.
+      m_trc1 'URL=' lv_iserver_url.
+    ENDIF.
+  ENDIF.
+
+  re_url = lv_iserver_url.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_XMS_PLSRV_IE_ADAPTER->IF_XMS_PLSRV~ENTER_PLSRV
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_PIPELINE_SERVICE_ID         TYPE        SXMSPSID
+* | [<-->] CH_MESSAGE                     TYPE REF TO IF_XMS_MESSAGE_XMB
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_xms_plsrv~enter_plsrv .
+
+*-Two pipeline services are implemented within this class
+*----PLSRV_CALL_INTEGRATION_SERVER: calling IS starting from sender IE
+*----PLSRV_CALL_ADAPTER:            calling receiver IE starting from IS
+
+  DATA: lv_iserver_url TYPE sxmsvalue.
+  DATA: lv_qos TYPE sxmsqos.
+  DATA: lv_log_nr_old TYPE sxmslsqnbr.
+
+  DATA: lv_direction TYPE sxmsmsgdir.                       "#EC NEEDED
+  DATA: lv_channel TYPE REF TO cl_srv_channel.
+  DATA: ls_transport_protocol TYPE ssrv_transport_protocol.
+  DATA: ls_message_protocol TYPE ssrv_message_protocol.
+  DATA: lv_adapter_name TYPE ssrv_adapter_name.
+  DATA: ls_sender TYPE sxi_fromorto.
+  DATA: ls_receiver TYPE sxi_fromorto.
+  DATA: lt_receiver TYPE sxi_tos.
+  DATA: lv_engine_type TYPE ssrv_engine_type.
+  DATA: lv_engine_name TYPE ssrv_engine_name.
+
+  DATA: lv_p1 TYPE string.
+  DATA: lv_p2 TYPE string.
+
+  DATA: lv_mo_request TYPE REF TO if_xms_message_xmb.
+  DATA: lv_moint_request TYPE REF TO if_xms_message.
+  DATA: lv_moint_receiver_response TYPE REF TO if_xms_message.
+  DATA: lv_denormalization_done TYPE c.
+  DATA: lv_system_error TYPE REF TO cx_xms_system_error.
+  DATA: ls_receiver_map TYPE sxi_towithmap.
+  DATA: lv_exception_occured TYPE c.
+* Eleminating MTOM attachements
+  resolve_mtom_attachments( ch_message ).
+  m_mo_setup.
+  m_ho_setup.
+  m_rm_setup.
+  m_dg_setup.
+  m_hlo_setup.
+  m_io_setup.
+  to = set_trace_object( im_message = moint ).
+  m_eo_setup.
+  m_ro_setup.
+  m_pfo_setup.
+
+  m_trc_function_begin 'CL_XMS_PLSRV_IE_ADAPTER-ENTER_PLSRV'.
+  TRY.
+      lv_mo_request = mo.
+      lv_moint_request = moint.
+
+      lcl_util=>check_pipeline_service_id( im_id =
+im_pipeline_service_id ).
+
+      ls_sender = mo->get_sender( ).   " get sender for synch AE-Call
+      IF im_pipeline_service_id = 'PLSRV_CALL_INTEGRATION_SERVER'.
+*-------URL of integration server is defined in global configuration
+        ro->set_adapter_out( cl_xms_internal_attributes=>co_val_adapter_xmb ).
+        lv_iserver_url = get_url_of_is( mo ).
+        lv_direction = mo->get_direction( ).
+        ls_transport_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+        ls_transport_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_trns_prt_vers_1_0.
+        ls_message_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_msg_prt_vers_3_1.
+        ls_message_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_msg_prt_name_xi.
+        DATA l_version TYPE sxms_version.
+        l_version = mo->get_version( ).
+        if l_version = if_xms_msghdr=>co_message_version_xi30.
+          ls_message_protocol-protocol_version = if_xi_adapter_const_ie=>CO_VAL_MSG_PRT_VERS_3_0.
+        endif.
+      ELSE.
+        cl_xms_statistical_records=>set_stat_record_trace_out( ro ).
+        outb ?= moint->getheaderbyname(
+                          nsuri  = if_srv_outbinding_xms_prop=>co_prop_nsuri
+                          lcname = if_srv_outbinding_xms_prop=>co_prop_lcname ).
+        lv_channel = lcl_util=>get_outbinding_channel( im_header = outb ).
+        lv_adapter_name = lv_channel->get_adapter_name( ).
+        lv_engine_type = lv_channel->get_engine_type( ).
+        lv_engine_name = lv_channel->get_engine_name( ).
+
+        lcl_util=>check_adapter_name( im_adapter_name = lv_adapter_name
+                                      im_engine_type = lv_engine_type
+                                      im_engine_name = lv_engine_name
+                                      im_pipeline_service_id = im_pipeline_service_id ).
+
+        ls_receiver_map = mo->get_receiver_with_map( ).
+        IF lv_engine_type = if_srv_constants=>co_integration_server.
+
+          IF lv_channel->get_attribute( im_attribute_name = if_xi_adapter_const_ie=>co_attr_pass_hop_list ) = cl_xms_main=>co_false.
+            modify_hoplist( ch_message ).
+          ENDIF.
+          lt_receiver = mo->get_receivers( ).
+          READ TABLE lt_receiver INTO ls_receiver INDEX 1.
+
+          lv_denormalization_done = set_header_map_and_alt_party( mo ).
+
+          ls_transport_protocol = lv_channel->get_transport_protocol( ).
+          ls_message_protocol = lv_channel->get_message_protocol( ).
+*---------message security handling - apply security profile
+*         only in case of IS -> R, IS -> PCK
+*         problem: IS -> IS also included in this case!
+*         apply_profile has to be done after conversion, because
+*           message-xstring which will be sent has to be identical to
+*           the signed message
+
+*         outbound security handling
+          DATA: lv_pipeline_id TYPE sxmspidext.
+          lv_pipeline_id = moint->ro->get_external_pl_id( ).
+
+* apply security handling for messages in xmb or amf format
+          DATA: lv_string1 TYPE string.
+          DATA: lv_string2 TYPE string.
+          m_begin_ts '2' 'MESSAGE_LEVEL_SECURITY_OUT'
+                         cl_xms_run_time_perf=>co_category_plsrv.
+          m_trc2_timestamp 'Message Level Security for Request (outbound)' ''.
+          SPLIT ls_message_protocol-protocol_version AT '.' INTO
+            lv_string1 lv_string2.
+          DATA: ls_version_receiver_request TYPE sxms_version.
+          ls_version_receiver_request-major = lv_string1.
+          ls_version_receiver_request-minor = lv_string2.
+          DATA: lv_moint_receiver_request TYPE REF TO if_xms_message.
+          lv_moint_receiver_request = convert_req_to_rcv( message = moint ls_version_receiver_request = ls_version_receiver_request ).
+          delete_sys_att( mo ). "note 1738911
+          CALL METHOD cl_xms_amf_security=>apply_profile
+            EXPORTING
+              im_message = mo
+              im_pid     = lv_pipeline_id.
+          m_end_ts '2' 'MESSAGE_LEVEL_SECURITY_OUT'
+                       cl_xms_run_time_perf=>co_category_plsrv.
+
+********  metering - set the caller info ********
+          modify_callerinfo( EXPORTING message = ch_message ).
+********  metering - end of set the caller info ********
+
+*********security handling will be performed in the http caller
+        ELSEIF lv_engine_type = if_srv_constants=>co_adapter_engine.
+          ls_transport_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_trns_prt_name_http.
+          ls_transport_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_trns_prt_vers_1_0.
+          ls_message_protocol-protocol_name = if_xi_adapter_const_ie=>co_val_msg_prt_name_xi.
+          ls_message_protocol-protocol_version = if_xi_adapter_const_ie=>co_val_msg_prt_vers_3_1.
+
+        ELSE.
+          lv_p1 = lv_engine_type.
+          lv_p2 = im_pipeline_service_id.
+          RAISE EXCEPTION TYPE cx_xms_syserr_engine
+            EXPORTING
+              id = cx_xms_syserr_engine=>co_id_engine_type_invalid
+              p1 = lv_p1
+              p2 = lv_p2.
+        ENDIF.
+      ENDIF.
+
+      TRY.
+          lv_qos    = lv_moint_request->rm->get_qos( ).
+          lv_log_nr_old = lv_moint_request->ro->get_log_seq_number( ).
+
+*-----delete payloads of type system (trace, context)
+          delete_sys_att( mo ).
+
+          IF ls_message_protocol-protocol_name <> if_xi_adapter_const_ie=>co_val_msg_prt_name_xi.
+            lv_p1 = ls_message_protocol-protocol_name.
+            RAISE EXCEPTION TYPE cx_xms_syserr_engine
+              EXPORTING
+                id = cx_xms_syserr_engine=>co_id_msg_prot_name_invalid
+                p1 = lv_p1.
+          ENDIF.
+
+          DATA: ls_version_receiver_response TYPE sxms_version. "#EC NEEDED
+          DATA: lv_moint_response TYPE REF TO if_xms_message.
+          DATA: lv_mo_response TYPE REF TO if_xms_message_xmb.
+          IF lv_engine_type NE if_srv_constants=>co_integration_server.
+          SPLIT ls_message_protocol-protocol_version AT '.' INTO
+            lv_string1 lv_string2.
+          ls_version_receiver_request-major = lv_string1.
+          ls_version_receiver_request-minor = lv_string2.
+
+          lv_moint_receiver_request = convert_req_to_rcv( message = moint ls_version_receiver_request = ls_version_receiver_request ).
+          ENDIF.
+*-----call integration engine
+          CASE ls_transport_protocol-protocol_name.
+            WHEN if_xi_adapter_const_ie=>co_val_trns_prt_name_http OR
+                 if_xi_adapter_const_ie=>co_val_trns_prt_name_https.
+              CALL METHOD call_xms_http
+                EXPORTING
+                  im_message         = lv_moint_receiver_request
+                  im_channel         = lv_channel
+                  im_iserver_url     = lv_iserver_url
+                  im_adapter_name    = lv_adapter_name
+                  im_message_version = ls_version_receiver_request
+                IMPORTING
+                  ex_message         = lv_moint_receiver_response.
+
+
+            WHEN OTHERS.
+              lv_p1 = ls_transport_protocol-protocol_name.
+              lv_p2 = im_pipeline_service_id.
+              RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                EXPORTING
+                  id = cx_xms_syserr_engine=>co_id_transp_protocol_invalid
+                  p1 = lv_p1
+                  p2 = lv_p2.
+          ENDCASE.
+          IF lv_moint_receiver_response IS NOT INITIAL.
+*-----check semantic of receiver response
+            check_receiver_response( im_receiver_response = lv_moint_receiver_response
+                                     im_receiver_request = lv_moint_receiver_request ).
+
+*-----convert receiver response into current message format
+            CALL METHOD cl_xms_conversion=>convert_receiver_response(
+              EXPORTING
+                im_request                   = lv_moint_request
+                im_receiver_response         = lv_moint_receiver_response
+              IMPORTING
+                ex_response                  = lv_moint_response
+                ex_version_receiver_response = ls_version_receiver_response ).
+          ENDIF.
+          IF lv_qos = if_xms_msghdr30_rm=>co_qos_be.
+            moint = lv_moint_response.
+            mo ?= moint.
+            lv_mo_response = mo.
+          ELSE.
+            moint = lv_moint_request.
+            mo ?= moint.
+            lv_mo_response ?= lv_moint_response.
+            IF mo->security_stat = cl_xms_main=>co_false OR mo->security_stat IS INITIAL.
+*             otherwise payloads should be kept due to reconstruction of security action
+              data l_mmf type ref to if_xms_message_mmf. " SAP Note 1785659
+              if ( mo->get_message_format( ) = if_xms_message_xmb=>co_multi_message ).
+                try.
+                  l_mmf ?= mo.
+                  mo->clear_payloads( ).
+                  if not moint->ro is initial.     "note 2034114
+                    moint->ro->SET_PERSIST_MMF_FLAG( ' ' ).
+                  endif.
+*                  l_mmf->delete_message_table( ).
+                catch cx_sy_move_cast_error.
+                  mo->clear_payloads( ).
+                endtry.
+              else.
+                mo->clear_payloads( ).
+              endif.
+            ENDIF.
+            IF lv_moint_response IS NOT INITIAL.
+              IF NOT lv_moint_response->ao IS INITIAL.
+                IF cl_xms_main=>co_true = lv_moint_response->ao->get_arrived_at_rec( ).
+                  moint->ao->set_arrived_at_rec( cl_xms_main=>co_true ).
+                ENDIF.
+                IF if_xms_msghdr30_ack=>co_status_error = lv_moint_response->ao->get_status( ).
+                  IF if_xms_msghdr30_ack=>co_category_permanent = lv_moint_response->ao->get_category( ).
+                    lv_moint_response->eo->set_retry( cx_xms_system_error=>co_retry_never ).
+                  ELSE.
+                    lv_moint_response->eo->set_retry( cx_xms_system_error=>co_retry_manual ).
+                  ENDIF.
+                  RAISE EXCEPTION TYPE cx_xms_syserr_engine
+                    EXPORTING
+                      id           = cx_xms_syserr_engine=>co_id_error_object
+                      error_object = lv_moint_response->eo.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+          ch_message = mo.
+
+
+****************************************************************
+*  build message after call
+****************************************************************
+
+
+*     construct entire message
+          CALL METHOD cl_xms_main=>get_message_properties
+            EXPORTING
+              im_message             = moint
+            IMPORTING
+              ex_trace               = to
+              ex_system_error        = eo
+              ex_run_time_env        = ro
+              ex_internal_attributes = io
+              ex_performance         = pfo
+              ex_message_header      = ho
+              ex_reliable_messaging  = rm
+              ex_hoplist             = hlo
+              ex_acknowledgment      = ao
+              ex_diagnostics         = dg.
+
+          IF NOT moint->eo->get_fault( ) IS INITIAL.
+            moint->ro->set_proc_status( cl_xms_persist=>co_stat_error_appl_trans ).
+          ENDIF.
+* note 2817280
+          DATA l_num TYPE sxmsrndnum.
+          if not ro is initial.
+            l_num = CL_XMS_MAIN=>create_rnd_number( ).
+            ro->set_rnd_number( im_number = l_num ).
+          endif.
+
+          lv_moint_request->ro->set_log_seq_number( lv_log_nr_old ).
+
+        CATCH cx_xms_system_error INTO lv_system_error.
+          lv_exception_occured = 'X'.
+
+      ENDTRY.
+
+*     eventually add security attachments to request message
+*      IF lv_security_stat = cl_xms_main=>co_true.
+* security attachment handling for message format xmb and amf
+      CALL METHOD cl_xms_amf_security=>add_sec_attachments
+        EXPORTING
+          message = lv_mo_request.
+***     the message should now be persisted for archiving and auditing purposes
+***     the security attachments could then be removed immediately
+***     However, this issue is not so critical, because archiving is obligatory
+***     only in receiving system, not in sending system
+
+
+
+*normalize and undo header mapping for request and response message
+*(both messages are persisted later, so we want no external format!)
+      IF lv_engine_type = if_srv_constants=>co_integration_server AND lv_qos = if_xms_msghdr30_rm=>co_qos_be.
+        cl_xms_statistical_records=>set_request_payload_size( msgid = mo->get_message_id( ) payload_size = lv_moint_request->ro->get_message_size_total( ) ).
+        cl_xms_statistical_records=>set_client_xi_generic( lv_moint_response ).
+      ENDIF.
+      IF lv_engine_type = if_srv_constants=>co_integration_server AND
+         lv_denormalization_done = 'X'.
+
+        undo_header_map_and_alt_party( ).
+        IF lv_mo_response IS INITIAL.
+          IF lv_exception_occured = 'X'.
+            RAISE EXCEPTION lv_system_error.
+          ENDIF.
+          EXIT.
+        ELSE.
+          IF lv_qos = if_xms_msghdr30_rm=>co_qos_be.
+            mo = lv_mo_response.
+            moint = lv_moint_response.
+            to = lv_moint_response->to.
+
+            IF NOT to IS INITIAL.
+              m_trc2 'Switch back to normalized party' '(HTTP response)'.
+            ENDIF.
+            mo->set_sender( im_sender = ls_receiver ).
+            IF NOT ls_receiver_map-map IS INITIAL.
+              ls_receiver_map-address = ls_sender-address.
+              ls_receiver_map-if = ls_sender-if.
+              mo->set_receiver_with_map( im_receiver = ls_receiver_map ).
+            ELSE.
+              mo->set_receiver( im_receiver = ls_sender ).
+            ENDIF.
+
+          ENDIF.
+        ENDIF.
+      ELSE.
+        IF lv_mo_response IS INITIAL AND lv_exception_occured = 'X'.
+          RAISE EXCEPTION lv_system_error.
+        ENDIF.
+        DATA receiver_with_map TYPE sxi_towithmap.
+        receiver_with_map = mo->get_receiver_with_map( ).
+        receiver_with_map-map = ls_receiver_map-map.
+        IF lv_qos = if_xms_msghdr30_rm=>co_qos_be.
+          receiver_with_map-name      = ls_sender-name.
+          receiver_with_map-namespace = ls_sender-namespace.
+          ls_sender = mo->get_sender( ).
+          IF NOT ( ls_sender-service IS INITIAL ).
+            ls_sender-if = mo->get_interface( ).
+            mo->set_sender( ls_sender ).
+          ENDIF.
+        ENDIF.
+        mo->set_receiver_with_map( receiver_with_map ).
+      ENDIF.
+
+      IF lv_exception_occured = 'X'.
+        RAISE EXCEPTION lv_system_error.
+      ENDIF.
+      DATA: lv_logging TYPE sxmslog.
+      DATA: lv_last_log TYPE sxmslog.
+      DATA: dummy_payload TYPE REF TO if_xms_payload.
+      lv_logging = lv_moint_request->get_logging_status( im_pipeline_service_id ).
+      IF lv_mo_request->get_processing_mode( ) = if_xms_msghdr30_main=>co_procmode_sync AND lv_moint_request <> moint.
+*                 "close" request message
+
+*             check whether we must persist message because of security archive
+        lv_last_log = lv_logging.
+        lv_mo_request ?= lv_moint_request.
+        dummy_payload = lv_mo_request->get_payload_by_name(
+                               if_xms_msghdr30_manifest=>co_payloadname_sec_xml ).
+        IF NOT dummy_payload IS INITIAL.
+          lv_last_log = co_true.
+        ENDIF.
+
+         call method CL_XMS_MAIN=>CHECK_EMPTY_PAYLOAD( im_message = mo im_direction = 'RES' ).
+
+        CALL METHOD cl_xms_message_pers_man=>write_message_log_to_persist
+          EXPORTING
+            moint   = lv_moint_request
+            logging = lv_last_log.
+      ENDIF.
+      m_trc_function_end.
+      DATA root_error TYPE REF TO cx_root.
+    CLEANUP INTO root_error.
+      IF lv_engine_type = if_srv_constants=>co_integration_server AND lv_qos = if_xms_msghdr30_rm=>co_qos_be.
+        cl_xms_statistical_records=>set_client_xi_generic( lv_moint_request ).
+      ENDIF.
+      DATA: error_text TYPE string.
+      error_text = root_error->get_text( ).
+      m_trc_syserr error_text ''.
+
+      m_trc_function_end.
+
+  ENDTRY.
+
+ENDMETHOD. "IF_XMS_PLSRV~ENTER_PLSRV
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_XMS_PLSRV_IE_ADAPTER->LOG_DATA_AS_MSG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] DATA                           TYPE        XSTRING
+* | [--->] REMOTE_ADDR                    TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method LOG_DATA_AS_MSG.
+
+  DATA l_moint    TYPE REF TO if_xms_message.
+  DATA l_xmb TYPE REF TO if_xms_message_xmb.
+  DATA sndsrv   TYPE sxi_fromorto-service
+               VALUE 'SAP_XI_HTTP_MULTIPART'.
+  DATA sndif    TYPE sxi_fromorto-name
+               VALUE 'SXI_HTTP_OUTBOUND'.
+  DATA sndns    TYPE sxi_fromorto-namespace
+               VALUE 'urn:sap-com:document:sap:xi_http_multipart'.
+  DATA l_partner TYPE sxi_fromorto.
+
+  DATA l_sxmsvalue     TYPE sxmsvalue.
+  DATA l_cache_xstring TYPE xstring.
+  CLEAR l_sxmsvalue.
+  CALL FUNCTION 'SXMB_GET_CONFIG'
+    EXPORTING
+      im_area             = if_xms_config=>co_area_runtime
+      im_param            = 'LOGGING_MULTIPART_ERROR'
+      im_subparam         = 'OUTBOUND'
+    IMPORTING
+      ex_value            = l_sxmsvalue
+    EXCEPTIONS
+      parameter_not_found = 1
+      OTHERS              = 2.
+  IF sy-subrc = 4 OR ( sy-subrc = 0 AND l_sxmsvalue = 0 ).
+    EXIT.
+  ENDIF.
+
+* create message header
+  l_xmb  = cl_xms_message_xmb=>createxmbmessage( ).
+  l_xmb->set_message_class(
+          if_xms_msghdr30_main=>co_msgclass_appreq ).
+
+  DATA l_timestamp TYPE timestamp.
+  GET TIME STAMP FIELD l_timestamp.
+  l_xmb->set_time_sent( l_timestamp ).
+
+  l_xmb->set_quality_of_service(
+          if_xms_message_xmb=>co_qos_exactly_once ).
+  l_xmb->set_processing_mode(
+          if_xms_msghdr30_main=>co_procmode_async ).
+
+  CLEAR l_partner.
+  l_partner-service   = sndsrv.
+  l_partner-name      = sndif.
+  l_partner-namespace = sndns.
+  l_xmb->set_sender( l_partner ).
+
+  l_partner-service   = sndsrv.
+  l_partner-name      = sndif.
+  l_partner-namespace = sndns.
+
+  DATA l_interface TYPE sxi_interface.
+  l_interface-name      = l_partner-name.
+  l_interface-namespace = l_partner-namespace.
+  l_xmb->set_interface( l_interface ).
+
+  DATA l_xms_main TYPE REF TO cl_xms_main.
+  l_xms_main = cl_xms_main=>create_xmb( ).
+
+  l_moint ?= l_xmb.
+  l_xms_main->set_message_properties( l_moint ).
+
+  DATA: ro TYPE REF TO cl_xms_run_time_env.
+  DATA: to TYPE REF TO if_xms_trace.
+  DATA: pfo TYPE REF TO cl_xms_run_time_perf.
+  CALL METHOD cl_xms_main=>get_message_properties
+    EXPORTING
+      im_message      = l_moint
+    IMPORTING
+      ex_trace        = to
+      ex_run_time_env = ro
+      ex_performance  = pfo.
+
+  ro->set_app_server_data( ).
+  ro->set_time( ).
+  ro->set_date( ).
+  ro->set_db_system( ).
+  ro->set_operating_system( ).
+  ro->set_user_name( ).
+
+  DATA l_sxmslsqnbr TYPE sxmslsqnbr.
+  ro->set_log_seq_number( l_sxmslsqnbr ).
+
+  DATA l_pl_id TYPE sxmspidext.
+  CALL FUNCTION 'SXMB_GET_CONFIG'
+    EXPORTING
+      im_area             = if_xms_config=>co_area_runtime
+      im_param            = if_xms_config=>co_param_engine_type
+    IMPORTING
+      ex_value            = l_sxmsvalue
+    EXCEPTIONS
+      parameter_not_found = 1
+      OTHERS              = 2.
+  IF sy-subrc = 0 AND
+         l_sxmsvalue(3) = if_xms_config=>co_val_engine_type_central.
+    l_pl_id = 'CENTRAL'.
+  ELSE.
+    l_pl_id = 'SENDER'.
+  ENDIF.
+  ro->set_external_pl_id( l_pl_id ).
+
+  DATA l_eo TYPE sxmseoref.
+  l_eo-id  = 'PARSE'.
+  l_eo-val = 'MULTIPART'.
+  ro->set_eo_ref_outbound( im_eo_ref = l_eo ).
+
+  ro->set_adap_status( if_xms_persist=>co_stat_adap_recorded ).
+
+  DATA l_message_size TYPE int4.
+  l_message_size = xstrlen( data ).
+  ro->set_message_size_payload( im_size = l_message_size ).
+
+* create payload
+  TRY.
+      l_xmb->add_payload_with_bin_content( EXPORTING
+        data         = data
+        type         = if_xms_resource=>MIMETYPEBIN
+        payloadtype  = if_xms_msghdr30_manifest=>co_payloadtype_app
+        documentname = 'MULTIPART'
+        description  = remote_addr ).
+    CATCH cx_xms_exception cx_xms_system_error.             "#EC *
+      EXIT.
+  ENDTRY.
+
+  TRY.
+      CALL METHOD cl_xms_message_pers_man=>write_message_to_persist
+        EXPORTING
+          moint    = l_moint
+          msgstate = cl_xms_persist=>co_stat_processed.
+    CATCH cx_xms_exception cx_xms_system_error.             "#EC *
+      EXIT.
+  ENDTRY.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->MODIFY_CALLERINFO
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE_XMB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD modify_callerinfo.
+
+
+  DATA  msg                       TYPE REF TO if_xms_message.
+  DATA  lv_outbinding             TYPE REF TO cl_srv_binding.
+  DATA: ls_caller_info            TYPE sxms_metering_callerinfo.
+  DATA: ls_caller_info_restricted TYPE sxms_metering_callerinfo.
+
+  DATA: lt_sys_hdr                TYPE sxms_msghdr30_system_t,
+        ls_sys_hdr                LIKE LINE OF lt_sys_hdr.
+
+  DATA: lv_metering_level         TYPE string.
+  DATA: lv_sys_hdr_callerinfo_ns  TYPE sxms_sys_hdr_ns.
+
+  msg ?= message.
+
+  IF msg->sys IS INITIAL.
+*           if system header object if not existing - externer caller who does not support metering or metering switched off at the sender
+*           send only the application type
+    CREATE OBJECT if_xms_main~sys TYPE cl_xms_msghdr30_system.
+
+    msg->addheader(
+            nsuri  = if_xms_msghdr30_system=>co_nsuri
+            lcname = if_xms_msghdr30_system=>co_lcname
+            prop   = if_xms_main~sys ).
+  ENDIF.
+
+  lv_sys_hdr_callerinfo_ns = cl_soap_metering=>co_callerinfo_ns.
+  lt_sys_hdr = msg->sys->get_matched_records( im_namespace = lv_sys_hdr_callerinfo_ns ).
+
+  READ TABLE lt_sys_hdr WITH KEY param_name = cl_soap_metering=>co_callerinfo_appid INTO ls_sys_hdr.
+  IF sy-subrc = 0.
+    ls_caller_info-callingappid = ls_sys_hdr-param_value.
+  ENDIF.
+  READ TABLE lt_sys_hdr WITH KEY param_name = cl_soap_metering=>co_callerinfo_apptype INTO ls_sys_hdr.
+  IF sy-subrc = 0.
+    ls_caller_info-callingtype = ls_sys_hdr-param_value.
+  ENDIF.
+  READ TABLE lt_sys_hdr WITH KEY param_name = cl_soap_metering=>co_callerinfo_component INTO ls_sys_hdr.
+  IF sy-subrc = 0.
+    ls_caller_info-callingcomponent = ls_sys_hdr-param_value.
+  ENDIF.
+  READ TABLE lt_sys_hdr WITH KEY param_name = cl_soap_metering=>co_callerinfo_companyid INTO ls_sys_hdr.
+  IF sy-subrc = 0.
+    ls_caller_info-callingcompanyid = ls_sys_hdr-param_value.
+  ENDIF.
+  READ TABLE lt_sys_hdr WITH KEY param_name = cl_soap_metering=>co_callerinfo_systemid INTO ls_sys_hdr.
+  IF sy-subrc = 0.
+    ls_caller_info-callingsysid = ls_sys_hdr-param_value.
+  ENDIF.
+  READ TABLE lt_sys_hdr WITH KEY param_name = cl_soap_metering=>co_callerinfo_usercode INTO ls_sys_hdr.
+  IF sy-subrc = 0.
+    ls_caller_info-callingusercode = ls_sys_hdr-param_value.
+  ENDIF.
+
+  IF ls_caller_info IS INITIAL.
+    ls_caller_info-callingtype = 'SAM'.
+  ENDIF.
+
+  lv_outbinding = outb->get_binding( ).
+  lv_metering_level = lv_outbinding->get_attribute( im_attribute_name = if_xi_adapter_const_ie=>co_attr_metering_level ).
+  IF lv_metering_level IS INITIAL.
+    lv_metering_level = cl_soap_metering=>co_metering_level_no.
+  ENDIF.
+  ls_caller_info_restricted = cl_soap_metering=>restrict_callerinfo_data( metering_level = lv_metering_level im_callerinfo = ls_caller_info ).
+
+  IF  msg->ho->attr-message_class = msg->ho->if_xms_msghdr30_main~co_msgclass_appreq.
+    message->set_callerinfo( im_caller_info = ls_caller_info_restricted metering_level = lv_metering_level ).
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->MODIFY_HOPLIST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE_XMB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD modify_hoplist.
+  DATA: hoplist TYPE sxmshoplist.
+  DATA: hop LIKE LINE OF hoplist.
+  DATA msg TYPE REF TO if_xms_message.
+  DATA msgid TYPE sxmsmguid.
+  msg ?= message.
+*             Hoplist B2B
+  IF msg->hlo IS NOT INITIAL.
+    msgid = msg->ho->get_message_id( ). "lv_msgid = ls_hoplist-msid.
+    REFRESH msg->hlo->hoplist.
+    hop-msid = msgid.
+    hop-wasread = cl_xms_main=>co_false.
+    hop-engine-type = if_xms_msghdr30_hoplist=>co_b2b_sender.
+    hop-engine-name = space.
+    hop-adapter-name = space.
+    hop-adapter-namespace = space.
+    hop-info = space.
+    GET TIME.
+    GET TIME STAMP FIELD hop-timestamp.
+    APPEND hop TO msg->hlo->hoplist.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->PROCESS_HTTP_HEADERS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LT_HEADER_FIELD                TYPE        TIHTTPNVP
+* | [<-->] INFOKIND                       TYPE        SXMS_INFO_KIND
+* | [<-->] LS_CONTENTTYPE                 TYPE        STRING
+* | [<-->] LS_DESCRIPTION                 TYPE        STRING
+* | [<-->] LS_HEADER_FIELD                TYPE        IHTTPNVP
+* | [<-->] LT_XMS_HEADER                  TYPE        SXMS_NV_T
+* | [<-->] LV_ICMCLNTERROR_TEXT           TYPE        STRING
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD process_http_headers.
+  DATA ls_xms_header TYPE sxms_nv_s .
+  DATA lv_icmclnterror TYPE string .
+  LOOP AT lt_header_field INTO ls_header_field.
+    IF ls_header_field-name = '~status_code'.
+    ELSEIF ls_header_field-name = '~status_reason'.
+    ELSEIF ls_header_field-name(1) = '~'.
+
+    ELSEIF ls_header_field-name = 'content-type'.           "#EC NOTEXT
+      ls_contenttype = ls_header_field-value.
+      TRY.
+          check_content_type( ls_contenttype ).
+        CATCH cx_xms_html_error.
+          infokind = cx_xms_system_error=>co_infokind_html.
+      ENDTRY.
+    ELSEIF ls_header_field-name = 'content-description'.    "#EC NOTEXT
+      ls_description = ls_header_field-value.
+    ELSEIF ls_header_field-name = 'content-length'.         "#EC NOTEXT
+    ELSEIF ls_header_field-name = 'sap-xi-messageid'.
+      m_trc1 'sap-xi-messageid' ls_header_field-value.
+    ELSEIF ls_header_field-name = 'xi_host_wp'.   "#EC NOTEXT "note 2128657
+     m_trc1 'Receiver Application Server :' ls_header_field-value.
+    ELSEIF ls_header_field-name = 'sap-icmclnterror'.       "#EC NOTEXT
+      lv_icmclnterror = ls_header_field-value.
+      IF NOT lv_icmclnterror IS INITIAL.
+        lv_icmclnterror_text = set_icm_text( lv_icmclnterror ).
+      ENDIF.
+    ELSE.
+      ls_xms_header-name = ls_header_field-name.
+      ls_xms_header-value = ls_header_field-value.
+      APPEND ls_xms_header TO lt_xms_header.
+    ENDIF.
+  ENDLOOP.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->RESOLVE_MTOM_ATTACHMENTS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE_XMB
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method RESOLVE_MTOM_ATTACHMENTS.
+  message->move_mtom_att_to_payload( ).
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->SET_HEADER_MAP_AND_ALT_PARTY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE_XMB
+* | [<-()] DENORMALIZATION_DONE           TYPE        CHAR1
+* | [!CX!] CX_XMS_SYSTEM_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_header_map_and_alt_party.
+  DATA: lv_outbinding TYPE REF TO cl_srv_binding.
+  DATA: ls_header TYPE ssrv_message_header.
+  DATA: ls_header_mapped TYPE ssrv_message_header.
+  DATA: lv_binding_exception TYPE REF TO cx_srv_binding_error.
+  DATA ls_sender TYPE sxi_fromorto.
+  DATA ls_receiver TYPE sxi_fromorto.
+  DATA: lt_receiver TYPE sxi_tos.
+  DATA p1 TYPE string.
+  DATA p2 TYPE string.
+  DATA before_map TYPE before_map.
+  DATA to TYPE REF TO if_xms_trace.
+  TRY.
+      ls_sender = message->get_sender( ).
+      before_map-sender = ls_sender.
+      lt_receiver = message->get_receivers( ).
+      before_map-message = message.
+      DATA moint TYPE REF TO if_xms_message.
+      moint ?= message.
+      to = moint->to.
+      READ TABLE lt_receiver INTO ls_receiver INDEX 1.
+      before_map-receiver = ls_receiver.
+      APPEND before_map TO _before_map_tab.
+      ls_header-from_party = ls_sender-party.
+      ls_header-from_partyagency = ls_sender-partyagency.
+      ls_header-from_partytype = ls_sender-partytype.
+      ls_header-from_service = ls_sender-service.
+      ls_header-to_party = ls_receiver-party.
+      ls_header-to_partyagency = ls_receiver-partyagency.
+      ls_header-to_partytype = ls_receiver-partytype.
+      ls_header-to_service = ls_receiver-service.
+      lv_outbinding = moint->outb->get_binding( ).
+      ls_header_mapped = lv_outbinding->map_header( im_message_header = ls_header
+                                                    im_message = message ).
+
+      ls_sender-party = ls_header_mapped-from_party.
+      ls_sender-partyagency = ls_header_mapped-from_partyagency.
+      ls_sender-partytype = ls_header_mapped-from_partytype.
+      ls_sender-service = ls_header_mapped-from_service.
+      ls_receiver-party = ls_header_mapped-to_party.
+      ls_receiver-partyagency = ls_header_mapped-to_partyagency.
+      ls_receiver-partytype = ls_header_mapped-to_partytype.
+      ls_receiver-service = ls_header_mapped-to_service.
+
+      m_trc3 'Sender:' 'Header mapped to'.
+      m_trc3 'Party =' ls_header_mapped-from_party.
+      m_trc3 'Agency =' ls_header_mapped-from_partyagency.
+      m_trc3 'Scheme =' ls_header_mapped-from_partytype.
+      m_trc3 'Service =' ls_header_mapped-from_service.
+
+      m_trc3 'Receiver:' 'Header mapped to'.
+      m_trc3 'Party =' ls_header_mapped-to_party.
+      m_trc3 'Agency =' ls_header_mapped-to_partyagency.
+      m_trc3 'Scheme =' ls_header_mapped-to_partytype.
+      m_trc3 'Service =' ls_header_mapped-to_service.
+
+    CATCH cx_srv_binding_error INTO lv_binding_exception.
+      p1 = ls_sender.
+      p2 = ls_receiver.
+      RAISE EXCEPTION TYPE cx_xms_syserr_engine
+        EXPORTING
+          previous = lv_binding_exception
+          id       = cx_xms_syserr_engine=>co_id_header_mapping_error
+          p1       = p1
+          p2       = p2.
+  ENDTRY.
+  DATA channel TYPE REF TO cl_srv_channel.
+  channel = lv_outbinding->get_channel( ).
+  DATA: ls_message_protocol TYPE ssrv_message_protocol.
+  m_trc1 'Party Denormalization' space.
+  lcl_util=>get_alternative_party( EXPORTING im_channel = channel
+                                             trace = to
+                                   CHANGING ch_sender = ls_sender
+                                            ch_receiver = ls_receiver ).
+  denormalization_done = 'X'.
+  message->set_sender( ls_sender ).
+  CLEAR lt_receiver.
+  APPEND ls_receiver TO lt_receiver.
+  message->set_receivers( lt_receiver ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->SET_ICM_TEXT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LV_ICMCLNTERROR                TYPE        STRING
+* | [<-()] LV_ICMCLNTERROR_TEXT           TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method SET_ICM_TEXT.
+  case lv_icmclnterror.
+    when '400'.
+      lv_icmclnterror_text = 'ICM_HTTP_CONNECTION_FAILED'.
+    when '401'.
+      lv_icmclnterror_text = 'ICM_HTTP_CONNECTION_BROKEN'.
+    when '402'.
+      lv_icmclnterror_text = 'ICM_HTTP_TIMEOUT'.
+    when '403'.
+      lv_icmclnterror_text = 'ICM_HTTP_SERVICE_UNAVAILABLE'.
+    when '404'.
+      lv_icmclnterror_text = 'ICM_HTTP_NO_MORE_MEMORY'.
+    when '405'.
+      lv_icmclnterror_text = 'ICM_HTTP_INTERNAL_ERROR'.
+    when '406'.
+      lv_icmclnterror_text = 'ICM_HTTP_NO_PERMISSION'.
+    when '407'.
+      lv_icmclnterror_text = 'ICM_HTTP_SSL_ERROR'.
+    when '408'.
+      lv_icmclnterror_text = 'ICM_HTTP_SSLPROXY_ERROR'.
+  endcase.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_XMS_PLSRV_IE_ADAPTER->SET_PASSPORT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] CLIENT                         TYPE REF TO IF_HTTP_CLIENT
+* | [--->] URI                            TYPE        STRING
+* | [--->] MAIN                           TYPE REF TO CL_XMS_MSGHDR30_MAIN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_passport.
+
+  DATA l_value TYPE sxmsvalue.
+* external http receivers does not know SAP-Passports
+* for R/3 destinations flag is set as default by ICM-framework
+  IF NOT ( ( uri CS '/MessagingSystem/receive/AFW/XI' ) OR
+           ( uri CS '/XISOAPAdapter/MessageServlet?ximessage=true' ) ).
+    EXIT.
+  ENDIF.
+
+* main header can be used to check for receiver specific configuration
+  CALL FUNCTION 'SXMB_GET_CONFIG'
+    EXPORTING
+      im_area             = if_xms_config=>co_area_tuning
+      im_param            = 'SAP_PASSPORT'
+    IMPORTING
+      ex_value            = l_value
+    EXCEPTIONS
+      parameter_not_found = 1
+      OTHERS              = 2.
+  IF sy-subrc = 0 AND l_value = '1'.
+     client->propertytype_send_sap_passport = if_http_client=>co_enabled.
+  ENDIF.
+
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->SET_TEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] MESSAGE                        TYPE REF TO IF_XMS_MESSAGE
+* | [--->] HTTP_REQUEST                   TYPE REF TO IF_HTTP_REQUEST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_test.
+  DATA rec TYPE sxms_msghdr30_dynamic.
+    IF message->dy IS NOT INITIAL.
+      rec = message->dy->if_xms_msghdr30_dynamic~get_record( im_namespace = 'http://sap.com/xi/XI' im_name = 'TESTCASE' ).
+      IF rec-param_value NE space.
+        message->dy->delete_record( rec ).
+        DATA testcase TYPE string.
+        testcase = rec-param_value.
+        http_request->set_form_field( name = 'TESTCASE' value = testcase ).
+      ENDIF.
+    ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->SET_TRACE_OBJECT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_MESSAGE                     TYPE REF TO IF_XMS_MESSAGE
+* | [<-()] RE_TRACE                       TYPE REF TO IF_XMS_TRACE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_trace_object .
+  m_to_setup.
+  re_trace = to.
+ENDMETHOD.                    "SET_TRACE_OBJECT
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_XMS_PLSRV_IE_ADAPTER->UNDO_HEADER_MAP_AND_ALT_PARTY
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD undo_header_map_and_alt_party.
+  FIELD-SYMBOLS <before_map> TYPE before_map.
+  LOOP AT _before_map_tab ASSIGNING <before_map>.
+    <before_map>-message->set_sender( <before_map>-sender ).
+    <before_map>-message->set_receiver( <before_map>-receiver ).
+  ENDLOOP.
+ENDMETHOD.
+ENDCLASS.
