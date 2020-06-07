@@ -1,0 +1,67 @@
+*----------------------------------------------------------------------*
+***INCLUDE NSUME_API_12_F01.
+*----------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Form ConsumeAPI
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM ConsumeAPI
+
+   USING
+        value(pv_gl_id)  type string
+         value(pv_res)       type CHAR30
+           value(pv_per)  type string
+           value(pv_meth)   type  string
+             value(pv_metric)   type  string
+*       VALUE(po_dp_sysmon) TYPE ref to  if_frn_fi_dp
+*       VALUE(pv_query) TYPE FRN_FI_DP_QUERY
+*         VALUE(pv_res) TYPE CHAR30
+*           VALUE(pv_per) TYPE string
+  CHANGING
+    VALUE(pt_ret_series) TYPE FRN_FI_DP_SERIES_TT
+    VALUE(pt_ret_messages) TYPE FRN_FI_DP_RET_MESSAGE_TT.
+
+data lv_query  type FRN_FI_DP_QUERY .
+data lt_filter type FRN_FI_DP_QUERY_TT .
+data ls_method like line of lt_filter.
+data ls_guid like line of lt_filter.
+data ls_metric like  LINE OF lt_filter.
+data lo_dp_sysmon type ref to if_frn_fi_dp.
+
+LS_GUID-K = 'GUID'.
+APPEND  pv_gl_id to LS_GUID-V.
+ls_metric-K = 'METRIC_NAMES'.
+APPEND  pv_metric to ls_metric-V.
+LS_METHOD-K = 'METHOD'.
+append pv_meth  to LS_METHOD-V  .
+
+APPEND LS_METHOD to lt_filter .
+APPEND LS_GUID to lt_filter .
+APPEND ls_metric to lt_filter .
+
+LV_QUERY-DATA_PROVIDER = 'DP_SYSMON'.
+LV_QUERY-FILTER = LT_FILTER .
+
+
+CREATE OBJECT  lo_dp_sysmon type CL_FRN_FI_DP_SYSMON .
+TRY.
+CALL METHOD lo_dp_sysmon->GET_SERIES
+  EXPORTING
+    IV_QUERY        = lv_query
+*    IV_START_TIME   =
+*    IV_END_TIME     =
+    IV_RESOLUTION   = lv_res
+*    IT_PARAMS       =
+*    IV_TIMEZONE     =
+    IV_PERIOD       = lv_per
+  CHANGING
+    CT_RET_SERIES   = pt_ret_series
+    CT_RET_MESSAGES = pt_ret_messages
+    .
+ CATCH CX_FRUN_DP_EXCEPTION .
+ENDTRY.
+ENDFORM.
