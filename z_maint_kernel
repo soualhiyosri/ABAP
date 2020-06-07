@@ -1,0 +1,40 @@
+*&---------------------------------------------------------------------*
+*& Report Z_MAINT_KERNEL
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_maint_kernel.
+DATA: lt_ccdb_dirv TYPE tt_ccdb_dirv.
+
+*data lt_items type TT_CCDB_FIELDLIST_SORTED .
+DATA lt_items TYPE tt_ccdb_trow .
+
+
+CALL FUNCTION 'CCDB_GET_STORES'
+  EXPORTING
+    rt_cim_guid = 'FA163E4CC4F01EE68CC7030173AFFB7E'
+  IMPORTING
+    ccdb_dirv   = lt_ccdb_dirv.
+READ TABLE lt_ccdb_dirv  INTO DATA(ls_item)   WITH KEY store_name =  'SAP_KERNEL'.
+
+data lv_str type xstring  .
+
+******************
+
+    CALL FUNCTION 'CCDB_GET_TABLE_SN'
+      EXPORTING
+        store_id               = ls_item-store_id
+*       TIMESTAMP              =
+*       CALLER                 =
+     IMPORTING
+*       FIELDLIST              = lt_items
+       SNAPSHOT               = lt_items
+*       SNAPSHOT_ITSAM         =
+*       SNAPSHOT_NUM_REC       =
+*       RC                     =
+*       RC_STRING              =
+.
+
+
+
+BREAK-POINT.
