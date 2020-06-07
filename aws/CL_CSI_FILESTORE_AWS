@@ -1,0 +1,119 @@
+class CL_CSI_FILESTORE_AWS definition
+  public
+  inheriting from CL_CSI_FILESTORE
+  final
+  create private
+
+  global friends CL_CSI_FILESTORE
+                 CL_CSI_FILESTORE_DIR_AWS
+                 CL_CSI_FILESTORE_FILE_AWS .
+
+public section.
+*"* public components of class CL_CSI_FILESTORE_AWS
+*"* do not include other source files here!!!
+
+  constants GC_PATH_SEPARATOR type CSI_STRING value '/'. "#EC NOTEXT
+
+  methods GET_PATH_SEPARATOR
+    redefinition .
+protected section.
+*"* protected components of class CL_CSI_FILESTORE_AWS
+*"* do not include other source files here!!!
+
+  methods GET_DIRECTORY_HANDLER
+    redefinition .
+  methods GET_FILE_HANDLER
+    redefinition .
+  methods INITIALIZE
+    redefinition .
+  methods INNER_PURGE_DIRECTORY
+    redefinition .
+private section.
+*"* private components of class CL_CSI_FILESTORE_AWS
+*"* do not include other source files here!!!
+
+  constants GC_DIRECTORY_HANDLER type CSI_ABAP_ABSTYPENAME value 'CL_CSI_FILESTORE_DIR_AWS'. "#EC NOTEXT
+  data GC_FILE_HANDLER type CSI_ABAP_ABSTYPENAME value 'CL_CSI_FILESTORE_FILE_AWS'. "#EC NOTEXT .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_FILESTORE_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_AWS->GET_DIRECTORY_HANDLER
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_HANDLERNAME                 TYPE        CSI_ABAP_ABSTYPENAME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_DIRECTORY_HANDLER.
+  rv_handlername = gc_directory_handler.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_AWS->GET_FILE_HANDLER
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_HANDLERNAME                 TYPE        CSI_ABAP_ABSTYPENAME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_FILE_HANDLER.
+  rv_handlername = gc_file_handler.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_FILESTORE_AWS->GET_PATH_SEPARATOR
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_SEPARATOR                   TYPE        CSI_STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_PATH_SEPARATOR.
+  rv_separator = gc_path_separator.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_AWS->INITIALIZE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INITIALIZE.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_AWS->INNER_PURGE_DIRECTORY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_OLDER_THAN_TIMESTAMP        TYPE        TIMESTAMP
+* | [--->] IV_DIRECTORY                   TYPE        CSI_FILE_PATH
+* | [<-()] RT_FILES                       TYPE        CSIT_FILE_PATH
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_purge_directory.
+  " due to the fact that we don't know the filename, we have to use the "lastModified"-Tag
+  DATA:
+    lo_file TYPE REF TO cl_csi_filestore_file_aws,
+    lt_files TYPE csit_filestore_object,
+    lo_dir TYPE REF TO cl_csi_filestore_dir_aws,
+    lv_dir TYPE csi_string.
+  FIELD-SYMBOLS:
+  <ls_file> TYPE csis_filestore_object.
+  lv_dir = iv_directory.
+  IF ( iv_directory IS INITIAL OR iv_directory(1) <> get_path_separator( ) ).
+    lv_dir = get_path_separator( ) && iv_directory.
+  ENDIF.
+  lo_dir ?= directory( lv_dir ).
+  ASSERT ID csi CONDITION lo_dir IS BOUND.
+  " 1) list all files in that specified directory
+  lt_files = lo_dir->list_childobjects( iv_object_type = if_csi_filestore_c=>gc_object_file ).
+  LOOP AT lt_files ASSIGNING <ls_file>.
+    IF ( <ls_file>-object_ref->gv_object_type <> if_csi_filestore_c=>gc_object_file ).
+      CONTINUE.
+    ENDIF.
+    lo_file ?= <ls_file>-object_ref.
+    " 2) delete each file which has a modified time < that of the timestamp
+    IF ( lo_file->gv_modified < iv_older_than_timestamp ).
+      lo_file->delete( ).
+      INSERT lo_file->gv_full_path INTO TABLE rt_files.
+    ENDIF.
+  ENDLOOP.
+ENDMETHOD.
+ENDCLASS.
