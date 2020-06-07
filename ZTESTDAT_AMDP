@@ -1,0 +1,84 @@
+*&---------------------------------------------------------------------*
+*& Report ZTESTDAT_AMDP
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZTESTDAT_AMDP.
+
+TYPES: BEGIN OF ts_lmdbid,
+             lmdbid TYPE /rum/guid_32,
+           END OF  ts_lmdbid.
+
+    TYPES: tt_lmdbid TYPE TABLE OF ts_lmdbid.
+
+    DATA ls_lmdbid TYPE ts_lmdbid.
+    DATA lt_lmdbid TYPE TABLE OF ts_lmdbid.
+
+    DATA : lt_type TYPE /rum/cl_data_store_amdp=>tt_type,
+           ls_type TYPE /rum/cl_data_store_amdp=>ts_type.
+
+*    data: lr_config_read type ref to /rum/if_config_store_read .
+
+    DATA: lr_config_read TYPE REF TO /rum/if_config_store_read,
+          lt_filtercfg   TYPE /rum/filtercfg_tt,
+          wa_filtercfg   TYPE /rum/filtercfg.
+
+
+    DATA lt_request_loc  TYPE Z_CL_FRN_FI_RUM_DATA_STORE=>tt_request_loc.
+
+    DATA lt_usertypes TYPE /rum/cl_data_store_amdp=>tt_usertype.
+    DATA ls_usertypes LIKE LINE OF lt_usertypes.
+
+
+      DATA: lr_factory         TYPE REF TO /rum/cl_factory.
+    lr_factory = /rum/cl_factory=>get_instance( ).
+
+
+    ls_usertypes-usertype = 'A'.
+    append  ls_usertypes to lt_usertypes .
+
+      ls_usertypes-usertype = 'S'.
+    append  ls_usertypes to lt_usertypes .
+
+      ls_usertypes-usertype = ' '.
+    append  ls_usertypes to lt_usertypes .
+
+
+    ls_lmdbid-lmdbid = 'FA163E4CC4F01EE68CC7030173AFFB7E'.
+    APPEND ls_lmdbid TO lt_lmdbid .
+
+*    lr_config_read = get_config_store_read_api( ).
+*    lt_filtercfg = lr_config_read->get_filter_config_table( ).
+*    lt_action_desc = lr_config_read->get_action_description_table( iv_only_requests = abap_true ).
+      lt_filtercfg = lr_factory->get_config_store_read_api( )->get_filter_config_table( ).
+    LOOP AT lt_filtercfg INTO wa_filtercfg.
+      ls_type-type = wa_filtercfg-type.
+      APPEND ls_type TO lt_type.
+    ENDLOOP.
+
+
+    Z_CL_FRN_FI_RUM_DATA_STORE=>get_request_overview_loc_(
+              EXPORTING
+                iv_client      = sy-mandt
+                iv_sdate       = '20191108'
+                iv_stime       = '000000'
+                iv_edate       = '20191108'
+                iv_etime       = '100000'
+                it_lmdbid      = lt_lmdbid
+                iv_top_n       = 100
+                iv_skip_n      = 0
+                it_type        = lt_type
+*                iv_filter      = `'TYPE = '102'  OR TYPE = '101')'`
+                iv_filter      = ''
+*                iv_loc_filter  = convert_ui_filter_2_amdp( iv_filter = iv_loc_filter )
+                iv_loc_filter  = ''
+                iv_loc_drill   = 'CITY'
+                it_usertype    = lt_usertypes
+                iv_order_by    = 'RED_EXECUTION desc'
+                iv_agg_level =  'M'
+              IMPORTING
+                et_request_loc = lt_request_loc
+*        ev_count       = ev_count
+            ).
+
+    BREAK-POINT .
