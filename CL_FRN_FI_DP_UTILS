@@ -1,0 +1,575 @@
+class CL_FRN_FI_DP_UTILS definition
+  public
+  final
+  create public .
+
+public section.
+
+  types:
+    TY_T_STRING type TABLE OF STRING .
+  types:
+    BEGIN OF TY_S_KEY,
+      query TYPE FRN_FI_DP_QUERY,
+      format TYPE string,
+    END OF TY_S_KEY .
+
+  class-methods GENERATE_DP_SHMA_KEY
+    importing
+      !IP_QUERY_JSON type STRING
+    exporting
+      !EP_KEY type STRING
+      !ES_QUERY type FINS_DP_JSON_INPUT .
+  class-methods IS_DATA_PERIOD_VALID
+    importing
+      !IP_PERIOD type STRING
+      !IP_LAST_UPDATE type TIMESTAMP
+      !IP_GRANULARITY type STRING
+    exporting
+      !EV_VALID type BOOLEAN .
+  class-methods GET_SHMA_DATA_STRUCT
+    importing
+      !IP_QUERY_JSON type STRING
+      !IP_DATA type ref to DATA
+      !IP_DATA_TYPE type STRING default 'SERIES'
+    exporting
+      !ES_SHMA_DATA type CL_FRN_FI_DP_SHMA_ROOT=>TY_S_DATA .
+  class-methods GET_DATA_FROM_SHMA
+    importing
+      !IT_QUERY_JSON type TY_T_STRING optional
+      !IP_ONLY_VALID type BOOLEAN default 'X'
+      !IP_REMOVE_INVALID type BOOLEAN optional
+    exporting
+      !ET_SHMA_DATA type CL_FRN_FI_DP_SHMA_ROOT=>TY_T_DATA .
+  class-methods UPDATE_DATA_TO_SHMA
+    importing
+      !IP_QUERY_JSON type STRING
+      !IP_DATA type ref to DATA
+      !IP_DATA_TYPE type STRING default 'SERIES' .
+  class-methods CLEAN_SHMA .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS CL_FRN_FI_DP_UTILS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_FRN_FI_DP_UTILS=>CLEAN_SHMA
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method CLEAN_SHMA.
+    " Get from SHMA
+    DATA:
+          area          TYPE REF TO cl_frn_fi_dp_shma,
+          root          TYPE REF TO cl_frn_fi_dp_shma_root,
+          lv_rc         TYPE sy-subrc,
+          lr_exception  TYPE REF TO cx_shm_attach_error,
+          lv_mesasge    TYPE string,
+          lv_new        TYPE boolean.
+
+    TRY.
+      area = cl_frn_fi_dp_shma=>attach_for_update( ).
+    CATCH
+      cx_shm_no_active_version.
+
+      TRY .
+        " Try to create new version of area.
+        area = cl_frn_fi_dp_shma=>attach_for_write( ).
+        " Set the root cache for SHMA
+        CREATE OBJECT root AREA HANDLE area.
+        area->set_root( ROOT = root ).
+        " Update area to SHMM
+        area->detach_commit( ).
+
+        lv_new = abap_true.
+      CATCH
+        cx_shm_no_active_version
+        cx_shm_read_lock_active
+        cx_shm_change_lock_active
+        cx_shm_exclusive_lock_active
+        cx_shm_pending_lock_removed
+        cx_shm_version_limit_exceeded
+        cx_shm_inconsistent INTO LR_EXCEPTION.
+
+      ENDTRY.
+    CATCH
+      cx_shm_read_lock_active
+      cx_shm_change_lock_active
+      cx_shm_exclusive_lock_active
+      cx_shm_pending_lock_removed
+      cx_shm_version_limit_exceeded
+      cx_shm_inconsistent.
+
+      WAIT UP TO 1 seconds.
+      TRY .
+        area = cl_frn_fi_dp_shma=>attach_for_update( ).
+      CATCH
+        cx_shm_no_active_version
+        cx_shm_read_lock_active
+        cx_shm_change_lock_active
+        cx_shm_exclusive_lock_active
+        cx_shm_pending_lock_removed
+        cx_shm_version_limit_exceeded
+        cx_shm_inconsistent INTO LR_EXCEPTION.
+
+*        RAISE EXCEPTION TYPE /STDF/CX_EXCEPTION
+*        EXPORTING
+*          TEXTID  = /STDF/CX_EXCEPTION=>ERROR_CACHE
+*          MESSAGE = LR_EXCEPTION->IF_MESSAGE~GET_TEXT( ).
+      ENDTRY.
+    ENDTRY.
+
+    IF area IS NOT INITIAL AND lv_new EQ abap_false.
+      DATA lt_shma TYPE cl_frn_fi_dp_shma_root=>TY_T_DATA.
+
+      " Set data to empty
+      area->root->SET_DATA(
+        exporting
+          IT_DATA        = lt_shma                 " New Data
+          IP_ALLOW_EMPTY = abap_true                 " Allow Empty Data
+      ).
+
+      area->detach_commit( ).
+    ENDIF.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_FRN_FI_DP_UTILS=>GENERATE_DP_SHMA_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IP_QUERY_JSON                  TYPE        STRING
+* | [<---] EP_KEY                         TYPE        STRING
+* | [<---] ES_QUERY                       TYPE        FINS_DP_JSON_INPUT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method GENERATE_DP_SHMA_KEY.
+    DATA:
+          ls_input_json   TYPE fins_dp_json_input,
+          lv_json         TYPE /ui2/cl_json=>json,
+          lv_key_json     TYPE /ui2/cl_json=>json,
+          lv_hash_data    TYPE string.
+
+    " Deserialize the query string in json format
+    lv_json = ip_query_json.
+    /ui2/cl_json=>deserialize( EXPORTING json = lv_json CHANGING data = ls_input_json  ).
+
+    " Copy to exporting query parameter
+    MOVE-CORRESPONDING ls_input_json TO es_query.
+
+    " Only retains needed information.
+    " When period is provided, basically start time and end time is not needed.
+    " We check validity based on update time.
+    IF ls_input_json-PERIOD IS NOT INITIAL.
+      clear ls_input_json-START_TIME.
+      clear ls_input_json-END_TIME.
+    ENDIF.
+    clear ls_input_json-NO_SHMA_CACHE.
+
+    " Sort filters to have always the same order
+    SORT ls_input_json-query-filter BY K.
+
+    " Get json string again for hash function
+    /ui2/cl_json=>SERIALIZE(
+      exporting
+        DATA             = ls_input_json                 " Data to serialize
+      receiving
+        R_JSON           = lv_key_json                 " JSON string
+    ).
+    " Hash json string for SHMA key
+    lv_hash_data = lv_key_json.
+    TRY .
+      cl_abap_message_digest=>CALCULATE_HASH_FOR_CHAR(
+        exporting
+          IF_ALGORITHM     = 'SHA512'           " Hash Algorithm
+          IF_DATA          = lv_hash_data                 " Data
+        importing
+          EF_HASHSTRING    = ep_key                 " Hash value as hex encoded string
+      ).
+    CATCH CX_ABAP_MESSAGE_DIGEST. " Exception Class for Message Digest
+      ep_key = ''.
+    ENDTRY.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_FRN_FI_DP_UTILS=>GET_DATA_FROM_SHMA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_QUERY_JSON                  TYPE        TY_T_STRING(optional)
+* | [--->] IP_ONLY_VALID                  TYPE        BOOLEAN (default ='X')
+* | [--->] IP_REMOVE_INVALID              TYPE        BOOLEAN(optional)
+* | [<---] ET_SHMA_DATA                   TYPE        CL_FRN_FI_DP_SHMA_ROOT=>TY_T_DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method GET_DATA_FROM_SHMA.
+    " Get from SHMA
+    DATA:
+          area          TYPE REF TO cl_frn_fi_dp_shma,
+          root          TYPE REF TO cl_frn_fi_dp_shma_root,
+          lv_rc         TYPE sy-subrc,
+          lr_exception  TYPE REF TO cx_shm_attach_error,
+          lv_mesasge    TYPE string.
+
+    TRY.
+      area = cl_frn_fi_dp_shma=>attach_for_read( ).
+    CATCH
+      cx_shm_no_active_version
+      cx_shm_read_lock_active
+      cx_shm_change_lock_active
+      cx_shm_exclusive_lock_active
+      cx_shm_pending_lock_removed
+      cx_shm_version_limit_exceeded
+      cx_shm_inconsistent.
+
+      WAIT UP TO 1 seconds.
+      TRY .
+        area = cl_frn_fi_dp_shma=>attach_for_read( ).
+      CATCH
+        cx_shm_no_active_version
+        cx_shm_read_lock_active
+        cx_shm_change_lock_active
+        cx_shm_exclusive_lock_active
+        cx_shm_pending_lock_removed
+        cx_shm_version_limit_exceeded
+        cx_shm_inconsistent INTO LR_EXCEPTION.
+
+*        RAISE EXCEPTION TYPE /STDF/CX_EXCEPTION
+*        EXPORTING
+*          TEXTID  = /STDF/CX_EXCEPTION=>ERROR_CACHE
+*          MESSAGE = LR_EXCEPTION->IF_MESSAGE~GET_TEXT( ).
+      ENDTRY.
+    ENDTRY.
+
+    IF area IS NOT INITIAL.
+      DATA:
+            lt_keys   TYPE cl_frn_fi_dp_shma_root=>TY_T_KEY.
+
+      " Get all needed keys
+      LOOP AT it_query_json INTO DATA(lv_query_json).
+        " Generate key and get query structure
+        GENERATE_DP_SHMA_KEY(
+          exporting
+            IP_QUERY_JSON = lv_query_json                 " Query String
+          importing
+            EP_KEY        = DATA(lv_key)                 " SHMA Key
+            ES_QUERY      = DATA(ls_query)                " Deserialized Query
+        ).
+
+        IF ls_query-NO_SHMA_CACHE eq abap_false
+          AND ( ls_query-PERIOD IS NOT INITIAL
+            OR ( ls_query-START_TIME IS NOT INITIAL AND ls_query-END_TIME IS NOT INITIAL )
+          ).
+          APPEND lv_key TO lt_keys.
+        ELSE.
+          APPEND '' TO lt_keys.
+        ENDIF.
+      ENDLOOP.
+
+      IF ip_only_valid EQ abap_true.
+        " Get only valid data and remove when data is not valid
+        area->root->GET_VALID_DATA(
+          exporting
+            IT_KEYS           = lt_keys                 " Keys
+            IP_REMOVE_INVALID = ip_remove_invalid                 " To remove invalid data
+          importing
+            ET_DATA           = et_shma_data                 " Data
+        ).
+      ELSE.
+        area->root->GET_DATA(
+          exporting
+            IT_KEYS           = lt_keys                 " Keys
+          importing
+            ET_DATA           = et_shma_data                 " Data
+        ).
+      ENDIF.
+
+      area->detach( ).
+    ENDIF.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_FRN_FI_DP_UTILS=>GET_SHMA_DATA_STRUCT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IP_QUERY_JSON                  TYPE        STRING
+* | [--->] IP_DATA                        TYPE REF TO DATA
+* | [--->] IP_DATA_TYPE                   TYPE        STRING (default ='SERIES')
+* | [<---] ES_SHMA_DATA                   TYPE        CL_FRN_FI_DP_SHMA_ROOT=>TY_S_DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method GET_SHMA_DATA_STRUCT.
+    FIELD-SYMBOLS:
+                   <lfs_data_series> TYPE frn_fi_dp_series_tt,
+                   <lfs_data_table> TYPE frn_fi_dp_table_tt,
+                   <lfs_data> TYPE frn_fi_dp_data_tt.
+
+    " Generate key and get query structure
+    GENERATE_DP_SHMA_KEY(
+      exporting
+        IP_QUERY_JSON = ip_query_json                 " Query String
+      importing
+        EP_KEY        = DATA(lv_key)                 " SHMA Key
+        ES_QUERY      = DATA(ls_query)                " Deserialized Query
+    ).
+
+    " Copy data to SHM data
+    es_shma_data-KEY = lv_key.
+    es_shma_data-PERIOD = ls_query-PERIOD.
+    es_shma_data-PERIOD_START = ls_query-START_TIME.
+    es_shma_data-PERIOD_END = ls_query-END_TIME.
+    es_shma_data-GRANULARITY = ls_query-RESOLUTION.
+    es_shma_data-TIMEZONE = ls_query-TIMEZONE.
+    es_shma_data-VALUE_TYPE = ip_data_type.
+
+    CASE ip_data_type.
+      WHEN 'SERIES'.
+        ASSIGN ip_data->* TO <lfs_data_series>.
+        MOVE-CORRESPONDING <lfs_data_series> TO es_shma_data-VALUE_SERIES.
+      WHEN 'TABLE'.
+        ASSIGN ip_data->* TO <lfs_data_table>.
+        MOVE-CORRESPONDING <lfs_data_table> TO es_shma_data-VALUE_TABLE.
+      WHEN 'DATA'.
+        ASSIGN ip_data->* TO <lfs_data>.
+        MOVE-CORRESPONDING <lfs_data> TO es_shma_data-VALUE_DATA.
+    ENDCASE.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_FRN_FI_DP_UTILS=>IS_DATA_PERIOD_VALID
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IP_PERIOD                      TYPE        STRING
+* | [--->] IP_LAST_UPDATE                 TYPE        TIMESTAMP
+* | [--->] IP_GRANULARITY                 TYPE        STRING
+* | [<---] EV_VALID                       TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method IS_DATA_PERIOD_VALID.
+    DATA:
+          lv_period       TYPE string,
+          lv_period_deli  TYPE string VALUE '_'.
+
+    " Copy period
+    lv_period = ip_period.
+    " Clean result
+    CLEAR ev_valid.
+
+    " Period is there. Check for validity.
+    IF ip_period IS NOT INITIAL.
+      " Get everything to upper case to avoid confusion
+      TRANSLATE lv_period TO UPPER CASE.
+
+      " Correct
+      IF lv_period eq 'YESTERDAY'.
+        lv_period = 'LAST_1_DAY'.
+      ELSEIF lv_period eq 'TODAY'.
+        lv_period = 'CURRENT_1_DAY'.
+      ENDIF.
+
+      " Split period
+      SPLIT lv_period AT lv_period_deli INTO TABLE DATA(lt_period).
+
+      " Correct again when case like Last_Month
+      DESCRIBE TABLE lt_period LINES DATA(lv_lines).
+      IF lv_lines < 3 AND lv_lines > 1.
+        READ TABLE lt_period INTO DATA(lv_period_unit) INDEX 2.
+        APPEND lv_period_unit TO lt_period.
+        READ TABLE lt_period ASSIGNING FIELD-SYMBOL(<lfs_period_value>) INDEX 2.
+        <lfs_period_value> = '1'.
+      ENDIF.
+
+      " Get current time stamp
+      GET TIME STAMP FIELD DATA(lv_current_time).
+
+      " Calculate differences between current time and last update time.
+      TRY .
+        DATA(lv_diff_seconds) = cl_abap_tstmp=>SUBTRACT(
+                                  TSTMP1 = lv_current_time
+                                  TSTMP2 = ip_last_update
+                                ).
+      CATCH CX_PARAMETER_INVALID_RANGE. " Parameter with invalid value range
+      CATCH CX_PARAMETER_INVALID_TYPE.  " Parameter with Invalid Type
+        " Something is wrong here. Why? No idea. Still Data is not valid in this case.
+      ENDTRY.
+
+      " Now check period and granularity against the differences.
+      " Get period type. The type can be 'LAST', or 'CURRENT'
+      READ TABLE lt_period INTO DATA(lv_period_type) INDEX 1.
+
+      " Get timestamp to string for easy retrieval of date time parts
+      DATA:
+            lv_current_str TYPE string,
+            lv_last_str TYPE string.
+      lv_current_str = lv_current_time.
+      lv_last_str = ip_last_update.
+
+      CASE lv_period_type.
+        WHEN 'LAST'.
+          " Since with LAST type, the period number is not useful
+          " Get period unit to check
+          READ TABLE lt_period INTO lv_period_unit INDEX 3.
+
+          CASE lv_period_unit.
+            WHEN 'YEAR'.
+              " When years are the same, then data is valid since last years are the same.
+              IF lv_current_str(4) eq lv_last_str(4).
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN 'MONTH'.
+              IF lv_current_str(4) eq lv_last_str(4) " Years are different means last months are not the same
+                and lv_current_str+4(2) eq lv_last_str+4(2). " Months are the same means last month are the same given years are the same.
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN 'WEEK'.
+              DATA:
+                    lv_current_date TYPE scal-date,
+                    lv_last_date    TYPE scal-date,
+                    lv_current_week TYPE scal-week,
+                    lv_last_week    TYPE scal-week.
+
+              lv_current_date = lv_current_str(8).
+              lv_last_date = lv_last_str(8).
+              " Get weeks
+              CALL FUNCTION 'DATE_GET_WEEK'
+                exporting
+                  DATE         = lv_current_date                 " Date for which the week should be calculated
+                importing
+                  WEEK         = lv_current_week                 " Week for date (format:YYYYWW)
+*                exceptions
+*                  DATE_INVALID = 1                " Date does not lie between 01/01/1991 and 31/12/2098
+*                  OTHERS       = 2
+                .
+              CALL FUNCTION 'DATE_GET_WEEK'
+                exporting
+                  DATE         = lv_last_date                 " Date for which the week should be calculated
+                importing
+                  WEEK         = lv_last_week                 " Week for date (format:YYYYWW)
+*                exceptions
+*                  DATE_INVALID = 1                " Date does not lie between 01/01/1991 and 31/12/2098
+*                  OTHERS       = 2
+                .
+              IF lv_current_week IS NOT INITIAL AND lv_last_week IS NOT INITIAL AND lv_current_week eq lv_last_week. " Same week is OK.
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN 'DAY'.
+              IF lv_current_str(4) eq lv_last_str(4) " Years are different means last months are not the same
+                and lv_current_str+4(2) eq lv_last_str+4(2) " Months are the same means last months are the same given years are the same.
+                and lv_current_str+6(2) eq lv_last_str+6(2). " Days are the same means last days are the same given months, and years are the same.
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN 'HOUR'.
+              IF lv_current_str(4) eq lv_last_str(4) " Years are different means last months are not the same
+                and lv_current_str+4(2) eq lv_last_str+4(2) " Months are the same means last months are the same given years are the same.
+                and lv_current_str+6(2) eq lv_last_str+6(2) " Days are the same means last days are the same given months, and years are the same.
+                and lv_current_str+8(2) eq lv_last_str+8(2). " Hours are the same means last days are the same given dates are the same.
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN 'MINUTE'.
+              IF lv_diff_seconds <= 60.
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN OTHERS.
+              " Not sure here. Let's say invalid.
+          ENDCASE.
+        WHEN OTHERS.
+          " This is applied for 'CURRENT', 'AUTO', and other period types.
+          " Since its' data is current, we need to update data very frequent.
+          " So we will assume 1 minute of retention time in case of minute or raw granularity.
+          " And 1 hour of retention time in other cases of granularity.
+          CASE ip_granularity.
+            WHEN 'MINUTE' OR 'RAW'.
+              IF lv_diff_seconds <= 60 AND lv_current_str+10(2) eq lv_last_str+10(2).
+                ev_valid = abap_true.
+              ENDIF.
+            WHEN OTHERS.
+              IF lv_diff_seconds <= 3600 AND lv_current_str+8(2) eq lv_last_str+8(2).
+                ev_valid = abap_true.
+              ENDIF.
+          ENDCASE.
+      ENDCASE.
+    ELSE.
+    " No period means custom period. Always valid.
+      ev_valid = abap_true.
+    ENDIF.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_FRN_FI_DP_UTILS=>UPDATE_DATA_TO_SHMA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IP_QUERY_JSON                  TYPE        STRING
+* | [--->] IP_DATA                        TYPE REF TO DATA
+* | [--->] IP_DATA_TYPE                   TYPE        STRING (default ='SERIES')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method UPDATE_DATA_TO_SHMA.
+    DATA:
+          area          TYPE REF TO cl_frn_fi_dp_shma,
+          root          TYPE REF TO cl_frn_fi_dp_shma_root,
+          lv_rc         TYPE sy-subrc,
+          lr_exception  TYPE REF TO cx_shm_attach_error,
+          lv_mesasge    TYPE string,
+          lt_shma_data  TYPE cl_frn_fi_dp_shma_root=>TY_T_DATA.
+
+    GET_DATA_FROM_SHMA(
+      exporting
+*        IT_QUERY_JSON     =                  " Query Statements
+        IP_ONLY_VALID     = abap_false              " Only Valid Data
+*        IP_REMOVE_INVALID =                  " Remove Invalid Data
+      importing
+        ET_SHMA_DATA      = lt_shma_data                 " SHMA Data
+    ).
+
+    " Try to get SHMA for updating cache.
+    TRY.
+      area = cl_frn_fi_dp_shma=>attach_for_write( ).
+    CATCH
+      cx_shm_no_active_version
+      cx_shm_read_lock_active
+      cx_shm_change_lock_active
+      cx_shm_exclusive_lock_active
+      cx_shm_pending_lock_removed
+      cx_shm_version_limit_exceeded
+      cx_shm_inconsistent INTO LR_EXCEPTION.
+
+      WAIT UP TO 1 seconds.
+      TRY .
+        area = cl_frn_fi_dp_shma=>attach_for_write( ).
+      CATCH
+        cx_shm_no_active_version
+        cx_shm_read_lock_active
+        cx_shm_change_lock_active
+        cx_shm_exclusive_lock_active
+        cx_shm_pending_lock_removed
+        cx_shm_version_limit_exceeded
+        cx_shm_inconsistent INTO LR_EXCEPTION.
+
+*        RAISE EXCEPTION TYPE /STDF/CX_EXCEPTION
+*        EXPORTING
+*          TEXTID  = /STDF/CX_EXCEPTION=>ERROR_CACHE
+*          MESSAGE = LR_EXCEPTION->IF_MESSAGE~GET_TEXT( ).
+      ENDTRY.
+    ENDTRY.
+
+    IF area IS NOT INITIAL.
+      " Set the root cache for SHMA
+      CREATE OBJECT root AREA HANDLE area.
+      root->set_data( it_data = lt_shma_data ).
+      area->set_root( root = root ).
+
+      DATA lt_to_update LIKE lt_shma_data.
+
+      " Get SHMA data structure
+      get_shma_data_struct(
+        exporting
+          ip_query_json = ip_query_json                 " Query Statement
+          ip_data       = ip_data                 " Data
+          ip_data_type  = ip_data_type
+        importing
+          es_shma_data  = DATA(ls_shma_data)                 " SHMA Data
+      ).
+
+      APPEND ls_shma_data TO lt_to_update.
+
+      " Update to SHMA
+      root->update_data( it_data = lt_to_update ).
+      area->detach_commit( ).
+    ENDIF.
+  endmethod.
+ENDCLASS.
