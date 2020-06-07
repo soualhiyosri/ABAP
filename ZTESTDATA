@@ -1,0 +1,238 @@
+*&---------------------------------------------------------------------*
+*& Report ZTESTDATA
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ztestdata.
+
+TABLES: usr02.
+*
+*SELECT-OPTIONS: S_USER FOR USR02-BNAME.
+*
+*PARAMETERS: p_author TYPE char255 AS LISTBOX VISIBLE LENGTH 20 USER-COMMAND auth.
+*PARAMETERS: p_bname TYPE char255 AS LISTBOX VISIBLE LENGTH 20 USER-COMMAND name.
+
+
+
+DATA: lr_factory         TYPE REF TO /rum/cl_factory,
+      lr_data_store_read TYPE REF TO /rum/if_data_store_read,
+      lt_result          TYPE cl_frn_fi_rum_data_store=>tt_executions_per_time,
+      lt_all_result      TYPE /rum/execution_per_time_tt.
+
+
+DATA: lt_filter_cond TYPE cl_shdb_seltab=>tt_named_seltables,
+      wa_filter_cond TYPE LINE OF cl_shdb_seltab=>tt_named_seltables,
+      lv_filter_cond TYPE string,
+      lv_client      TYPE string.
+
+
+
+DATA: lv_sdate TYPE dats,
+      lv_stime TYPE tims,
+      lv_edate TYPE dats,
+      lv_etime TYPE tims,
+      lv_tz    TYPE ttzz-tzone.
+
+
+
+lr_factory = /rum/cl_factory=>get_instance( ).
+lr_data_store_read = lr_factory->get_data_store_read_api( ).
+
+
+
+
+DATA lv_vount TYPE int4 .
+
+
+DATA: lt_lmdb        TYPE /rum/guid_32_tt,
+      lt_reslt       TYPE /rum/cl_ui5_mpc_ext=>gtt_requestoverviewloc,
+      ls_range       TYPE /rum/range_s,
+      lt_requesttype TYPE /rum/range_tt,
+      lt_requestname TYPE /rum/range_tt,
+      lt_usertype    TYPE /rum/usertype_tt,
+      ls_usertype    LIKE LINE OF lt_usertype.
+
+
+
+ls_range-option = 'EQ'.
+ls_range-sign = 'I'.
+ls_range-low = '102'.
+
+APPEND ls_range TO lt_requesttype .
+CLEAR ls_range .
+
+ls_range-option = 'EQ'.
+ls_range-sign = 'I'.
+ls_range-low = '101'.
+
+APPEND ls_range TO lt_requesttype .
+CLEAR ls_range .
+
+
+
+APPEND 'A' TO lt_usertype.
+APPEND ' ' TO lt_usertype.
+APPEND 'S' TO lt_usertype.
+*ls_range-option = 'EQ'.
+*ls_range-sign = 'I'..
+*ls_range-low = 'A'.
+*
+*APPEND ls_range to lt_usertype .
+*clear ls_range .
+*
+*ls_range-option = 'EQ'.
+*ls_range-sign = 'I'.
+*ls_range-low = ' '.
+*
+*APPEND ls_range to lt_usertype .
+*clear ls_range .
+*
+*
+*ls_range-option = 'EQ'.
+*ls_range-sign = 'I'.
+*ls_range-low = 'S'.
+*
+*APPEND ls_range to lt_usertype .
+*clear ls_range .
+
+
+
+ls_range-option = 'EQ'.
+ls_range-sign = 'I'.
+ls_range-low = '/sap/bc/rest/rumdataservice/records'.
+
+APPEND ls_range TO lt_requestname .
+CLEAR ls_range .
+
+
+
+
+
+APPEND 'FA163E4CC4F01EE68CC7030173AFFB7E' TO lt_lmdb.
+
+
+
+TYPES : BEGIN OF ts_res ,
+          tv_key     TYPE string,
+          lt_request TYPE /rum/cl_ui5_mpc_ext=>gtt_requestoverviewloc,
+        END OF  ts_res .
+
+DATA : ls_res TYPE ts_res,
+       lt_res TYPE TABLE OF ts_res.
+
+
+TRY .
+    lr_data_store_read->get_request_overview_loc(
+      EXPORTING
+        iv_starttimestamp       =      '20191108000000'        " UTC Time Stamp in Short Form (YYYYMMDDhhmmss)
+        iv_endtimestamp         =    '20191108100000'              " UTC Time Stamp in Short Form (YYYYMMDDhhmmss)
+        it_lmdbid               =        lt_lmdb          " Table Type for /RUM/GUID_32
+        iv_top_n                =        100          " Natural number
+        iv_skip_n               =           0       " Natural number
+            it_requesttype          =    lt_requesttype              " Request Type, e.g. Transaction, UI5, url, ...
+*            it_requestname          =    lt_requestname        " Request Name
+*            it_action               =                  " Entity subname
+*            it_user                 =       lt_usertype           " User
+            it_usertype             =     lt_usertype             " Table Type for /RUM/RANGE_S
+*            it_client               =                  " Table Type for /RUM/RANGE_S
+*            iv_order_by             =
+*            iv_ratings              =
+            iv_loc_filter           =  'CITY:BAUTZEN;BANGALORE'
+            iv_loc_drilldown        =       'CITY'           " Location attributes requested for drilldown
+      IMPORTING
+        et_request_overview_loc = lt_reslt
+        ev_count                =    lv_vount              " Natural number
+    ).
+  CATCH /rum/cx_data_store. " Data store exception
+
+
+
+    TYPES: BEGIN OF ts_lmdbid,
+             lmdbid TYPE /rum/guid_32,
+           END OF  ts_lmdbid.
+
+    TYPES: tt_lmdbid TYPE TABLE OF ts_lmdbid.
+
+    DATA ls_lmdbid TYPE ts_lmdbid.
+    DATA lt_lmdbid TYPE TABLE OF ts_lmdbid.
+
+    DATA : lt_type TYPE /rum/cl_data_store_amdp=>tt_type,
+           ls_type TYPE /rum/cl_data_store_amdp=>ts_type.
+
+*    data: lr_config_read type ref to /rum/if_config_store_read .
+
+    DATA: lr_config_read TYPE REF TO /rum/if_config_store_read,
+          lt_filtercfg   TYPE /rum/filtercfg_tt,
+          wa_filtercfg   TYPE /rum/filtercfg.
+
+
+    DATA lt_request_loc  TYPE /rum/cl_data_store_loc_amdp=>tt_request_loc.
+
+    DATA lt_usertypes TYPE /rum/cl_data_store_amdp=>tt_usertype.
+    DATA ls_usertypes LIKE LINE OF lt_usertypes.
+
+
+    ls_usertypes-usertype = 'A'.
+    append  ls_usertypes to lt_usertypes .
+
+      ls_usertypes-usertype = 'S'.
+    append  ls_usertypes to lt_usertypes .
+
+      ls_usertypes-usertype = ' '.
+    append  ls_usertypes to lt_usertypes .
+
+
+    ls_lmdbid-lmdbid = 'FA163E4CC4F01EE68CC7030173AFFB7E'.
+    APPEND ls_lmdbid TO lt_lmdbid .
+
+*    lr_config_read = get_config_store_read_api( ).
+
+    lt_filtercfg = lr_config_read->get_filter_config_table( ).
+*    lt_action_desc = lr_config_read->get_action_description_table( iv_only_requests = abap_true ).
+
+    LOOP AT lt_filtercfg INTO wa_filtercfg.
+      ls_type-type = wa_filtercfg-type.
+      APPEND ls_type TO lt_type.
+    ENDLOOP.
+
+
+    /rum/cl_data_store_loc_amdp=>get_request_overview_loc(
+              EXPORTING
+                iv_client      = sy-mandt
+                iv_sdate       = '20191108'
+                iv_stime       = '000000'
+                iv_edate       = '20191108'
+                iv_etime       = '100000'
+                it_lmdbid      = lt_lmdbid
+                iv_top_n       = 100
+                iv_skip_n      = 0
+                it_type        = lt_type
+                iv_filter      = `'200 = '200' AND ( TYPE = '102'  OR TYPE = '101' ) '`
+*                iv_loc_filter  = convert_ui_filter_2_amdp( iv_filter = iv_loc_filter )
+                iv_loc_filter  = ''
+                iv_loc_drill   = 'CITY'
+                it_usertype    = lt_usertypes
+                iv_order_by    = 'RED_EXECUTION desc'
+              IMPORTING
+                et_request_loc = lt_request_loc
+*        ev_count       = ev_count
+            ).
+ENDTRY.
+
+LOOP AT lt_reslt INTO DATA(ls_reslt) GROUP BY ls_reslt-location_key INTO DATA(lv_gp).
+
+  ls_res-tv_key = lv_gp .
+
+  LOOP AT GROUP lv_gp INTO DATA(ls_gp).
+
+    APPEND ls_gp TO ls_res-lt_request .
+
+  ENDLOOP.
+
+  APPEND ls_res TO lt_res  .
+  CLEAR ls_res .
+
+
+ENDLOOP.
+
+BREAK-POINT .
