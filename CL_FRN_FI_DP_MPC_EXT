@@ -1,0 +1,181 @@
+class CL_FRN_FI_DP_MPC_EXT definition
+  public
+  inheriting from CL_FRN_FI_DP_MPC
+  create public .
+
+public section.
+
+  methods DEFINE
+    redefinition .
+  methods GET_LAST_MODIFIED
+    redefinition .
+*  types: BEGIN OF TS_SERIE,
+*           Name type string,
+*           Method type String,
+*           Measure type String,
+*           ToMeasures TYPE  cl_frn_fi_dp_mpc_ext=>TT_MEASURES,
+*           ToAttributes type cl_frn_fi_dp_mpc_ext=>TT_ATTRIBUTES,
+*         END OF TS_SERIE,
+*         TT_SERIES TYPE TABLE OF TS_SERIE.
+*
+* types: BEGIN OF ts_query_series,
+*          Statement type String,
+*          Message type String,
+*          ToSeries type TT_SERIES,
+*        END OF ts_query_series.
+protected section.
+private section.
+
+  methods DEFINE_ENTITIES .
+ENDCLASS.
+
+
+
+CLASS CL_FRN_FI_DP_MPC_EXT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_FRN_FI_DP_MPC_EXT->DEFINE
+* +-------------------------------------------------------------------------------------------------+
+* | [!CX!] /IWBEP/CX_MGW_MED_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD define.
+    super->define( ).
+    model->set_soft_state_enabled( abap_true ).
+    define_entities( ).
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_FRN_FI_DP_MPC_EXT->DEFINE_ENTITIES
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD define_entities.
+    DATA:
+      lo_entity_type  TYPE REF TO /iwbep/if_mgw_odata_entity_typ,
+      lo_complex_type TYPE REF TO /iwbep/if_mgw_odata_cmplx_type,
+      lo_property     TYPE REF TO /iwbep/if_mgw_odata_property,
+      lo_entity_set   TYPE REF TO /iwbep/if_mgw_odata_entity_set,
+      lt_ent          TYPE STANDARD TABLE OF frn_fi_dyn_ent,
+      ls_ent          TYPE frn_fi_dyn_ent,
+      lt_props        TYPE STANDARD TABLE OF frn_fi_dyn_prop,
+      ls_props        TYPE frn_fi_dyn_prop,
+      lv_element      TYPE string,
+      lt_text_table   TYPE STANDARD TABLE OF textpool WITH DEFAULT KEY,
+      ls_text_table   LIKE LINE OF lt_text_table,
+      tabi            TYPE TABLE OF textpool,
+      lv_nb           TYPE i,
+      lwa_s           TYPE string,
+      lv_ch           TYPE string,
+      lv_test         TYPE string,
+      lv_idt          TYPE c LENGTH 8,
+      lv_md           TYPE string,
+      lt_mes          TYPE TABLE OF string,
+      lt_dim          TYPE TABLE OF string,
+      lw_ss.
+
+    lv_nb = 100.
+    lv_ch = lv_nb.
+    lv_idt = lv_ch.
+    lv_test = sy-repid.
+*Recovory of entities
+    SELECT *  FROM frn_fi_dyn_ent INTO TABLE lt_ent.
+    LOOP AT lt_ent INTO ls_ent.
+
+      TRY .
+          lwa_s = ls_ent-entity_name.
+*Create entity TYpe
+          lo_entity_type = model->create_entity_type( iv_entity_type_name = ls_ent-entity_name iv_def_entity_set = abap_false ).
+*Add the annotation sap:semantic= "aggregate" for smart chart
+          lo_entity_type->set_semantic( /iwbep/if_ana_odata_types=>gcs_ana_odata_semantic_value-query-aggregate ).
+*Create properties of the entity with their annotation and label
+          SELECT * FROM frn_fi_dyn_prop INTO TABLE lt_props WHERE entity_name = ls_ent-entity_name.
+          LOOP AT lt_props INTO ls_props.
+*Creation of tect symbol that must be used to add sap:label to each property
+            ls_text_table-id     = 'I'.
+            ls_text_table-key    = lv_ch.
+            ls_text_table-entry  = ls_props-property_label.
+            ls_text_table-length = strlen( ls_props-property_label ).
+            APPEND ls_text_table TO lt_text_table.
+            INSERT TEXTPOOL sy-repid FROM lt_text_table LANGUAGE sy-langu.
+            lo_property =  lo_entity_type->create_property( iv_property_name = ls_props-property_name ).
+            IF ls_props-is_key = 'X'.
+              lo_property->set_is_key( ).
+            ENDIF.
+            lo_property->set_type_edm_string( ).
+            lo_property->set_nullable( abap_false ).
+*Set the label of each property
+            lo_property->set_label_from_text_element( iv_text_element_symbol = lv_idt iv_text_element_container = lv_test  ).
+            TRY.
+
+                lv_element = 'CHAR100'.
+*Bind each property to his data element
+                CALL METHOD lo_property->bind_data_element
+                  EXPORTING
+                    iv_element_name = lv_element.
+
+              CATCH /iwbep/cx_mgw_med_exception .
+            ENDTRY.
+
+
+            IF ls_props-property_name = 'GadgetId' .
+              lo_property->set_filterable( abap_true ).
+
+            ENDIF.
+
+            "clear lt_text_table .
+            ADD 1 TO lv_nb.
+            lv_ch = lv_nb.
+            lv_idt = lv_ch.
+
+          ENDLOOP.
+
+*Create entity set
+          lo_entity_set = lo_entity_type->create_entity_set( ls_ent-entity_set ).
+          lo_entity_set->set_has_ftxt_search( abap_false ).
+          lo_entity_set->set_subscribable( abap_false ).
+          lo_entity_set->set_filter_required( abap_false ).
+
+        CATCH /iwbep/cx_mgw_med_exception  .
+
+      ENDTRY.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_FRN_FI_DP_MPC_EXT->GET_LAST_MODIFIED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_LAST_MODIFIED               TYPE        TIMESTAMP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_last_modified.
+
+
+    DATA: ls_modif     TYPE frn_fi_last_mdf,
+          lv_timestamp TYPE timestamp,
+          lv_res       TYPE i,
+          lv_last      TYPE timestamp.
+    lv_timestamp = super->get_last_modified( ).
+    SELECT last_modif INTO lv_last FROM frn_fi_last_mdf WHERE id = 1.
+    ENDSELECT.
+    IF lv_last IS NOT INITIAL.
+      CALL METHOD cl_abap_tstmp=>compare
+        EXPORTING
+          tstmp1 = lv_timestamp
+          tstmp2 = lv_last
+        RECEIVING
+          comp   = lv_res.
+
+
+      IF lv_res = 1.
+        rv_last_modified = lv_timestamp.
+      ELSE.
+        rv_last_modified = lv_last.
+      ENDIF.
+
+    ENDIF.
+
+
+  ENDMETHOD.
+ENDCLASS.
