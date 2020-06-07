@@ -1,0 +1,684 @@
+class CL_CSI_FILESTORE_FILE_AWS definition
+  public
+  inheriting from CL_CSI_FILESTORE_OBJECT_AWS
+  final
+  create private
+
+  global friends CL_CSI_FILESTORE
+                 CL_CSI_FILESTORE_AWS
+                 CL_CSI_FILESTORE_DIR_AWS
+                 CL_CSI_FILESTORE_OBJECT .
+
+public section.
+*"* public components of class CL_CSI_FILESTORE_FILE_AWS
+*"* do not include other source files here!!!
+  type-pools CSIAW .
+protected section.
+*"* protected components of class CL_CSI_FILESTORE_FILE_AWS
+*"* do not include other source files here!!!
+
+  methods INITIALIZE
+    redefinition .
+  methods INNER_CALL_PROVIDER
+    redefinition .
+  methods INNER_COPY_PREPARE
+    redefinition .
+  methods INNER_COPY_TRANSFORM
+    redefinition .
+  methods INNER_CREATE_PREPARE
+    redefinition .
+  methods INNER_CREATE_TRANSFORM
+    redefinition .
+  methods INNER_DELETE_PREPARE
+    redefinition .
+  methods INNER_DELETE_TRANSFORM
+    redefinition .
+  methods INNER_DOWNLOAD_PREPARE
+    redefinition .
+  methods INNER_DOWNLOAD_TRANSFORM
+    redefinition .
+  methods INNER_EXISTS_PREPARE
+    redefinition .
+  methods INNER_EXISTS_TRANSFORM
+    redefinition .
+  methods INNER_GET_UPLOAD_SIGNATURE
+    redefinition .
+  methods INNER_LIST_PREPARE
+    redefinition .
+  methods INNER_LIST_TRANSFORM
+    redefinition .
+  methods INNER_MOVE_PREPARE
+    redefinition .
+  methods INNER_MOVE_TRANSFORM
+    redefinition .
+  methods INNER_REFRESH_PREPARE
+    redefinition .
+  methods INNER_REFRESH_TRANSFORM
+    redefinition .
+  methods INNER_UPLOAD_PREPARE
+    redefinition .
+  methods INNER_UPLOAD_TRANSFORM
+    redefinition .
+PRIVATE SECTION.
+*"* private components of class CL_CSI_FILESTORE_FILE_AWS
+*"* do not include other source files here!!!
+
+  TYPES:
+    BEGIN OF gtys_file_data,
+      file_data TYPE csit_filestore_filedata,
+      content_type TYPE csi_string,
+      content_length TYPE csi_bigint,
+    END OF gtys_file_data.
+ENDCLASS.
+
+
+
+CLASS CL_CSI_FILESTORE_FILE_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INITIALIZE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INITIALIZE.
+*CALL METHOD SUPER->INITIALIZE
+*    .
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_CALL_PROVIDER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION                      TYPE        CSI_FILESTORE_OBJECT_ACTION
+* | [--->] IT_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [<---] EV_CDATA                       TYPE        CSI_STRING
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] EV_REASON                      TYPE        CSI_STRING
+* | [<-->] CR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_call_provider.
+  CONSTANTS lc_method_get TYPE string VALUE if_http_entity=>co_request_method_get.
+  CONSTANTS lc_method_head TYPE string VALUE 'HEAD'.
+  csiaw_mcx_define.
+  csiaw_m_split_define.
+  DATA:
+    lv_timestamp TYPE timestamp.
+  GET TIME STAMP FIELD lv_timestamp.
+
+  DATA:
+    lv_id TYPE csi_string.
+  FIELD-SYMBOLS:
+    <lv_id> LIKE lv_id.
+  DATA:
+    lt_header TYPE tihttpnvp,
+    ls_header TYPE ihttpnvp.
+  FIELD-SYMBOLS:
+     <lt_headers> TYPE tihttpnvp.
+  FIELD-SYMBOLS:
+    <ls_param> TYPE csis_parameter.
+  LOOP AT it_parameter ASSIGNING <ls_param>.
+    FREE ls_header.
+    ls_header-name = <ls_param>-name.
+    ls_header-value = <ls_param>-value.
+    INSERT ls_header INTO TABLE lt_header.
+  ENDLOOP.
+  CASE iv_action.
+    WHEN if_csi_filestore_c=>gc_action_create OR if_csi_filestore_c=>gc_action_delete.
+      " create a file ???
+      " ==> write a 0 byte file
+      lv_rel_url = gv_full_path && cl_csi_filestore_aws=>gc_path_separator.
+      csiaw_m_split_path.
+      IF ( iv_action = if_csi_filestore_c=>gc_action_delete ).
+        internal_delete( iv_url = lv_directory iv_bucket = lv_bucket ).
+      ELSE.
+        internal_put( iv_url = lv_directory iv_bucket = lv_bucket ).
+      ENDIF.
+    WHEN if_csi_filestore_c=>gc_action_exists OR if_csi_filestore_c=>gc_action_refresh or if_csi_filestore_c=>gc_action_download.
+      data:
+        lv_raise_exception type csi_bool value abap_true,
+        lv_method          TYPE csi_string,
+        lv_region          TYPE csi_aws_region.
+      if ( iv_Action = if_csi_filestore_c=>gc_action_download ).
+        csiaw_m_split_set.
+        lv_method = lc_method_get.
+      else.
+        lv_rel_url = gv_full_path && cl_csi_filestore_aws=>gc_path_separator. "for the macro
+        lv_method = lc_method_head.
+        lv_raise_exception = abap_false.
+      endif.
+      csiaw_m_split_path.
+      " make sure to do this AFTER the split_path makro, cause this will determine the bucket
+      lv_region = cl_csi_filestore_object_aws=>get_bucket_region_for_account( iv_bucket = lv_bucket io_account = get_account( ) iv_http_destination = get_provider( )->get_file_destination( ) ).
+      TRY.
+        cl_csi_provider_aws_helper=>s3_do_rest_call(
+          EXPORTING
+            iv_uri              = lv_directory
+            iv_bucket           = lv_bucket
+            iv_method           = lv_method
+            iv_timestamp        = lv_timestamp
+            iv_http_destination = get_provider( )->get_file_destination( )
+            io_account          = get_account( )
+              iv_region           = lv_region
+              iv_raise_exception  = lv_raise_exception
+          IMPORTING
+            ev_code = ev_code
+            ev_reason = ev_reason
+            ev_data = ev_data
+            et_response_header_fields = lt_header
+        ).
+
+        CREATE DATA cr_add_data TYPE tihttpnvp.
+        ASSIGN cr_add_data->* TO <lt_headers>.
+        <lt_headers> = lt_header.
+        csiaw_mcx_convert_exception.
+      ENDTRY.
+    WHEN if_csi_filestore_c=>gc_action_copy.
+      FIELD-SYMBOLS:
+        <lv_rel_url> LIKE lv_rel_url.
+      ASSIGN cr_add_data->* TO <lv_rel_url>.
+      lv_rel_url = <lv_rel_url>.
+      csiaw_m_split_path.
+      lv_id = internal_put( iv_url = lv_directory iv_bucket = lv_bucket it_additional_header = lt_header ).
+      CREATE DATA cr_add_data LIKE lv_id.
+      ASSIGN cr_add_data->* TO <lv_id>.
+      <lv_id> = lv_id.
+      ev_code = mc_ok.
+    WHEN if_csi_filestore_c=>gc_action_upload.
+      csiaw_m_split_set.
+      csiaw_m_split_path.
+
+      FIELD-SYMBOLS:
+        <ls_file_data> TYPE gtys_file_data.
+      ASSIGN cr_add_data->* TO <ls_file_data>.
+      IF ( <ls_file_data> IS NOT ASSIGNED ).
+        RETURN.
+      ENDIF.
+      lv_id = internal_put(
+        iv_url = lv_directory
+        iv_bucket = lv_bucket
+        it_file_data = <ls_file_data>-file_data
+        iv_content_type = <ls_file_data>-content_type
+      ).
+      CREATE DATA cr_add_data LIKE lv_id.
+      ASSIGN cr_add_data->* TO <lv_id>.
+      <lv_id> = lv_id.
+      ev_code = mc_ok.
+    WHEN OTHERS.
+  ENDCASE.
+  csiaw_mcx_raise.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_COPY_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NEW_PATH                    TYPE        CSI_STRING
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_copy_PREPARE.
+    "csiaw_header_define.
+    "csiaw_header_add:
+    define_param.
+    add_param:
+      mc_x_amz_copy_source gv_full_path abap_false.
+    csiaw_m_split_define.
+    lv_rel_url = iv_new_path.
+    IF ( strlen( lv_rel_url ) > 0 AND lv_rel_url(1) <> cl_csi_filestore_aws=>gc_path_separator ).
+      lv_rel_url = cl_csi_filestore_aws=>gc_path_separator && lv_rel_url.
+    ENDIF.
+    csiaw_m_split_path.
+    CREATE DATA er_add_data like lv_rel_url.
+    FIELD-SYMBOLS:
+      <lv_rel_url> like lv_rel_url.
+    ASSIGN er_add_data->* to <lv_rel_url>.
+    <lv_rel_url> = lv_rel_url.
+  ENDMETHOD.                    "if_csi_filestore_object~COPY
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_COPY_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_copy_transform.
+  FIELD-SYMBOLS:
+    <lv_id> LIKE rv_id.
+  ASSIGN ir_add_data->* TO <lv_id>.
+  IF ( <lv_id> IS ASSIGNED ).
+    rv_id = <lv_id>.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_CREATE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_create_PREPARE.
+  ENDMETHOD.                    "if_csi_filestore_object~CREATE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_CREATE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_CREATE_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_DELETE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_delete_PREPARE.
+  ENDMETHOD.                    "if_csi_filestore_object~delete
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_DELETE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_DELETE_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_DOWNLOAD_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_download_PREPARE.
+    csiaw_mcx_define.
+    csiaw_header_define.
+    DATA:
+      lv_timestamp TYPE timestamp.
+
+
+  ENDMETHOD.                    "if_csi_filestore_object~download
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_DOWNLOAD_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<---] ET_FILE_DATA                   TYPE        CSIT_FILESTORE_FILEDATA
+* | [<---] EV_CONTENT_TYPE                TYPE        CSI_STRING
+* | [<---] EV_CONTENT_LENGTH              TYPE        CSI_BIGINT
+* | [<---] EV_CONTENT_RANGE               TYPE        CSI_STRING
+* | [<---] EV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_download_transform.
+  csiaw_header_define.
+  csiaw_mcx_define.
+  IF ( iv_code = mc_ok OR iv_code = mc_partial_content ).
+    INSERT iv_data INTO TABLE et_file_data.
+    FIELD-SYMBOLS:
+      <lt_headers> LIKE lt_headers.
+    ASSIGN ir_add_data->* TO <lt_headers>.
+    lt_headers = <lt_headers>.
+    csiaw_header_get:
+      mc_content_type ev_content_type,
+      mc_content_length ev_content_length,
+      mc_content_range ev_content_range,
+      mc_etag ev_id.
+  ELSE.
+    DATA:
+      lv_code LIKE iv_code,
+      lv_reason LIKE iv_reason.
+    lv_code = iv_code.
+    lv_reason = iv_reason.
+    csiaw_mcx_raise_errorcode.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_EXISTS_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_exists_PREPARE.
+  ENDMETHOD.                    "if_csi_filestore_object~exists
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_EXISTS_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_EXISTS                      TYPE        ABAP_BOOL
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_exists_transform.
+  rv_exists = abap_false.
+  csiaw_header_define.
+  IF ( iv_code = mc_ok OR iv_code = mc_partial_content ).
+    rv_exists = abap_true.
+    DATA:
+      lv_sdummy TYPE csi_string.
+    FIELD-SYMBOLS:
+      <lt_headers> LIKE lt_headers.
+    ASSIGN ir_add_data->* TO <lt_headers>.
+    lt_headers = <lt_headers>.
+    csiaw_header_get:
+      "mc_content_type gv_content_type,
+      "mc_etag ev_id,
+      mc_last_modified lv_sdummy,
+      mc_content_length gv_size.
+    gv_modified = cl_csi_common_helper=>get_timestamp_from_rfc1123( lv_sdummy ).
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_GET_UPLOAD_SIGNATURE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP
+* | [--->] IV_CONTENT_TYPE                TYPE        CSI_STRING(optional)
+* | [<---] EV_SIGNATURE                   TYPE        CSI_STRING
+* | [<---] ET_PARAMETER                   TYPE        CSIT_FILESTORE_SIG_PARAMETER
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_GET_UPLOAD_SIGNATURE.
+  DATA:
+    ls_parameter TYPE csis_filestore_sig_parameter,
+    lv_key TYPE csi_char200,
+    lv_dest TYPE rfcdest,
+    lv_hostname TYPE csi_string.
+  DEFINE add_param.
+    ls_parameter-name = &1.
+    ls_parameter-value = &2.
+    ls_parameter-sig_relevant = abap_false.
+    insert ls_parameter into table et_parameter.
+  END-OF-DEFINITION.
+  DEFINE add_rel_param.
+    ls_parameter-name = &1.
+    ls_parameter-value = &2.
+    ls_parameter-sig_relevant = abap_true.
+    insert ls_parameter into table et_parameter.
+  END-OF-DEFINITION.
+  TRY.
+      lv_dest = get_provider( )->get_file_destination( ).
+      lv_hostname = cl_csi_provider_aws_helper=>rfc_get_hostname( lv_dest ).
+      add_param 'API_VERSION' mc_api_version.
+      lv_key = get_account( )->get_keyname( ).
+      add_param 'AWSAccessKeyId' lv_key.
+      add_rel_param 'HOSTNAME' lv_hostname.
+      CASE mv_query_type.
+        WHEN if_csi_service_c=>querytype_soap.
+          DATA:
+            lv_stringtosign TYPE csi_string.
+          add_rel_param 'METHOD' 'PutObject'.
+          lv_stringtosign = `AmazonS3` && `PutObject` && |{ iv_timestamp TIMESTAMP = ISO }| && `.000Z`.
+          ev_signature = get_account( )->get_signature( iv_stringtosign = lv_stringtosign io_key_access = cl_csi_provider_account_aws_ka=>factory( ) ).
+        WHEN OTHERS.  " Rest etc.
+          CONSTANTS lc_method TYPE csi_string VALUE 'PUT'.
+          DATA:
+            lo_http_client TYPE REF TO if_http_client,
+            lo_http_request TYPE REF TO if_http_request,
+            lt_fields       TYPE tihttpnvp,
+            lv_region       TYPE csi_aws_region.
+          csiaw_m_split_define.
+          csiaw_m_split_set.
+          csiaw_m_split_path.
+          " this is just "fake" in order to reuse a well known method
+          lv_region = cl_csi_filestore_object_aws=>get_bucket_region_for_account( iv_bucket = lv_bucket io_account = get_account( ) iv_http_destination = lv_dest ).
+          cl_http_client=>create_by_destination( EXPORTING destination = lv_dest IMPORTING client = lo_http_client ).
+          lo_http_request = lo_http_client->request.
+          cl_csi_provider_aws_helper=>s3_set_rest_request(
+            EXPORTING
+              iv_uri            = lv_directory
+              iv_bucket         = lv_bucket
+              iv_method         = lc_method
+              iv_timestamp      = iv_timestamp
+              iv_content_type   = iv_content_type
+              iv_region         = ''
+              iv_content_sha256 = ''
+              io_account        = get_account( )
+            CHANGING
+              co_request        = lo_http_request
+          ).
+          lo_http_request->get_header_fields( CHANGING fields = lt_fields ).
+          add_rel_param 'METHOD' lc_method.
+          FIELD-SYMBOLS:
+            <ls_field> TYPE ihttpnvp.
+          LOOP AT lt_fields ASSIGNING <ls_field>.
+            add_rel_param <ls_field>-name <ls_field>-value.
+            IF ( <ls_field>-name = cl_csi_provider_aws_helper=>gc_rest_auth ).
+              ev_signature = <ls_field>-value.
+            ENDIF.
+          ENDLOOP.
+          free: lo_http_client, lo_http_request, lt_fields.
+      ENDCASE.
+      DATA:
+        lx_csi_provider TYPE REF TO cx_csi_provider,
+        lx_root TYPE REF TO cx_root,
+        lx_csi_filestore TYPE REF TO cx_csi_filestore.
+    CATCH cx_csi_provider INTO lx_csi_provider.
+      CREATE OBJECT lx_csi_filestore
+        EXPORTING
+          textid     = cx_csi_filestore=>cx_csi_provider
+          text_token = lx_csi_provider->get_text( ).
+    CATCH cx_root INTO lx_root.
+      CREATE OBJECT lx_csi_filestore
+        EXPORTING
+          textid     = cx_csi_filestore=>cx_csi_unknwon
+          text_token = lx_root->get_text( ).
+  ENDTRY.
+  IF ( lx_csi_filestore IS BOUND ).
+    RAISE EXCEPTION lx_csi_filestore.
+  ENDIF.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_LIST_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_OBJECT_TYPE                 TYPE        CSI_FILESTORE_OBJECTTYPE(optional)
+* | [--->] IV_OBJECT_FILTER               TYPE        CSI_STRING(optional)
+* | [--->] IV_MAX_RESULTS                 TYPE        CSI_INT(optional)
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_list_PREPARE.
+    RAISE EXCEPTION TYPE cx_csi_filestore
+      EXPORTING
+        textid      = cx_csi_filestore=>wrong_operation_type
+        object_type = gv_object_type.
+  ENDMETHOD.                    "IF_CSI_FILESTORE_OBJECT~LIST_CHILDOBJECTS
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_LIST_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RT_OBJECTS                     TYPE        CSIT_FILESTORE_OBJECT
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_LIST_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_MOVE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NEW_PATH                    TYPE        CSI_STRING
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_move_prepare.
+    DATA lv_new_path TYPE csi_string.
+    lv_new_path = iv_new_path.
+    IF ( strlen( lv_new_path ) > 0 AND lv_new_path(1) <> cl_csi_filestore_aws=>gc_path_separator ).
+      lv_new_path = cl_csi_filestore_aws=>gc_path_separator && lv_new_path.
+    ENDIF.
+    FIELD-SYMBOLS:
+      <lv_new_path> LIKE lv_new_path.
+    CREATE DATA er_add_data LIKE lv_new_path.
+    ASSIGN er_add_data->* TO <lv_new_path>.
+    <lv_new_path> = lv_new_path.
+  ENDMETHOD.                    "if_csi_filestore_object~MOVE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_MOVE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_move_transform.
+  FIELD-SYMBOLS:
+    <lv_new_path> TYPE csi_string.
+  ASSIGN ir_add_data->* TO <lv_new_path>.
+
+  IF ( <lv_new_path> IS NOT ASSIGNED ).
+    RETURN.
+  ENDIF.
+  rv_id = copy( iv_new_path = <lv_new_path> ).
+  " store the old path, so that we can safely overwrite our current path BEFORE deleting the old file
+  " (as this might cause an exception which leaves the path being the old one if we don't do it right here before deleting...)
+  csiaw_m_split_define.
+  csiaw_m_split_set.
+  csiaw_m_split_path.
+  gv_full_path = <lv_new_path>.
+  internal_delete( iv_url = lv_directory iv_bucket = lv_bucket ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_REFRESH_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_refresh_prepare.
+  inner_exists_prepare( IMPORTING et_parameter = et_parameter ev_do_not_call_provider = ev_do_not_call_provider er_add_data = er_add_data ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_REFRESH_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_refresh_transform.
+  inner_exists_transform( iv_data = iv_data iv_cdata = iv_cdata iv_code = iv_code iv_reason = iv_reason ir_add_data = ir_add_data ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_UPLOAD_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_FILE_DATA                   TYPE        CSIT_FILESTORE_FILEDATA
+* | [--->] IV_CONTENT_TYPE                TYPE        CSI_STRING
+* | [--->] IV_CONTENT_LENGTH              TYPE        CSI_BIGINT
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_upload_prepare.
+    DATA:
+      ls_file_data TYPE gtys_file_data.
+    FIELD-SYMBOLS:
+      <ls_file_data> LIKE ls_file_data.
+    CREATE DATA er_add_data LIKE ls_file_data.
+    ASSIGN er_add_data->* TO <ls_file_data>.
+
+    ls_file_data-file_data = it_file_data.
+    ls_file_data-content_type = iv_content_type.
+    ls_file_data-content_length = iv_content_length.
+
+    <ls_file_data> = ls_file_data.
+
+  ENDMETHOD.                    "if_csi_filestore_object~upload
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_FILE_AWS->INNER_UPLOAD_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_upload_transform.
+  IF ( iv_code = mc_ok ).
+    FIELD-SYMBOLS:
+      <lv_id> LIKE rv_id.
+    ASSIGN ir_add_data->* TO <lv_id>.
+    IF ( <lv_id> IS ASSIGNED ).
+      rv_id = <lv_id>.
+    ENDIF.
+  ENDIF.
+ENDMETHOD.
+ENDCLASS.
