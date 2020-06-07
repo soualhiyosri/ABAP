@@ -1,0 +1,63 @@
+*&---------------------------------------------------------------------*
+*& Report ZTEST_ALL
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_get_classes.
+
+TYPES :  BEGIN OF class_desc,
+  name type string,
+  desc type string ,
+  END OF class_desc .
+
+  data  lt_cl_desc type TABLE OF class_desc.
+  data ls_cl_desc like LINE OF lt_cl_desc .
+
+DATA lr_interface TYPE REF TO cl_oo_interface.
+DATA: wa_class TYPE REF TO cl_oo_class.
+
+DATA lt_classes TYPE seo_relkeys.
+*FIELD-SYMBOLS <ls_classes> LIKE LINE OF lt_classes .
+
+
+TRY.
+    "create interface object
+    CREATE OBJECT lr_interface
+      EXPORTING
+        intfname = 'IF_FRN_FI_DP'.
+
+    "get all implemented classes
+    lt_classes = lr_interface->get_implementing_classes( ).
+
+  CATCH cx_class_not_existent.
+    RETURN.
+ENDTRY.
+
+clear lt_cl_desc .
+LOOP AT lt_classes into data(ls_classes) .
+  CREATE OBJECT wa_class
+    EXPORTING
+      clsname = ls_classes-clsname.
+
+  ls_cl_desc-name = ls_classes-clsname+10.
+  ls_cl_desc-desc = wa_class->class-descript.
+
+  append ls_cl_desc to lt_cl_desc .
+
+*  <ls_classes>-clsname = <ls_classes>-clsname+13.
+*  <ls_classes>-refclsname = wa_class->class-descript.
+
+ENDLOOP.
+
+WRITE : ''.
+*TYPES:  BEGIN OF placeholder_name.
+*TYPES placeholder_name TYPE placeholder_name.
+*TYPES iscostum TYPE abap_bool.
+*TYPES END OF placeholder_name .
+*TYPES:
+*     placeholder_names TYPE SORTED TABLE OF placeholder_name WITH UNIQUE KEY placeholder_name iscostum.
+*DATA  lt_names TYPE  placeholder_names .
+*cl_placeholder_read_api=>read_ph_names(
+*  IMPORTING
+*    table_result = lt_names
+*).
