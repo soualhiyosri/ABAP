@@ -1,0 +1,958 @@
+class CL_ACMTEST_SQLTRACE definition
+  public
+  final
+  create private .
+
+public section.
+
+  types:
+    ty_sql_statements_t TYPE STANDARD TABLE OF string WITH NON-UNIQUE DEFAULT KEY .
+
+  constants CO_DEFAULT_LINE_LENGTH type I value 72 ##NO_TEXT.
+
+  methods ACTIVATE
+    importing
+      !IT_SQL_ENTITIES type STRING_TABLE
+      !IV_USERNAME type CSEQUENCE default SY-UNAME
+      !IV_AUTH_TRACE type ABAP_BOOL default ABAP_FALSE
+    returning
+      value(ES_RETURN) type BAPIRET2 .
+  class-methods GET_INSTANCE
+    returning
+      value(EO_INSTANCE) type ref to CL_ACMTEST_SQLTRACE .
+  methods DEACTIVATE
+    returning
+      value(ES_RETURN) type BAPIRET2 .
+  methods GET_STATEMENTS
+    importing
+      !IS_TRACE_TYPES type ST05_API_TRACE_TYPES optional
+      !IS_TRACE_INTERVAL type ST05_TRACE_INTERVAL optional
+    exporting
+      !ET_SQL_STATEMENTS type TY_SQL_STATEMENTS_T
+    returning
+      value(ES_RETURN) type BAPIRET2 .
+  methods CHECK_TRACE_ACTIVATED
+    importing
+      !IV_USERNAME type CSEQUENCE default SY-UNAME
+    exporting
+      !ES_RETURN type BAPIRET2
+    returning
+      value(EV_CHECK_OK) type ABAP_BOOL .
+  methods STATEMENT_TO_ITAB
+    importing
+      !IV_SQL_STATEMENT type CSEQUENCE
+      !IV_LINE_SIZE type I default CO_DEFAULT_LINE_LENGTH
+    exporting
+      !ET_SQL_STATEMENT type STRING_TABLE .
+  methods SET_TRACE_START_TIME
+    importing
+      !IV_USE_MOST_RECENT_TRACE_TIME type ABAP_BOOL default ABAP_FALSE .
+  methods SET_TRACE_END_TIME
+    importing
+      !IV_USE_MOST_RECENT_TRACE_TIME type ABAP_BOOL default ABAP_FALSE .
+  methods SET_INHIBIT
+    importing
+      !IV_INHIBIT type ABAP_BOOL .
+  methods IS_INHIBITED
+    returning
+      value(RV_INHIBITED) type ABAP_BOOL .
+protected section.
+private section.
+
+  types:
+    TY_ST05_VARIABLE_TYPE TYPE c LENGTH 2 .
+  types:
+    TY_ST05_OBJECT TYPE c LENGTH 30 .
+  types:
+    TY_ST05_OBJECT_INCL_EXCL TYPE STANDARD TABLE OF TY_ST05_OBJECT WITH NON-UNIQUE DEFAULT KEY .
+  types:
+    BEGIN OF TY_ST05_TRACE_STATE,
+      CLIENT            type SYMANDT,
+      TRACE_USER        type SYUNAME,
+      MODIFICATION_USER	type SYUNAME,
+      MODIFICATION_DATE	type DATS,
+      MODIFICATION_TIME	type TIMS,
+      TRACE_types       type ST05_API_TRACE_types,
+      FILTER_ON         type abap_bool,
+      TRANSACTION_CODE  type sytcode,
+      PROGRAM           type PROGname,
+      INCLUDED_TABLES   type TY_ST05_OBJECT_INCL_EXCL,
+      EXCLUDED_TABLES   type TY_ST05_OBJECT_INCL_EXCL,
+      STACK_TRACE_ON    type abap_bool,
+    END OF TY_ST05_TRACE_STATE .
+  types:
+    BEGIN OF ty_st05_trace_type,
+      SQL_ON  type  abap_bool,
+      BUF_ON  type  abap_bool,
+      ENQ_ON  type  abap_bool,
+      RFC_ON  type  abap_bool,
+      HTTP_ON type  abap_bool,
+      APC_ON  type  abap_bool,
+      AMC_ON  type  abap_bool,
+      AUTH_ON type  abap_bool,
+      ST01_ON type  abap_bool,
+    END OF ty_st05_trace_type .
+
+  class-data SO_INSTANCE type ref to CL_ACMTEST_SQLTRACE .
+  data MS_TRACE_TYPES type ST05_API_TRACE_TYPES .
+  data MS_TRACE_FILTER type ST05_API_TRACE_FILTER .
+  data MS_TRACE_INTERVAL type ST05_TRACE_INTERVAL .
+  data MT_MAIN_RECORDS type ST05_MAIN_RECORD_TABLE .
+  data MS_TRACE_TYPES_SELECT type TY_ST05_TRACE_TYPE .
+  constants CO_DELIMITER type C value '&' ##NO_TEXT.
+  constants CO_CHAR type TY_ST05_VARIABLE_TYPE value 'CH' ##NO_TEXT.
+  constants CO_VC type TY_ST05_VARIABLE_TYPE value 'VC' ##NO_TEXT.
+  constants CO_NUMC type TY_ST05_VARIABLE_TYPE value 'NU' ##NO_TEXT.
+  data MV_INHIBIT type ABAP_BOOL value ABAP_FALSE ##NO_TEXT.
+
+  methods REPLACE_VAR_NAMES_WITH_VALUES
+    importing
+      !IV_STATEMENT_WITH_NAMES type STRING
+      !IV_VARIABLES type STRING
+      !IV_NUMBER_OF_VARIABLES type I
+      !IV_OFFSET_FROM type I
+      !IV_OFFSET_WHERE type I
+      !IV_IS_HDB type ABAP_BOOL default ABAP_FALSE
+    returning
+      value(EV_STATEMENT_WITH_VALUES) type STRING .
+  methods GET_VARIABLE
+    importing
+      !IV_IS_HDB type ABAP_BOOL default ABAP_FALSE
+    exporting
+      !EV_TYPE type TY_ST05_VARIABLE_TYPE
+      !EV_LENGTH type STRING
+      !EV_ERROR type ABAP_BOOL
+      !EV_VALUE type STRING
+    changing
+      !CV_VARIABLES type STRING .
+  methods SHIFT_VARIABLE_STRING
+    importing
+      !IV_NUMBER_OF_VARIABLES type I
+    changing
+      !CV_VARIABLES type STRING .
+  methods GET_DATE
+    importing
+      !IV_TIMESTAMPL type TIMESTAMPL optional
+    returning
+      value(EV_DATE) type DATS .
+  methods GET_TIME
+    importing
+      !IV_TIMESTAMPL type TIMESTAMPL optional
+    returning
+      value(EV_TIME) type TIMS .
+  methods GET_MSEC
+    importing
+      !IV_TIMESTAMPL type TIMESTAMPL optional
+    returning
+      value(EV_MSEC) type I .
+  methods GET_TIMESTAMPL
+    importing
+      !IV_DATE type DATS optional
+      !IV_TIME type TIMS optional
+    returning
+      value(EV_TIMESTAMPL) type TIMESTAMPL .
+  methods GET_TRACE_STATE
+    returning
+      value(ES_TRACE_STATE) type TY_ST05_TRACE_STATE .
+ENDCLASS.
+
+
+
+CLASS CL_ACMTEST_SQLTRACE IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->ACTIVATE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_SQL_ENTITIES                TYPE        STRING_TABLE
+* | [--->] IV_USERNAME                    TYPE        CSEQUENCE (default =SY-UNAME)
+* | [--->] IV_AUTH_TRACE                  TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [<-()] ES_RETURN                      TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD activate.
+
+    CHECK mv_inhibit = abap_false.
+
+    DATA:
+      ls_trace_state      TYPE ty_st05_trace_state.
+
+    CLEAR: ms_trace_types, ms_trace_filter, ms_trace_interval.
+
+    ls_trace_state = get_trace_state( ).
+
+    IF ls_trace_state-trace_user IS NOT INITIAL.
+      IF ls_trace_state-trace_user <> iv_username.
+        es_return = VALUE #( id = 'ACMTEST' type = 'E' number = '002'
+                             message_v1 = 'SQL Trace already used by user'
+                             message_v2 = ls_trace_state-trace_user ) ##no_text.
+        MESSAGE ID 'ACMTEST' TYPE 'E' NUMBER '002'
+            WITH  es_return-message_v1 es_return-message_v2
+            INTO es_return-message.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+
+    ms_trace_filter-client           = sy-mandt.
+    ms_trace_filter-trace_user       = iv_username.
+    ms_trace_types-sql_on            = abap_true.
+    ms_trace_types-auth_on           = iv_auth_trace.
+
+    " ST05 had (has?) confusion regarding which OBJECT name it uses. Sometimes it's the name of the CDS entity,
+    " sometimes the name of the SQL view. And who knows... when Open SQL makes use of the "Runtime CTE replacement"
+    " eventuelly even this. Therefore, adding all three.
+    LOOP AT it_sql_entities REFERENCE INTO DATA(lr_sql_entity).
+      APPEND lr_sql_entity->* TO ms_trace_filter-included_tables.
+      DATA(lv_ddl) = cl_dd_ddl_handler_factory=>create( ).
+      CALL METHOD lv_ddl->get_viewname_from_entityname
+        EXPORTING
+           ddnames = VALUE #( ( CONV #( lr_sql_entity->* ) ) )
+        IMPORTING
+           view_of_entity = DATA(lt_sqlviews).
+      IF lt_sqlviews IS NOT INITIAL AND lt_sqlviews[ 1 ] IS NOT INITIAL.
+        APPEND lt_sqlviews[ 1 ]-viewname TO ms_trace_filter-included_tables.
+      ENDIF.
+    ENDLOOP.
+    " And to be sure, also the name of the runtime CTE, in case it is the leading object.
+    " Verified with D031796 on 2018-JAN-02 that multiple table filters can be given, and * is supported at the end
+    APPEND '_ACMRTHEADV_*'     TO ms_trace_filter-included_tables.   " Old syntax until October 2018
+    APPEND '_ACMRT_CDSACCTL_*' TO ms_trace_filter-included_tables.   " New syntax since October 2018
+
+    " See comment below why this table is included
+    APPEND 'ACM_XCHG_DATA' TO ms_trace_filter-included_tables.
+
+    CALL FUNCTION 'ST05_ACTIVATE_TRACE'
+      EXPORTING
+        trace_types             = ms_trace_types
+        trace_filter            = ms_trace_filter
+*       ALL_SERVERS             = ' '
+*     IMPORTING
+*       SERVER_INFORMATION_TABLE       =
+      EXCEPTIONS
+        no_authority            = 1
+        missing_trace_type      = 2
+        no_cross_client_tracing = 3
+        user_mismatch           = 4
+        activation_error        = 5
+        no_server_list          = 6
+        internal_error          = 7
+        OTHERS                  = 99 ##number_ok.
+    IF sy-subrc <> 0.
+      DATA(lv_text) = 'OTHERS' ##no_text.
+      lv_text = SWITCH string( sy-subrc
+          WHEN 1 THEN 'NO_AUTHORITY'
+          WHEN 2 THEN 'MISSING_TRACE_TYPE'
+          WHEN 3 THEN 'NO_CROSS_CLIENT_TRACING'
+          WHEN 4 THEN 'USER_MISMATCH'
+          WHEN 5 THEN 'ACTIVATION_ERROR'
+          WHEN 6 THEN 'NO_SERVER_LIST'
+          WHEN 7 THEN 'INTERNAL_ERROR' ) ##no_text.
+
+      es_return = VALUE #( id = 'ACMTEST' type = 'E' number = '002'
+                           message_v1 = 'Error ST05_ACTIVATE_TRACE'
+                           message_v2 = lv_text ) ##no_text.
+      MESSAGE ID 'ACMTEST' TYPE 'E' NUMBER '002'
+          WITH es_return-message_v1 es_return-message_v2
+          INTO es_return-message.
+      CLEAR: ms_trace_types, ms_trace_filter, ms_trace_interval.
+      RETURN.
+    ENDIF.
+
+    "set_trace_start_time( ).
+    set_trace_start_time( iv_use_most_recent_trace_time = abap_true ).  "Siehe Beschreibung in der Methode!
+
+    " The first thing we execute is a tag SELECT to be able to detect whether ST05 did something sensible at all.
+    " It will be filtered out in the retrieval function later on, and the wished SELECTs are the ones after it.
+    SELECT FROM acm_xchg_data FIELDS 1 WHERE username = 'ST05_START' INTO @DATA(lv_dummy) UP TO 1 ROWS BYPASSING BUFFER. ENDSELECT.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->CHECK_TRACE_ACTIVATED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_USERNAME                    TYPE        CSEQUENCE (default =SY-UNAME)
+* | [<---] ES_RETURN                      TYPE        BAPIRET2
+* | [<-()] EV_CHECK_OK                    TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD check_trace_activated.
+
+    DATA:
+      ls_trace_state TYPE ty_st05_trace_state.
+
+    CLEAR es_return.
+    ev_check_ok = abap_false.
+
+    CHECK mv_inhibit = abap_false.
+
+    ls_trace_state = get_trace_state( ).
+
+    IF ls_trace_state-trace_types-sql_on = abap_false OR
+      ls_trace_state-trace_user <> iv_username.
+      es_return = VALUE #( id = 'ACMTEST' type = 'E' number = '002'
+                           message_v1 = 'SQL Trace is used by another user'
+                           message_v2 = ls_trace_state-trace_user ) ##no_text.
+      MESSAGE ID 'ACMTEST' TYPE 'E' NUMBER '002'
+          WITH  es_return-message_v1 es_return-message_v2
+          INTO es_return-message.
+      CLEAR: ms_trace_types, ms_trace_filter, ms_trace_interval.
+    ELSE.
+      ev_check_ok = abap_true.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->DEACTIVATE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] ES_RETURN                      TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD deactivate.
+
+    CHECK mv_inhibit = abap_false.
+
+    IF ms_trace_types IS NOT INITIAL.
+
+      " Info rolled in by D039803:
+      "
+      " Jeder Work-Prozess hat seinen eigenen Speicher-Puffer, um Trace-Saetze zu sammeln.
+      " Unter bestimmen Bedingungen werden diese jeweils an die Trace-Datei angehaengt.
+      "
+      " Ein Ausloeser ist beispielsweise, wenn der naechste Trace-Eintrag nicht mehr in den
+      " Puffer passt wird geflusht, jedoch nur der Puffer des aktuellen Workprozesses.
+      " Der Aufruf RSTR_FLUSH_BUFFER  sorgt nun eigentlich nur dafuer, dass der
+      " naechste Trace-Eintrag auf jeden Fall einen Flush ausloest.
+      " Wenn es diesen „naechsten“ Trace-Eintrag in dem fraglichen Work-Prozess nun
+      " nicht gibt, dann bleiben die Trace-Saetze erstmal im Puffer.
+      "
+      " Means for me: Before deactivating the trace, perform this buffer flash request, then do
+      " something which triggers a database action (here: select from T000).
+      CALL FUNCTION 'RSTR_FLUSH_BUFFER'.
+      SELECT FROM acm_xchg_data FIELDS 1 WHERE username = 'ST05_STOP' INTO @DATA(lv_dummy) UP TO 1 ROWS BYPASSING BUFFER. ENDSELECT.
+
+      CALL FUNCTION 'ST05_DEACTIVATE_TRACE'
+        EXPORTING
+          trace_types        = ms_trace_types
+*         ALL                = ' '
+*         ALL_SERVERS        = ' '
+*         ALL_USERS          = 'X'
+*     IMPORTING
+*         SERVER_INFORMATION_TABLE       =
+        EXCEPTIONS
+          no_authority       = 1
+          missing_trace_type = 2
+          deactivation_error = 3
+          no_server_list     = 4
+          internal_error     = 5
+          OTHERS             = 99 ##number_ok.
+      IF sy-subrc <> 0.
+        DATA(lv_text) = 'OTHERS' ##no_text.
+        lv_text = SWITCH string( sy-subrc
+           WHEN 1 THEN 'NO_AUTHORITY'
+           WHEN 2 THEN 'MISSING_TRACE_TYPE'
+           WHEN 3 THEN 'DEACTIVATION_ERROR'
+           WHEN 4 THEN 'NO_SERVER_LIST'
+           WHEN 5 THEN 'INTERNAL_ERROR' ) ##no_text.
+        es_return = VALUE #( id = 'ACMTEST' type = 'E' number = '003'
+                           message_v1 = 'Error ST05_DEACTIVATE_TRACE'
+                           message_v2 = sy-subrc
+                           message_v3 = lv_text ) ##no_text.
+        MESSAGE ID 'ACMTEST' TYPE 'E' NUMBER '003'
+            WITH es_return-message_v1 es_return-message_v2 es_return-message_v3
+            INTO es_return-message.
+      ENDIF.
+
+      IF es_return IS INITIAL.
+        set_trace_end_time( iv_use_most_recent_trace_time = abap_true ).  "Siehe Beschreibung in der Methode!
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->GET_DATE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TIMESTAMPL                  TYPE        TIMESTAMPL(optional)
+* | [<-()] EV_DATE                        TYPE        DATS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_date.
+
+    DATA lv_timestampl TYPE timestampl.
+    IF iv_timestampl IS INITIAL.
+      lv_timestampl = get_timestampl( ).
+    ELSE.
+      lv_timestampl = iv_timestampl.
+    ENDIF.
+    CONVERT TIME STAMP lv_timestampl TIME ZONE sy-zonlo
+      INTO DATE ev_date.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ACMTEST_SQLTRACE=>GET_INSTANCE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] EO_INSTANCE                    TYPE REF TO CL_ACMTEST_SQLTRACE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_instance.
+
+    IF so_instance IS NOT BOUND.
+      so_instance = NEW #( ).
+    ENDIF.
+
+    eo_instance = so_instance.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->GET_MSEC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TIMESTAMPL                  TYPE        TIMESTAMPL(optional)
+* | [<-()] EV_MSEC                        TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_msec.
+
+    DATA:
+      lv_timestampl_string TYPE string,
+      lv_date_and_time     TYPE string ##needed,
+      lv_msec              TYPE string.
+    IF iv_timestampl IS INITIAL.
+      lv_timestampl_string = get_timestampl( ).
+    ELSE.
+      lv_timestampl_string = iv_timestampl.
+    ENDIF.
+    SPLIT lv_timestampl_string AT '.' INTO lv_date_and_time lv_msec.
+    IF lv_msec IS NOT INITIAL.
+      ev_msec = lv_msec(3).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->GET_STATEMENTS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_TRACE_TYPES                 TYPE        ST05_API_TRACE_TYPES(optional)
+* | [--->] IS_TRACE_INTERVAL              TYPE        ST05_TRACE_INTERVAL(optional)
+* | [<---] ET_SQL_STATEMENTS              TYPE        TY_SQL_STATEMENTS_T
+* | [<-()] ES_RETURN                      TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_statements.
+
+    DATA:
+      lv_statement TYPE string.
+
+    CLEAR et_sql_statements.
+    CHECK mv_inhibit = abap_false.
+
+    CLEAR mt_main_records.
+
+    IF is_trace_types IS NOT INITIAL.
+      ms_trace_types = is_trace_types.
+    ENDIF.
+    IF is_trace_interval IS NOT INITIAL.
+      ms_trace_interval = is_trace_interval.
+    ENDIF.
+
+    MOVE-CORRESPONDING ms_trace_types TO ms_trace_types_select.
+
+    CALL FUNCTION 'ST05_GET_SUMMARY_TABLES'
+      EXPORTING
+        trace_types          = ms_trace_types_select
+        trace_interval       = ms_trace_interval
+      IMPORTING
+        main_record_table    = mt_main_records
+      EXCEPTIONS
+        no_authority         = 1
+        missing_trace_type   = 2
+        invalid_trace_period = 3
+        internal_error       = 4
+        incomplete_trace     = 5
+        OTHERS               = 6.
+    IF sy-subrc <> 0.
+      DATA(lv_text) = 'OTHERS' ##no_text.
+      lv_text = SWITCH string( sy-subrc
+          WHEN 1 THEN 'NO_AUTHORITY'
+          WHEN 2 THEN 'MISSING_TRACE_TYPE'
+          WHEN 3 THEN 'INVALID_TRACE_PERIOD'
+          WHEN 4 THEN 'INTERNAL_ERROR'
+          WHEN 5 THEN 'INCOMPLETE_TRACE' ) ##no_text.
+
+      es_return = VALUE #( id = 'ACMTEST' type = 'E' number = '003'
+                           message_v1 = 'Error ST05_GET_SUMMARY_TABLES'
+                           message_v2 = sy-subrc
+                           message_v3 = lv_text ) ##no_text.
+      MESSAGE ID 'ACMTEST' TYPE 'E' NUMBER '003'
+          WITH es_return-message_v1 es_return-message_v2 es_return-message_v3
+          INTO es_return-message.
+    ENDIF.
+
+    CLEAR et_sql_statements.
+
+    DATA(lv_start_tag_found) = abap_false.
+
+    LOOP AT mt_main_records REFERENCE INTO DATA(ls_main_record) WHERE object IS NOT INITIAL.
+      IF ls_main_record->object = 'ACM_XCHG_DATA' AND find( val = ls_main_record->statement_with_names sub = `ST05_START` ) <> -1.
+        lv_start_tag_found = abap_true.
+        CONTINUE.
+      ENDIF.
+      CHECK lv_start_tag_found = abap_true.
+      lv_statement =
+        replace_var_names_with_values(
+          iv_statement_with_names = ls_main_record->statement_with_names
+          iv_variables            = ls_main_record->variables
+          iv_number_of_variables  = ls_main_record->number_of_variables
+          iv_offset_from          = 0
+          iv_offset_where         = 0
+        ).
+      APPEND lv_statement TO et_sql_statements.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->GET_TIME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TIMESTAMPL                  TYPE        TIMESTAMPL(optional)
+* | [<-()] EV_TIME                        TYPE        TIMS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_time.
+
+    DATA lv_timestampl TYPE timestampl.
+    IF iv_timestampl IS INITIAL.
+      lv_timestampl = get_timestampl( ).
+    ELSE.
+      lv_timestampl = iv_timestampl.
+    ENDIF.
+    CONVERT TIME STAMP lv_timestampl TIME ZONE sy-zonlo
+      INTO TIME ev_time.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->GET_TIMESTAMPL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATE                        TYPE        DATS(optional)
+* | [--->] IV_TIME                        TYPE        TIMS(optional)
+* | [<-()] EV_TIMESTAMPL                  TYPE        TIMESTAMPL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_timestampl.
+
+    IF iv_date IS INITIAL AND iv_time IS INITIAL.
+      GET TIME STAMP FIELD ev_timestampl.
+    ELSE.
+      CONVERT DATE iv_date
+              TIME iv_time
+              INTO TIME STAMP ev_timestampl TIME ZONE sy-zonlo.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->GET_TRACE_STATE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] ES_TRACE_STATE                 TYPE        TY_ST05_TRACE_STATE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_trace_state.
+
+    CLEAR es_trace_state.
+
+    CALL FUNCTION 'PERFORMANCE_TRACE_GET'
+      IMPORTING
+        trace_user         = es_trace_state-trace_user
+        sql_trace_get      = es_trace_state-trace_types-sql_on
+*       ENQ_TRACE_GET      =
+*       RFC_TRACE_GET      =
+*       BUF_TRACE_GET      =
+        mod_user           = es_trace_state-modification_user
+        mod_date           = es_trace_state-modification_date
+        mod_time           = es_trace_state-modification_time
+        write_trace_filter = es_trace_state-filter_on
+        tcode              = es_trace_state-transaction_code
+        progname           = es_trace_state-program
+        tab_inc            = es_trace_state-included_tables
+        tab_exc            = es_trace_state-excluded_tables.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->GET_VARIABLE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_IS_HDB                      TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [<---] EV_TYPE                        TYPE        TY_ST05_VARIABLE_TYPE
+* | [<---] EV_LENGTH                      TYPE        STRING
+* | [<---] EV_ERROR                       TYPE        ABAP_BOOL
+* | [<---] EV_VALUE                       TYPE        STRING
+* | [<-->] CV_VARIABLES                   TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD  get_variable.
+  "
+  " Get the first variable (ev_type, ev_length, ev_value) in the variable string.
+  "
+  " consistency check of input data
+  CLEAR: ev_type, ev_value, ev_length, ev_error.
+
+  IF cv_variables IS INITIAL.
+    RETURN.
+  ENDIF.  " cv_variables IS INITIAL
+
+  " Determine ev_type of variable and ev_length of ev_value.
+  SPLIT  cv_variables
+    AT   co_delimiter
+    INTO ev_type
+         ev_length
+         cv_variables.
+
+  TRY.
+      " Get ev_value.
+      ev_value = substring( val = cv_variables  len = 0 + ev_length ).            " '0 +' to convert to integer
+      ev_value = substring( val = ev_value      len = numofchar( ev_value ) ).    " remove trailing blanks
+      IF ( ' ' = iv_is_hdb ).
+        IF ( ev_type = co_char  OR  ev_type = co_vc  OR  ev_type = co_numc ).
+          ev_value = |'| && ev_value && |'|.
+        ENDIF.
+      ELSE.
+        ev_value = |'| && ev_value && |'|.
+        IF ( 'RA' = ev_type ).
+          " Variable is of ev_type RAW.
+          " ==> ev_value needs to be converted from '0x...' to 0x'...'.
+          ev_value = |x'| && substring( val = ev_value  off = 3 ).
+        ENDIF.  " 'RA' = ev_type
+      ENDIF.  " ' ' = is_HDB
+      cv_variables = shift_left( val = cv_variables  places = 1 + ev_length ).  " '1 +' to get rid of closing '&'
+
+    CATCH cx_sy_conversion_no_number cx_sy_range_out_of_bounds.
+      ev_error = abap_true.
+  ENDTRY.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->IS_INHIBITED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_INHIBITED                   TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD is_inhibited.
+  rv_inhibited = mv_inhibit.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->REPLACE_VAR_NAMES_WITH_VALUES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STATEMENT_WITH_NAMES        TYPE        STRING
+* | [--->] IV_VARIABLES                   TYPE        STRING
+* | [--->] IV_NUMBER_OF_VARIABLES         TYPE        I
+* | [--->] IV_OFFSET_FROM                 TYPE        I
+* | [--->] IV_OFFSET_WHERE                TYPE        I
+* | [--->] IV_IS_HDB                      TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [<-()] EV_STATEMENT_WITH_VALUES       TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD  replace_var_names_with_values.
+  "
+  "  Create statement string with variable names replaced by variable values.
+  "
+  " consistency check of input data
+  IF iv_number_of_variables <= 0.
+    " no variables to replace
+    ev_statement_with_values = iv_statement_with_names.
+    RETURN.
+  ENDIF.  " number_of_variables <= 0
+
+  " create local copy of IMPORTING parameter variables
+  DATA: lv_variables  TYPE string.
+  lv_variables = iv_variables.
+
+  " in the statement string, variable names are indicated by an identifier
+  " that depends on the DB platform
+  " on some DB platforms the identifier is followed by a sequential number
+  DATA : lv_var_desc TYPE string  VALUE ` ?`,      " default variable name
+         lv_act      TYPE i       VALUE 2.         " length of variable name
+
+  IF sy-dbsys = 'ORACLE'.
+    " ORACLE variable names are of the form :A<running number>
+    lv_var_desc = ':A'.                                     "#EC NOTEXT
+  ENDIF.
+
+  DATA: lv_n_act  TYPE i  VALUE 0.   " number of current variable (counting starts at 0)
+
+  " get first 6 characters of statement string (SQL keyword)
+  " and convert to upper case.
+  DATA: lv_sql_keyword  TYPE c  LENGTH 6.
+  lv_sql_keyword = to_upper( substring( val = iv_statement_with_names  len = 6 ) ).
+  IF lv_sql_keyword = 'SELECT' AND  iv_offset_where > iv_offset_from.
+    " SELECT statement with FROM clause and with variables
+    " FROM clause variables must NOT be used to replace WHERE clause variables
+    " ==> check whether the FROM clause contains any variables
+    " number of variables in FROM clause.
+    lv_n_act = count( val = substring( val = iv_statement_with_names
+                                    off = iv_offset_from
+                                    len = iv_offset_where - iv_offset_from )
+                   sub = lv_var_desc  case = ' ' ).
+    IF lv_n_act > 0.
+      " yes, there are n_act variables in the FROM clause
+      " Shift variable string so that variable number n_act is at the
+      " first position (counting starts at 0).
+      shift_variable_string( EXPORTING  iv_number_of_variables = lv_n_act
+                             CHANGING   cv_variables           = lv_variables ).
+    ENDIF.  "  n_act > 0
+  ENDIF.  " SQL_keyword = SELECT and offset_where > offset_from
+
+  "  replace variable names in WHERE clause by variable values
+  DATA: lv_beg_off  TYPE i.    " current offset in statement string
+  lv_beg_off = iv_offset_where.    " start at beginning of WHERE clause
+  WHILE iv_number_of_variables >= lv_n_act.   " >= instead of > required to handle portion of statement after the last variable
+    " create current variable name
+    DATA: ch_act  TYPE c  LENGTH 3.             " variable number
+    IF sy-dbsys = 'ORACLE'.
+      WRITE lv_n_act  TO ch_act  NO-SIGN  LEFT-JUSTIFIED.
+      lv_var_desc = lv_var_desc(2) && ch_act.
+      "  determine length of variable name
+      IF ch_act CA ' '.  ENDIF.                             "#EC NEEDED
+      lv_act = sy-fdpos + 2.                      " 2 accounts for ':A'
+    ENDIF.
+
+    DATA: lv_position TYPE int4.
+    TRY.
+        " try to find further variable in statement
+        IF 0 = lv_beg_off  AND -1 <> find( val = iv_statement_with_names  sub = 'INTO' ).
+          " Statement contains INTO clause.
+          " Variable name in INTO clause must not be replaced.
+          lv_position = find( val = iv_statement_with_names  sub = lv_var_desc  off = find( val = iv_statement_with_names  sub = 'WHERE' ) ).
+        ELSE.
+          lv_position = find( val = iv_statement_with_names  sub = lv_var_desc  off = lv_beg_off ).
+        ENDIF.
+      CATCH cx_sy_range_out_of_bounds.
+        lv_position = -1.
+    ENDTRY.
+    IF lv_position <> -1.
+      " (further) variable found in statement
+      lv_position = lv_position - lv_beg_off.
+
+      " add unprocessed portion of statement in front of current variable name
+      ev_statement_with_values =
+        ev_statement_with_values && ` ` && condense( val = substring( val = iv_statement_with_names  off = lv_beg_off  len = lv_position )
+                                                  del = ` `  from = ``  to = `` ).
+
+      " Get the value of the variable that is currently at the first position in the variable string.
+      " Shift the variable string so that the next variable is at the first position.
+      get_variable(
+        EXPORTING
+          iv_is_hdb    = iv_is_hdb
+        IMPORTING
+          ev_value     = DATA(lv_value)
+          ev_error     = DATA(lv_error)
+        CHANGING
+          cv_variables = lv_variables
+      ).
+      ev_statement_with_values = ev_statement_with_values && ` ` && lv_value.
+      IF lv_error = abap_true.
+        " An error occured while splitting up the variables string.
+        " Probably the variables string was curtailed during trace recording.
+        " Add unprocessed portion of statement behind last variable name
+        TRY.
+            ev_statement_with_values =
+              ev_statement_with_values && ` ` && substring( val = iv_statement_with_names  off = lv_beg_off + lv_position ).
+          CATCH  cx_sy_range_out_of_bounds.             "#EC NO_HANDLER
+            " NOP
+        ENDTRY.
+        lv_position = find( val = iv_variables  sub = ` more characters` ) ##no_text.
+        IF ( -1 <> lv_position ).
+          ev_statement_with_values =
+            ev_statement_with_values && ` (` && substring( val = iv_variables  off = lv_position - 10  len = 10  ) && ` `
+                                     && 'characters curtailed from variable string' && ')' ##no_text.
+        ENDIF.  " -1 <> position
+        EXIT.  " WHILE loop
+
+      ENDIF.
+
+      " prepare for next variable
+      lv_n_act = lv_n_act + 1.
+      " set offset for next variable
+      lv_beg_off = lv_beg_off + lv_position + lv_act.
+
+    ELSE.
+      " no (further) variable found in statement
+      " add unprocessed portion of statement behind last variable name
+      TRY.
+          ev_statement_with_values =
+            ev_statement_with_values && ` ` && substring( val = iv_statement_with_names  off = lv_beg_off ).
+        CATCH  cx_sy_range_out_of_bounds.               "#EC NO_HANDLER
+          " NOP
+      ENDTRY.
+      EXIT.  " WHILE loop
+    ENDIF.  " -1 <> sy-fdpos
+
+  ENDWHILE.  " number_of_variables >= n_act
+
+  ev_statement_with_values = replace( val = ev_statement_with_values sub = ` ` with = `` occ = 1  ).
+  ev_statement_with_values = replace( val = ev_statement_with_values sub = ` ` with = `` occ = -1 ).
+
+ENDMETHOD.  " Replace_Var_Names_With_Values.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->SET_INHIBIT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_INHIBIT                     TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD SET_INHIBIT.
+  mv_inhibit = iv_inhibit.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->SET_TRACE_END_TIME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_USE_MOST_RECENT_TRACE_TIME  TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD set_trace_end_time.
+
+    CHECK mv_inhibit = abap_false.
+
+    "Hallo Wolfgang, hallo Freunde,
+    " Ich musste leider feststellen, dass die Zeitbestimmung irgendwie auseinander läuft.
+    " Vermutlich gewinnt der Kernel anders seine Zeit als der ABAP.
+    " --> Die Folge:  Manchmal (natürlich nicht deterministisch reproduzierbar) werden
+    "                 keine Traces angezeigt, weil der Traceeintrag in der ST05 außerhalb des
+    "                 Zeitintervalls vom MS_TRACE_INTERVAL liegt.
+    "Ich habe die Methode: READ_TRACE_STATE gefunden, die die Kernelzeit des
+    " letzten Trace-Eintrags ausliest.
+    " Jetzt werde ich versuchen die zu verwenden und hoffen, dass es dann besser klappt!
+    "Wenn du andere Ideen hast oder sonstige Infos...gerne Rückmeldung an mich.
+    "   ...auch bezüglich der Info, ob du ALLE aufrufe von SET_TRACE_END_TIME
+    "      abändern möchtest oder nicht. Im Moment steure ich das über einen optionalen Param.
+    "   Gruß Ralf
+*   -------------------------------------------------------------------
+    IF ( iv_use_most_recent_trace_time = abap_true ).
+      DATA: lsst05_trace_state  TYPE  st05_trace_state.
+      lsst05_trace_state = cl_st05_trace_main_m=>read_trace_state( ).
+
+      ms_trace_interval-end_date = lsst05_trace_state-modification_date.
+      ms_trace_interval-end_time = lsst05_trace_state-modification_time.
+      ms_trace_interval-end_ms   = '999'.   "Maximal-value
+      RETURN.
+    ENDIF.
+
+*   -------------------------------------------------------------------
+
+    DATA:
+      lv_timestampl TYPE timestampl.
+
+    GET TIME STAMP FIELD lv_timestampl.
+    ms_trace_interval-end_date = get_date( lv_timestampl ).
+    ms_trace_interval-end_time = get_time( lv_timestampl ).
+    ms_trace_interval-end_ms   = get_msec( lv_timestampl ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->SET_TRACE_START_TIME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_USE_MOST_RECENT_TRACE_TIME  TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD set_trace_start_time.
+
+    CHECK mv_inhibit = abap_false.
+
+    DATA:
+      lv_timestampl TYPE timestampl.
+
+    "Hallo Freunde,
+    " Ich musste leider feststellen, dass die Zeitbestimmung irgendwie auseinander läuft.
+    "   (siehe auch Methode: SET_TRACE_END_TIME)
+    " Vermutlich gewinnt der Kernel anders seine Zeit als der ABAP.
+    " --> Die Folge:  Manchmal (natürlich nicht deterministisch reproduzierbar) werden
+    "                 keine Traces angezeigt, weil der Traceeintrag in der ST05 außerhalb des
+    "                 Zeitintervalls vom MS_TRACE_INTERVAL liegt.
+    "Ich habe die Methode: READ_TRACE_STATE gefunden, die die Kernelzeit des
+    " letzten Trace-Eintrags ausliest.
+    " Jetzt werde ich versuchen die zu verwenden und hoffen, dass es dann besser klappt!
+    "Wenn irgendjemand andere Ideen hast oder sonstige Infos...gerne Rückmeldung an mich.
+    "   ...auch bezüglich der Info, ob man ALLE aufrufe von SET_TRACE_START_TIME
+    "      abändern möchte oder nicht. Im Moment steure ich das über einen optionalen Param.
+    "   Gruß Ralf   (Januar 2016)
+*   -------------------------------------------------------------------
+    IF ( iv_use_most_recent_trace_time = abap_true ).
+      DATA: lsst05_trace_state  TYPE  st05_trace_state.
+      lsst05_trace_state = cl_st05_trace_main_m=>read_trace_state( ).
+
+      ms_trace_interval-start_date = lsst05_trace_state-modification_date.
+      ms_trace_interval-start_time = lsst05_trace_state-modification_time.
+      ms_trace_interval-start_ms   = '000'.   "Minimal-value
+      RETURN.
+    ENDIF.
+
+
+    GET TIME STAMP FIELD lv_timestampl.
+    ms_trace_interval-start_date = get_date( lv_timestampl ).
+    ms_trace_interval-start_time = get_time( lv_timestampl ).
+    ms_trace_interval-start_ms   = get_msec( lv_timestampl ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_SQLTRACE->SHIFT_VARIABLE_STRING
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NUMBER_OF_VARIABLES         TYPE        I
+* | [<-->] CV_VARIABLES                   TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD  shift_variable_string.
+  "
+  " Shift variable string left by specified number of cv_variables.
+  "
+  DO iv_number_of_variables TIMES.
+    " skip type of variable
+    SHIFT cv_variables  UP TO co_delimiter.            "  = '&'
+    " skip delimiter
+    SHIFT cv_variables.
+    " determine length of variable
+    DATA : lv_variable_length  TYPE string.
+    SPLIT cv_variables  AT co_delimiter  INTO lv_variable_length cv_variables.
+    cv_variables = shift_left( val = cv_variables  places = 1 + lv_variable_length ).   " 1 + for delimiter
+  ENDDO.  " number_of_cv_variables TIMES
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_SQLTRACE->STATEMENT_TO_ITAB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SQL_STATEMENT               TYPE        CSEQUENCE
+* | [--->] IV_LINE_SIZE                   TYPE        I (default =CO_DEFAULT_LINE_LENGTH)
+* | [<---] ET_SQL_STATEMENT               TYPE        STRING_TABLE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD statement_to_itab.
+
+    CLEAR et_sql_statement.
+
+    CHECK mv_inhibit = abap_false.
+    CHECK iv_sql_statement IS NOT INITIAL.
+
+    " Function only can C, we have string. Crazy: Internally, the function then moves it back to string...
+    DATA(lv_sql_statement_len) = strlen( iv_sql_statement ).
+    DATA lv_sql_statement_c TYPE REF TO data.
+    CREATE DATA lv_sql_statement_c TYPE c LENGTH lv_sql_statement_len.
+    ASSIGN lv_sql_statement_c->* TO FIELD-SYMBOL(<fs>).
+    <fs> = iv_sql_statement.
+
+      CALL FUNCTION 'DB_SQL_WRITE_TO_ITAB'
+        EXPORTING
+        stmt_str  = <fs>
+        stmt_len  = lv_sql_statement_len
+          line_size = iv_line_size
+        CHANGING
+          text_tab  = et_sql_statement.
+
+  ENDMETHOD.
+ENDCLASS.
