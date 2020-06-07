@@ -1,0 +1,109 @@
+*&---------------------------------------------------------------------*
+*& Report Z_TIMEZONE
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_timezone.
+
+*
+*WRITE sy-tzone.
+*WRITE sy-zonlo.
+*
+*
+*data str type string value '       test test test           '.
+*
+*CONDENSE str NO-GAPS.
+*WRITE str .
+*BREAK-POINT.
+*
+*DATA V_CURR type string  VALUE '                        Test string to check shift '.
+*WRITE : 'String LEFT :',V_CURR.
+*SHIFT V_CURR LEFT DELETING LEADING SPACE.
+*WRITE : 'String LEFT :',V_CURR.
+
+
+DATA lv_tzone TYPE syst_zonlo .
+DATA lv_timstamp TYPE timestamp .
+
+lv_timstamp = '20200505000000'.
+
+CONVERT DATE '20200505' TIME '000000' INTO TIME STAMP DATA(lv_time_str) TIME ZONE 'UTC+2'. "Retrive Hour
+CONVERT TIME STAMP lv_timstamp TIME ZONE 'UTC+2' INTO DATE DATA(date) TIME DATA(time). "Add Hours
+
+*  break-POINT ID tt.
+
+
+DATA(lv_timezone) = cl_sya_mai_utils=>utcoffset_to_zonename( iv_offset = lv_tzone / 60 ).
+
+
+DATA: dat TYPE d,
+      tim TYPE t,
+      tz  TYPE ttzz-tzone.
+
+tz = 'EST'.
+dat = '20161030'.
+tim = '013000'.
+DATA lv_str TYPE string  .
+
+
+lv_str =  '2020-05-29T16:12:50'  .
+
+*CALL METHOD cl_pco_utility=>convert_java_timestamp_to_abap
+*  EXPORTING
+*    iv_timestamp = lv_str
+*  IMPORTING
+*    ev_date      = data(lv_dat)
+*    ev_time      = data(lv_tim)
+**    ev_msec      =
+*    .
+
+DATA : lv_date TYPE sydate,
+       lv_time TYPE syuzeit.
+
+
+lv_date = '20200202'.
+lv_time = '120000'.
+
+
+CALL METHOD cl_pco_utility=>convert_abap_timestamp_to_java
+  EXPORTING
+    iv_date      = lv_date
+    iv_time      = lv_time
+*   iv_msec      = 000
+  IMPORTING
+    ev_timestamp = DATA(lv_java_time).
+
+
+lv_date = '20200203'.
+lv_time = '120000'.
+
+
+CALL METHOD cl_pco_utility=>convert_abap_timestamp_to_java
+  EXPORTING
+    iv_date      = lv_date
+    iv_time      = lv_time
+*   iv_msec      = 000
+  IMPORTING
+    ev_timestamp = DATA(lv_java_tme).
+
+
+
+
+data : lv_res type ABAP_TRANS_RESBIND_TAB.", ABAP_TRANS_RESBIND_TAB_SORTED"..
+
+DATA ts TYPE xsddatetime_z.
+*GET TIME STAMP FIELD ts.
+data lv_t TYPE string.
+      lv_t = '20200201120000'.
+CALL TRANSFORMATION id SOURCE ts = ts
+               RESULT XML DATA(xml).
+*cl_demo_output=>display_xml( xml ).
+
+
+
+
+data lv_dat type string  .
+data lv_timestamp TYPE TIMESTAMP .
+lv_dat = '2020-05-29T16:12:50.719Z'.
+  lv_timestamp = cl_xlf_date_time=>parse( iso8601 = lv_dat ).
+BREAK-POINT .
