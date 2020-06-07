@@ -1,0 +1,1506 @@
+class CL_CSI_NODE_AWS definition
+  public
+  inheriting from CL_CSI_NODE
+  final
+  create private
+
+  global friends CL_CSI_NODE .
+
+public section.
+
+  constants MC_OK type CSI_INT value 200. "#EC NOTEXT
+
+  methods CONSTRUCTOR
+    importing
+      !IS_NODE type CSIS_NODE
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT .
+  class-methods DESCRIBE_REGIONS
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_REGIONS type CSIT_AWS_REGION_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_SECURITYGROUPS
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_SECURITYGROUPS type CSIT_AWS_SECURITY_GROUP_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_KEYPAIRS
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_KEYPAIRS type CSIT_AWS_KEY_PAIR_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_AVAILABILITYZONES
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_AVAILABILITYZONES type CSIT_AWS_AVAILABILITYZONE_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_IMAGES
+    importing
+      !IV_EXECUTABLE_BY type CSI_STRING optional
+      !IV_OWNER type CSI_STRING optional
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS optional
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_IMAGES type CSIT_AWS_IMAGE_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_ADDRESSES
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_ADDRESSES type CSIT_AWS_ADDRESS_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_VOLUMES
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_VOLUMES type CSIT_AWS_VOLUME_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_SUBNETS
+    importing
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_HTTP_DESTINATION type RFCDEST
+    exporting
+      !EV_CODE type CSI_INT
+      !ET_SUBNETS type CSIT_AWS_SUBNET_ITEM
+    changing
+      !CV_LAST_CHECK type TIMESTAMP
+    raising
+      CX_CSI_NODE .
+protected section.
+
+  methods ACTION_POSTSTEP
+    redefinition .
+  methods ACTION_PRESTEP
+    redefinition .
+  methods INITIALIZE
+    redefinition .
+  methods INNER_CALL_PROVIDER
+    redefinition .
+  methods INNER_GET_DATA_FOR_INSTANCE
+    redefinition .
+  methods INNER_LIST_PREPARE
+    redefinition .
+  methods INNER_LIST_TRANSFORM
+    redefinition .
+  methods INNER_PAUSE_PREPARE
+    redefinition .
+  methods INNER_PAUSE_TRANSFORM
+    redefinition .
+  methods INNER_REBOOT_PREPARE
+    redefinition .
+  methods INNER_REBOOT_TRANSFORM
+    redefinition .
+  methods INNER_REFRESH_PREPARE
+    redefinition .
+  methods INNER_REFRESH_TRANSFORM
+    redefinition .
+  methods INNER_RESUME_PREPARE
+    redefinition .
+  methods INNER_RESUME_TRANSFORM
+    redefinition .
+  methods INNER_SET_DATA_FROM_INSTANCE
+    redefinition .
+  methods INNER_START_PREPARE
+    redefinition .
+  methods INNER_START_TRANSFORM
+    redefinition .
+  methods INNER_STATUS_PREPARE
+    redefinition .
+  methods INNER_STATUS_TRANSFORM
+    redefinition .
+  methods INNER_STOP_PREPARE
+    redefinition .
+  methods INNER_STOP_TRANSFORM
+    redefinition .
+  methods GET_INITIAL_STATE
+    redefinition .
+private section.
+
+  types:
+    BEGIN OF gtys_inst_region,
+      region TYPE csi_region,
+      reservation TYPE csit_aws_reservation_info_item,
+    END OF gtys_inst_region .
+  types:
+    gtyt_inst_region TYPE HASHED TABLE OF gtys_inst_region WITH UNIQUE KEY region .
+  types:
+    BEGIN OF gtys_list_parameter,
+      inst_region TYPE gtyt_inst_region,
+      filter_status TYPE csi_node_status,
+    END OF gtys_list_parameter .
+
+  data MO_AWS_PROVIDER type ref to CL_CSI_PROVIDER_AWS .
+  data MO_AWS_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS .
+  class-data SV_LAST_LIST_CHECK type TIMESTAMP .
+  data MS_AWS_NODE type CSIS_AWS_RUNNINGINSTANCES_ITEM .
+  constants LC_UPDATED type CSI_INT value 0. "#EC NOTEXT
+  constants LC_NO_UPDATE type CSI_INT value 511. "#EC NOTEXT
+  class-data ST_NODES type CSIT_NODE_OBJ .
+  constants GC_AWS_INITIAL type CSI_INT value -1. "#EC NOTEXT
+  data MT_EBS type CSIT_AWS_EBS_VOLUME_ID .
+
+  class-methods REFRESH_TRANSFORM
+    importing
+      !IV_DATA type XSTRING
+      !IV_CDATA type CSI_STRING optional
+      !IV_CODE type CSI_INT optional
+      !IV_REASON type CSI_STRING
+      !IV_NAME type CSI_DESCRIPTION
+    exporting
+      !ES_RESERVATION type CSIS_AWS_RESERVATION_INFO_ITEM
+      !ET_RESERVATION type CSIT_AWS_RESERVATION_INFO_ITEM
+    raising
+      CX_CSI_NODE .
+  class-methods CALL_PROVIDER
+    importing
+      !IV_ACTION type CSI_NODE_ACTION
+      !IT_PARAMETER type CSIT_PARAMETER
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_REGION type CSI_REGION optional
+      !IV_HTTP_DESTINATION type RFCDEST optional
+    exporting
+      !EV_DATA type XSTRING
+      !EV_CDATA type CSI_STRING
+      !EV_CODE type CSI_INT
+      !EV_REASON type CSI_STRING
+    changing
+      !CR_ADD_DATA type ref to DATA optional
+    raising
+      CX_CSI_NODE .
+  class-methods DESCRIBE_INSTANCES
+    importing
+      !IV_NAME type CSI_DESCRIPTION optional
+      !IO_PROVIDER type ref to CL_CSI_PROVIDER_AWS
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_REGION type CSI_REGION optional
+    exporting
+      !ES_RESERVATION type CSIS_AWS_RESERVATION_INFO_ITEM
+      !ET_RESERVATION type CSIT_AWS_RESERVATION_INFO_ITEM
+      !EV_CODE type CSI_INT
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  methods SET_IF_NODE_INFO
+    importing
+      !IV_ID type CSI_NODE_ID optional
+      !IV_NAME type CSI_DESCRIPTION optional
+      !IV_PUBLIC_IP type CSI_IP_ADDRESS optional
+      !IV_PUBLIC_HOST type CSI_STRING optional
+      !IV_PRIVATE_IP type CSI_IP_ADDRESS optional
+      !IV_PRIVATE_HOST type CSI_STRING optional
+      !IV_REGION type CSI_REGION optional
+    preferred parameter IV_NAME .
+  class-methods DESCRIBE_METHOD
+    importing
+      !IO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS
+      !IV_COMMAND type STRING
+      !IV_HTTP_DESTINATION type RFCDEST
+      !IO_PARAMETER type ref to CL_CSI_PROVIDER_AWS_PARAMETER optional
+    exporting
+      !EV_CODE type CSI_INT
+      !EV_REASON type STRING
+      !EV_DATA type XSTRING
+    changing
+      !CV_LAST_CHECK type TIMESTAMP optional
+    raising
+      CX_CSI_NODE .
+  class-methods INSTANCE_TO_NODE
+    importing
+      !IS_INSTANCE type CSIS_AWS_RUNNINGINSTANCES_ITEM
+      !IV_SECURITY_GROUP type CSI_AWS_SECURITY_GROUP optional
+    changing
+      !CS_NODE type CSIS_NODE .
+  methods INSTANCE_TO_ME
+    importing
+      !IS_INSTANCE type CSIS_AWS_RUNNINGINSTANCES_ITEM .
+  class-methods AWS_STATE_TO_CSI
+    importing
+      !IV_AWS_STATE type CSI_INT
+    returning
+      value(RV_STATE) type CSI_NODE_STATUS .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_NODE_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->ACTION_POSTSTEP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION                      TYPE        CSI_NODE_ACTION
+* | [--->] IT_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD action_poststep.
+  DATA:
+    lt_parameter TYPE csit_parameter,
+    ls_parameter TYPE csis_parameter.
+  IF ( iv_action = if_csi_node_c=>gc_action_start ).
+    " attach the EBS volume after the instance is being started
+    IF (  me->ms_node-name IS INITIAL ).
+      EXIT.
+    ENDIF.
+
+    DATA ls_profile TYPE csis_profile.
+    IF ( me->go_profile IS NOT BOUND  ).
+      EXIT.
+    ENDIF.
+    ls_profile = me->go_profile->get_data( ).
+    IF ( ls_profile-profile_options1 IS INITIAL ).
+      EXIT. " no ebs => no need to do anything here
+    ENDIF.
+    " but IF we have an EBS, we have to wait for the instance to be "running"
+    DATA lv_status TYPE csi_node_status.
+    lv_status = me->status( ).
+    WHILE lv_status <> if_csi_node_c=>gc_status_running.
+      " wait 1 second and try it again
+      WAIT UP TO 1 SECONDS.
+      lv_status = me->status( ).
+    ENDWHILE.
+
+    ls_parameter-name   = 'VolumeId'.                       "#EC NOTEXT
+    ls_parameter-value  = ls_profile-profile_options1.  " this is the EBS
+    INSERT ls_parameter INTO TABLE lt_parameter.
+    ls_parameter-name   = 'InstanceId'.                     "#EC NOTEXT
+    ls_parameter-value  = me->ms_node-name.
+    INSERT ls_parameter INTO TABLE lt_parameter.
+    ls_parameter-name   = 'Device'.                         "#EC NOTEXT
+    ls_parameter-value  = 'xvdg'.                           "#EC NOTEXT
+    INSERT ls_parameter INTO TABLE lt_parameter.
+
+    DATA lv_code TYPE csi_int.
+    call_provider(
+      EXPORTING
+        io_provider = mo_aws_provider
+        io_account  = mo_aws_account
+        iv_region   = gv_region
+        iv_action   = 'AttachVolume'
+        it_parameter = lt_parameter
+      IMPORTING
+        "ev_data = ev_data
+        ev_code = lv_code
+        "ev_reason = ev_reason
+    ).
+    " do we want to raise an exception???
+    IF ( lv_code = cl_csi_provider_aws_helper=>mc_ok ).
+      DATA lv_ebs TYPE csi_aws_ebs_volume_id.
+      lv_ebs = ls_profile-profile_options1.
+      INSERT lv_ebs INTO TABLE mt_ebs.
+    ENDIF.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->ACTION_PRESTEP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION                      TYPE        CSI_NODE_ACTION
+* | [--->] IT_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method ACTION_PRESTEP.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_NODE_AWS=>AWS_STATE_TO_CSI
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_AWS_STATE                   TYPE        CSI_INT
+* | [<-()] RV_STATE                       TYPE        CSI_NODE_STATUS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD aws_state_to_csi.
+    CASE iv_aws_state.
+      WHEN 0.
+        rv_state = if_csi_node_c=>gc_status_starting.
+      WHEN 16.
+        rv_state = if_csi_node_c=>gc_status_running.
+      WHEN 32.
+        rv_state = if_csi_node_c=>gc_status_stopping.
+      WHEN 48.
+        rv_state = if_csi_node_c=>gc_status_terminated.
+      WHEN OTHERS.
+        rv_state = if_csi_node_c=>gc_status_initial.
+    ENDCASE.
+  ENDMETHOD.                    "aws_state_to_csi
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_NODE_AWS=>CALL_PROVIDER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION                      TYPE        CSI_NODE_ACTION
+* | [--->] IT_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST(optional)
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [<---] EV_CDATA                       TYPE        CSI_STRING
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] EV_REASON                      TYPE        CSI_STRING
+* | [<-->] CR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD call_provider.
+  CONSTANTS:
+    lc_method TYPE string VALUE if_http_entity=>co_request_method_get.
+  TRY.
+    define_param.
+
+    FIELD-SYMBOLS:
+      <ls_parameter> TYPE csis_parameter.
+    DATA:
+      lo_parameter TYPE REF TO cl_csi_provider_aws_parameter,
+      lv_timestamp TYPE timestamp,
+      lv_action TYPE string,
+      lv_code LIKE ev_code.
+
+    GET TIME STAMP FIELD lv_timestamp.
+    CREATE OBJECT lo_parameter.
+    LOOP AT it_parameter ASSIGNING <ls_parameter>.
+      lo_parameter->add_parameter( iv_value = <ls_parameter>-value iv_name = <ls_parameter>-name ).
+    ENDLOOP.
+
+    CASE iv_action.
+      WHEN if_csi_node_c=>gc_action_start.
+        lv_action = 'RunInstances'.                        "#EC NO_TEXT
+      WHEN if_csi_node_c=>gc_action_stop.
+        lv_action = 'TerminateInstances'.                  "#EC NO_TEXT
+      WHEN if_csi_node_c=>gc_action_reboot.
+        lv_action = 'RebootInstances'.                     "#EC NO_TEXT
+      WHEN if_csi_node_c=>gc_action_pause.
+        lv_action = ''.
+      WHEN if_csi_node_c=>gc_action_resume.
+        lv_action = ''.
+      WHEN if_csi_node_c=>gc_action_refresh.
+        lv_action = 'DescribeInstances'.
+      WHEN if_csi_node_c=>gc_action_status.
+        lv_action = 'DescribeInstances'.
+      WHEN if_csi_node_c=>gc_action_list. " workaround for LIST
+        DATA:
+          ls_inst_info TYPE gtys_inst_region,
+          lt_inst_info TYPE gtyt_inst_region.
+        FIELD-SYMBOLS:
+          <ls_region> TYPE csis_region,
+          <lt_region> TYPE csit_region.
+        ASSIGN cr_add_data->* TO <lt_region>. "get the regions out of the passed additional data
+        LOOP AT <lt_region> ASSIGNING <ls_region>.
+          describe_instances(
+            EXPORTING
+              io_provider = io_provider
+              io_account = io_account
+              iv_region = <ls_region>-region_name
+            IMPORTING
+              et_reservation = ls_inst_info-reservation
+              ev_code = lv_code
+          ).
+          ls_inst_info-region = <ls_region>-region_name.
+          INSERT ls_inst_info INTO TABLE lt_inst_info.
+          FREE ls_inst_info.
+        ENDLOOP.
+        DATA:
+          ls_list_param TYPE gtys_list_parameter.
+        FIELD-SYMBOLS:
+          <ls_value> TYPE csis_parameter.
+        ls_list_param-inst_region = lt_inst_info.
+        READ TABLE it_parameter WITH TABLE KEY name = 'IV_FILTER_BY_STATUS' ASSIGNING <ls_value>.
+        IF ( <ls_value> IS ASSIGNED ).
+          ls_list_param-filter_status = <ls_value>-value.
+        ELSE.
+          ls_list_param-filter_status = if_csi_node_c=>gc_status_all.
+        ENDIF.
+        CREATE DATA cr_add_data LIKE ls_list_param.
+        FIELD-SYMBOLS: <ls_list_param> LIKE ls_list_param.
+        "put the newly found region-instance information in the additonal data
+        ASSIGN cr_add_data->* TO <ls_list_param>.
+        <ls_list_param> = ls_list_param.
+        RETURN.
+        "lv_action = ''.
+      WHEN OTHERS.
+        lv_action = iv_action.
+    ENDCASE.
+
+    DATA lv_dest TYPE rfcdest.
+    IF ( iv_http_destination IS NOT INITIAL ).
+      lv_dest = iv_http_destination.
+    ELSE.
+      lv_dest = io_provider->get_node_destination( iv_region ).
+    ENDIF.
+
+    cl_csi_provider_aws_helper=>ec2_do_rest_call(
+      EXPORTING
+        iv_uri              = '/'                           "#EC NOTEXT
+        iv_method           = lc_method
+        iv_timestamp        = lv_timestamp
+        iv_http_destination = lv_dest
+        iv_action           = lv_action
+        io_parameter        = lo_parameter
+        io_account          = io_account
+      IMPORTING
+        ev_code             = lv_code
+        ev_reason           = ev_reason
+        ev_data             = ev_data
+    ).
+    convert_ws_exceptions.
+  ENDTRY.
+  ev_code = lv_code.
+  IF ( lx_node IS BOUND ).
+    RAISE EXCEPTION lx_node.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_NODE_AWS->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_NODE                        TYPE        CSIS_NODE
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD constructor.
+  super->constructor( is_node = is_node io_provider = io_provider io_account = io_account ).
+
+  ms_node-last_code = gc_aws_initial.
+  DATA lv_name TYPE csi_description.
+  lv_name = is_node-id.
+  set_if_node_info( iv_id = is_node-id iv_name = lv_name iv_region = is_node-region ).
+  mo_aws_provider ?= io_provider.
+  mo_aws_account ?= io_account.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_ADDRESSES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_ADDRESSES                   TYPE        CSIT_AWS_ADDRESS_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_addresses.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeAddresses'.     "#EC NO_TEXT
+    ec2_call lc_action csis_aws_address_type address et_addresses addresses_set.
+  ENDMETHOD.                    "describe_addresses
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_AVAILABILITYZONES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_AVAILABILITYZONES           TYPE        CSIT_AWS_AVAILABILITYZONE_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_availabilityzones.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeAvailabilityZones'. "#EC NO_TEXT
+    ec2_call lc_action csis_aws_availabilityzone_type avlzone et_availabilityzones availability_zone_info.
+  ENDMETHOD.                    "describe_availabilityzones
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_IMAGES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_EXECUTABLE_BY               TYPE        CSI_STRING(optional)
+* | [--->] IV_OWNER                       TYPE        CSI_STRING(optional)
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS(optional)
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_IMAGES                      TYPE        CSIT_AWS_IMAGE_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_images.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeImages'.        "#EC NO_TEXT
+    DATA lo_parameter TYPE REF TO cl_csi_provider_aws_parameter.
+    CREATE OBJECT lo_parameter.
+    IF ( iv_executable_by IS SUPPLIED ).
+      lo_parameter->add_parameter( iv_name = 'ExecutableBy' iv_value = iv_executable_by ). "#EC NOTEXT
+    ENDIF.
+    IF ( iv_owner IS SUPPLIED ).
+      lo_parameter->add_parameter( iv_name = 'Owner' iv_value = iv_owner ). "#EC NOTEXT
+    ENDIF.
+
+    ec2_call lc_action csis_aws_image_type image et_images image_set.
+  ENDMETHOD.                    "describe_images
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_NODE_AWS=>DESCRIBE_INSTANCES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NAME                        TYPE        CSI_DESCRIPTION(optional)
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<---] ES_RESERVATION                 TYPE        CSIS_AWS_RESERVATION_INFO_ITEM
+* | [<---] ET_RESERVATION                 TYPE        CSIT_AWS_RESERVATION_INFO_ITEM
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_instances.
+    CONSTANTS:
+      lc_instance_cmd TYPE string VALUE 'InstanceId'.      "#EC NO_TEXT
+
+    define_param.
+
+    DATA:
+      lv_code TYPE i,
+      lv_reason TYPE string,
+      lv_data TYPE xstring.
+    ev_code = lc_updated.
+
+* 0) are we allowed to refresh (check maxRefreshTime)
+    IF ( cv_last_check IS NOT INITIAL ).  " not supplied or initial
+      DATA:
+        lv_current TYPE timestamp,
+        lv_diff TYPE tzntstmpl,
+        lv_diff_sec TYPE p.
+      GET TIME STAMP FIELD lv_current.
+      lv_diff = cl_abap_tstmp=>subtract( tstmp1 = lv_current tstmp2 = cv_last_check ).
+      lv_diff_sec = abs( lv_diff ).
+      IF ( lv_diff_sec < cl_csi_node=>get_max_refresh_time( ) ).
+        " we haven't waited long enough
+        ev_code = lc_no_update.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    DATA:
+      et_parameter TYPE csit_parameter,
+      lv_action TYPE csi_node_action.
+* 1) action specific parameters
+    IF ( iv_name IS SUPPLIED ).
+      add_param lc_instance_cmd iv_name abap_false.
+    ENDIF.
+    lv_action = if_csi_node_c=>gc_action_status.
+    call_before_provider(
+      CHANGING
+        ct_parameter = et_parameter
+        cv_action = lv_action
+    ).
+    call_provider(
+      EXPORTING
+        io_provider   = io_provider
+        io_account    = io_account
+        iv_region     = iv_region
+        iv_action     = lv_action
+        it_parameter  = et_parameter
+      IMPORTING
+        ev_data   = lv_data
+        ev_code   = lv_code
+        ev_reason = lv_reason
+    ).
+    call_after_provider(
+      CHANGING
+        cv_data = lv_data
+        cv_code = lv_code
+        cv_reason = lv_reason
+    ).
+    IF ( lv_code = mc_ok ).
+      GET TIME STAMP FIELD cv_last_check.
+    ENDIF.
+
+    ev_code = lv_code.
+    refresh_transform(
+      EXPORTING
+        iv_data = lv_data
+        iv_code = lv_code
+        iv_reason = lv_reason
+        iv_name = iv_name
+      IMPORTING
+        es_reservation = es_reservation
+        et_reservation = et_reservation
+    ).
+  ENDMETHOD.                    "describe_instances
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_KEYPAIRS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_KEYPAIRS                    TYPE        CSIT_AWS_KEY_PAIR_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_keypairs.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeKeyPairs'.      "#EC NO_TEXT
+    ec2_call lc_action csis_aws_key_pair_type keypair et_keypairs key_set.
+  ENDMETHOD.                    "describe_keypairs
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_NODE_AWS=>DESCRIBE_METHOD
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_COMMAND                     TYPE        STRING
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [--->] IO_PARAMETER                   TYPE REF TO CL_CSI_PROVIDER_AWS_PARAMETER(optional)
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] EV_REASON                      TYPE        STRING
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_method.
+    define_exception.
+
+    ev_code = lc_updated.
+
+* 0) are we allowed to refresh (check maxRefreshTime)
+    IF ( cv_last_check IS NOT INITIAL ).  " not supplied or initial
+      DATA:
+        lv_current TYPE timestamp,
+        lv_diff TYPE tzntstmpl,
+        lv_diff_sec TYPE p.
+      GET TIME STAMP FIELD lv_current.
+      cl_abap_tstmp=>subtract( tstmp1 = lv_current tstmp2 = cv_last_check ).
+      lv_diff_sec = abs( lv_diff ).
+      IF ( lv_diff_sec < cl_csi_node=>get_max_refresh_time( ) ).
+        " we haven't waited long enough
+        ev_code = lc_no_update.
+        RETURN.
+      ENDIF.
+    ENDIF.
+    DATA:
+      et_parameter TYPE csit_parameter,
+      lo_provider TYPE REF TO cl_csi_provider_aws,
+      lv_action TYPE csi_node_action.
+    IF ( io_parameter IS BOUND ).
+      io_parameter->get_csi_parameter( IMPORTING et_parameter = et_parameter ).
+    ENDIF.
+    lo_provider ?= io_account->get_provider( ).
+    IF ( iv_command IS INITIAL ).
+      lv_action = if_csi_node_c=>gc_action_status.
+    ELSE.
+      lv_action = iv_command.
+    ENDIF.
+    call_before_provider(
+      CHANGING
+        ct_parameter = et_parameter
+        cv_action = lv_action
+    ).
+    call_provider(
+      EXPORTING
+        io_provider   = lo_provider
+        io_account    = io_account
+        iv_http_destination = iv_http_destination
+        iv_action     = lv_action
+        it_parameter  = et_parameter
+      IMPORTING
+        ev_data   = ev_data
+        ev_code   = ev_code
+        ev_reason = ev_reason
+    ).
+    call_after_provider(
+      CHANGING
+        cv_data = ev_data
+        cv_code = ev_code
+        cv_reason = ev_reason
+    ).
+    IF ( ev_code = mc_ok ).
+      GET TIME STAMP FIELD cv_last_check.
+    ENDIF.
+    IF ( lx_node IS BOUND ).
+      RAISE EXCEPTION lx_node.
+    ENDIF.
+  ENDMETHOD.                    "describe_method
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_REGIONS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_REGIONS                     TYPE        CSIT_AWS_REGION_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_regions.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeRegions'.        "#EC NOTEXT
+    ec2_call lc_action csis_aws_region_type region et_regions region_info.
+  ENDMETHOD.                    "describe_regions
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_SECURITYGROUPS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_SECURITYGROUPS              TYPE        CSIT_AWS_SECURITY_GROUP_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_securitygroups.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeSecurityGroups'. "#EC NO_TEXT
+    ec2_call lc_action csis_aws_security_group_type secgroup et_securitygroups security_group_info.
+  ENDMETHOD.                    "describe_securitygroups
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_SUBNETS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_SUBNETS                     TYPE        CSIT_AWS_SUBNET_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD DESCRIBE_SUBNETS.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeSubnets'.       "#EC NO_TEXT
+    ec2_call lc_action csis_aws_subnet_type subnet et_subnets subnet_set.
+  ENDMETHOD.                    "DESCRIBE_VOLUMES
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_NODE_AWS=>DESCRIBE_VOLUMES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_PROVIDER                    TYPE REF TO CL_CSI_PROVIDER_AWS
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS
+* | [--->] IV_HTTP_DESTINATION            TYPE        RFCDEST
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] ET_VOLUMES                     TYPE        CSIT_AWS_VOLUME_ITEM
+* | [<-->] CV_LAST_CHECK                  TYPE        TIMESTAMP
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD describe_volumes.
+    CONSTANTS:
+      lc_action TYPE string VALUE 'DescribeVolumes'.       "#EC NO_TEXT
+    ec2_call lc_action csis_aws_volume_type volume et_volumes volume_set.
+  ENDMETHOD.                    "DESCRIBE_VOLUMES
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->GET_INITIAL_STATE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_STATE                       TYPE        CSI_NODE_STATUS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_INITIAL_STATE.
+  rv_state = if_csi_node_c=>gc_status_terminated.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INITIALIZE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD initialize.
+  ms_node-last_code = gc_aws_initial.
+  ms_aws_node-instance_state-code = gc_aws_initial. " make it initial per default and NOT 0
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_CALL_PROVIDER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION                      TYPE        CSI_NODE_ACTION
+* | [--->] IT_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [<---] EV_CDATA                       TYPE        CSI_STRING
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] EV_REASON                      TYPE        CSI_STRING
+* | [<-->] CR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_call_provider.
+  call_provider(
+    EXPORTING
+      io_provider = mo_aws_provider
+      io_account  = mo_aws_account
+      iv_region   = gv_region
+      iv_action   = iv_action
+      it_parameter = it_parameter
+    IMPORTING
+      ev_data = ev_data
+      ev_cdata = ev_cdata
+      ev_code = ev_code
+      ev_reason = ev_reason
+    CHANGING
+      cr_add_data = cr_add_data
+  ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_GET_DATA_FOR_INSTANCE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RS_INSTANCE                    TYPE        CSIS_INSTANCE_DETAILS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_get_data_for_instance.
+    rs_instance-instance_name = gv_name.
+    IF ( ms_node-subnet_id IS INITIAL ).
+      rs_instance-ip_addr = gv_public_ip.
+      rs_instance-dns_name = gv_public_host.
+    ELSE.
+      rs_instance-ip_addr = gv_private_ip.
+      rs_instance-dns_name = gv_private_host.
+    ENDIF.
+    rs_instance-option1 = gv_region.
+    rs_instance-option2 = ms_node-subnet_id.
+  ENDMETHOD.                    "INNER_GET_DATA_FOR_INSTANCE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_LIST_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [--->] IV_FILTER_BY_STATUS            TYPE        CSI_NODE_STATUS (default =IF_CSI_NODE_C=>GC_STATUS_ALL)
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_list_prepare.
+
+  DATA:
+    lt_region TYPE csit_region,
+    lv_last_check TYPE timestamp,
+    ls_region TYPE csis_region.
+  FIELD-SYMBOLS:
+    <ls_region> TYPE csis_region.
+  IF ( iv_region IS NOT INITIAL ).
+    ls_region-region_name = iv_region.
+    INSERT ls_region INTO TABLE lt_region.
+  ELSE.
+    TRY.
+        lt_region = mo_aws_provider->list_regions( ).
+      CATCH cx_csi_provider.                            "#EC NO_HANDLER
+        RETURN. " fail
+    ENDTRY.
+  ENDIF.
+  CREATE DATA er_add_data LIKE lt_region. " create the data and do not just reference to it (otherwise it will get kicked off the stack when we get out here)
+  FIELD-SYMBOLS <lt_region> LIKE lt_region.
+  ASSIGN er_add_data->* TO <lt_region>.
+  <lt_region> = lt_region.
+  define_param.
+  add_param 'IV_FILTER_BY_STATUS' iv_filter_by_status abap_false.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_LIST_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RT_NODES                       TYPE        CSIT_NODE_OBJ
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_list_transform.
+    IF ( iv_code = 0 ). " the method comes back with a 0...
+      DATA:
+        ls_node_obj TYPE csis_node_obj,
+        ls_node TYPE csis_node,
+        lo_aws_node TYPE REF TO cl_csi_node_aws.
+      FIELD-SYMBOLS:
+        <ls_instance> TYPE csis_aws_runninginstances_item,
+        <ls_inst_ref> TYPE gtys_inst_region,
+        <ls_reservation> TYPE csis_aws_reservation_info_item,
+        <ls_group> TYPE csis_aws_group_item,
+        <ls_list_param> TYPE gtys_list_parameter.
+
+      ASSIGN ir_add_data->* TO <ls_list_param>.
+      LOOP AT <ls_list_param>-inst_region ASSIGNING <ls_inst_ref>.
+        LOOP AT <ls_inst_ref>-reservation ASSIGNING <ls_reservation>.
+          READ TABLE <ls_reservation>-group_set INDEX 1 ASSIGNING <ls_group>.
+          LOOP AT <ls_reservation>-instances_set ASSIGNING <ls_instance>.
+            IF ( <ls_list_param>-filter_status <> if_csi_node_c=>gc_status_all ).
+              IF ( aws_state_to_csi( <ls_instance>-instance_state-code ) <> <ls_list_param>-filter_status ).
+                CONTINUE.
+              ENDIF.
+            ENDIF.
+            instance_to_node(
+              EXPORTING
+                is_instance = <ls_instance>
+                iv_security_group = <ls_group>-group_id
+              CHANGING
+                cs_node = ls_node
+            ).
+
+            ls_node-region = <ls_inst_ref>-region.
+            lo_aws_node ?= factory( is_node = ls_node io_provider = mo_aws_provider io_account = mo_aws_account ).
+            lo_aws_node->gv_region = <ls_inst_ref>-region.
+
+            lo_aws_node->instance_to_me(
+              is_instance = <ls_instance>
+            ).
+            ls_node_obj-id = <ls_instance>-instance_id.
+            ls_node_obj-node_ref = lo_aws_node.
+            INSERT ls_node_obj INTO TABLE rt_nodes.
+            FREE ls_node_obj.
+          ENDLOOP.
+        ENDLOOP.
+      ENDLOOP.
+    ELSE.
+      rt_nodes = st_nodes.
+    ENDIF.
+  ENDMETHOD.                    "INNER_LIST_TRANSFORM
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_PAUSE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_pause_prepare.
+    cl_csi_node=>raise_not_implemented( iv_method_name = 'Pause' iv_provider_name = mo_aws_provider->if_csi_provider~gv_name ). "#EC NOTEXT
+  ENDMETHOD.                    "INNER_PAUSE_PREPARE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_PAUSE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_PAUSE_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_REBOOT_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_reboot_prepare.
+    CONSTANTS: lc_instance_cmd TYPE string VALUE 'InstanceId'.
+
+    define_param.
+* 1) action specific parameters
+    add_param lc_instance_cmd ms_node-name abap_true.
+  ENDMETHOD.                    "INNER_REBOOT_PREPARE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_REBOOT_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_reboot_transform.
+    define_exception.
+    IF ( iv_code = mc_ok OR iv_code = 204 ).
+      " all good - who cares what the response says
+    ELSE.
+      handle_ws_error.
+    ENDIF.
+    IF ( lx_node IS BOUND ).
+      RAISE EXCEPTION lx_node.
+    ENDIF.
+  ENDMETHOD.                    "INNER_REBOOT_transform
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_REFRESH_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_refresh_prepare.
+    CONSTANTS:
+      lc_instance_cmd TYPE string VALUE 'InstanceId'.        "#EC NO_TEXT
+
+    define_param.
+
+* 1) action specific parameters
+    add_param lc_instance_cmd gv_name abap_false.
+  ENDMETHOD.                    "INNER_REFRESH_PREPARE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_REFRESH_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_RUNNING_STATE               TYPE        INT4
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_refresh_transform.
+    DATA:
+      ls_reservation TYPE csis_aws_reservation_info_item.
+    refresh_transform(
+      EXPORTING
+        iv_data   = iv_data
+        iv_code   = iv_code
+        iv_reason = iv_reason
+        iv_name   = me->gv_name
+      IMPORTING
+        es_reservation = ls_reservation
+    ).
+    FIELD-SYMBOLS:
+      <ls_instance> TYPE CSIS_AWS_RUNNINGINSTANCES_ITEM.
+    IF ( iv_code = mc_ok ).
+      DATA lv_aws_id TYPE string.
+      lv_aws_id = me->gv_name.
+      READ TABLE ls_reservation-instances_set WITH TABLE KEY instance_id = lv_aws_id ASSIGNING <ls_instance>.
+      IF ( <ls_instance> IS ASSIGNED ).
+        instance_to_me(
+          is_instance = <ls_instance>
+        ).
+        instance_to_node(
+          EXPORTING
+            is_instance = <ls_instance>
+          CHANGING
+            cs_node = ms_node
+        ).
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.                    "INNER_REFRESH_Transform
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_RESUME_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_resume_prepare.
+    cl_csi_node=>raise_not_implemented( iv_method_name = 'Resume' iv_provider_name = mo_aws_provider->if_csi_provider~gv_name ). "#EC NOTEXT
+  ENDMETHOD.                    "INNER_RESUME_PREPARE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_RESUME_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_RESUME_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_SET_DATA_FROM_INSTANCE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_INSTANCE                    TYPE        CSIS_INSTANCE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_set_data_from_instance.
+    gv_public_ip = is_instance-ip_addr.
+    gv_public_host = is_instance-dns_name.
+    gv_region = is_instance-option1.
+    DATA:
+      lv_name TYPE csi_description.
+    lv_name = is_instance-instance_name.
+    me->set_if_node_info(
+      iv_name = lv_name
+      iv_public_host = gv_public_host
+      iv_public_ip = gv_public_ip
+    ).
+    IF ( is_instance-option2 IS NOT INITIAL ).  " then the provided IPs are private (vpn)
+      me->set_if_node_info(
+        iv_private_host = gv_public_host
+        iv_private_ip = gv_public_ip
+      ).
+    ENDIF.
+    ms_node-name = is_instance-instance_name.
+    ms_node-region = is_instance-option1.
+    ms_node-subnet_id = is_instance-option2.
+  ENDMETHOD.                    "INNER_SET_DATA_FROM_INSTANCE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_START_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_MINCOUNT                    TYPE        CSI_INT (default =1)
+* | [--->] IV_MAXCOUNT                    TYPE        CSI_INT (default =1)
+* | [--->] IV_WAIT_TILL_STARTED           TYPE        CSI_INT (default =0)
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_start_prepare.
+    DATA:
+      lv_maxcount TYPE string,                              "#EC NEEDED
+      lv_mincount TYPE string.                              "#EC NEEDED
+
+    define_param.
+
+    lv_maxcount = |{ iv_maxcount SIGN = LEFT }|.
+    lv_mincount = |{ iv_mincount SIGN = LEFT }|.
+* 1) action specific parameters
+    " is a region specified
+    IF ( gv_region IS INITIAL ).
+      RAISE EXCEPTION TYPE cx_csi_node
+        EXPORTING
+          textid     = cx_csi_node=>parameter_is_initial
+          text_token = 'Region'.                            "#EC NOTEXT
+    ENDIF.
+    " only one instance is allowed
+    add_param:
+      'ImageId' ms_node-image_name abap_true,               "#EC NOTEXT
+      'InstanceType' ms_node-size_type abap_true,           "#EC NOTEXT
+      'MaxCount' 1 abap_true,                               "#EC NOTEXT
+      'MinCount' 1 abap_true,                               "#EC NOTEXT
+      'Placement.AvailabilityZone' ms_node-location abap_true, "#EC NOTEXT
+      'KeyName' ms_node-key_name abap_true.                 "#EC NOTEXT
+    " can't be used together
+    IF ( ms_node-subnet_id IS INITIAL ).
+      add_param:
+        'SecurityGroup.0' ms_node-security_group abap_true. "#EC NOTEXT
+    ELSE.
+      add_param:
+        'SubnetId' ms_node-subnet_id abap_false.              "#EC NOTEXT
+    ENDIF.
+  ENDMETHOD.                    "INNER_START_PREPARE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_START_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_start_transform.
+    define_exception.
+    IF ( iv_code = mc_ok ).
+      DATA:
+        ls_start_resp TYPE csis_aws_run_instances_type.
+      TRY.
+        CALL TRANSFORMATION csixt_st_aws_run_instances
+          SOURCE XML iv_data
+          RESULT root = ls_start_resp.
+        FIELD-SYMBOLS:
+          <ls_instance> TYPE csis_aws_runninginstances_item.
+
+        LOOP AT ls_start_resp-instances_set ASSIGNING <ls_instance>.
+          IF ( <ls_instance> IS ASSIGNED ).
+            instance_to_me(
+              is_instance = <ls_instance>
+            ).
+            instance_to_node(
+              EXPORTING
+                is_instance = <ls_instance>
+              CHANGING
+                cs_node = ms_node
+            ).
+            GET TIME STAMP FIELD me->ms_node-last_time.
+          ENDIF.
+          " currently we do not support more than one instance to be started with one call
+          " ==> get the first instance
+          EXIT.
+        ENDLOOP.
+        handle_transform_error.
+      ENDTRY.
+    ELSEIF iv_code <> -511. " we already have an exception
+      handle_ws_error.
+    ENDIF.
+    IF ( lx_node IS BOUND ).
+      RAISE EXCEPTION lx_node.
+    ENDIF.
+  ENDMETHOD.                    "INNER_START_TRANSFORM
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_STATUS_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_status_prepare.
+    inner_refresh_prepare( IMPORTING et_parameter = et_parameter ).
+  ENDMETHOD.                    "inner_status_prepare
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_STATUS_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_STATUS                      TYPE        CSI_NODE_STATUS
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_status_transform.
+    IF iv_code = mc_ok.
+      inner_refresh_transform( iv_data = iv_data iv_cdata = iv_cdata iv_code = iv_code iv_reason = iv_reason ir_add_data = ir_add_data ).
+      rv_status = aws_state_to_csi( ms_aws_node-instance_state-code ).
+    ELSEIF iv_code > 500.
+      rv_status = if_csi_node_c=>gc_status_temp_unavailable.
+    ELSEIF iv_code >= 400 AND iv_code < 500.  " client error
+      RAISE EXCEPTION TYPE cx_csi_node
+        EXPORTING
+          textid     = cx_csi_node=>cx_ai_system_fault
+          text_token = iv_reason
+          code       = iv_code.
+    ENDIF.
+  ENDMETHOD.                    "inner_status_transform
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_STOP_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_stop_prepare.
+    CONSTANTS:
+      lc_instance_cmd TYPE string VALUE 'InstanceId'.      "#EC NO_TEXT
+
+    define_param.
+* 1) action specific parameters
+    add_param lc_instance_cmd ms_node-name abap_true.
+  ENDMETHOD.                    "inner_sTOP_prepare
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_NODE_AWS->INNER_STOP_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD inner_stop_transform.
+    define_exception.
+    IF ( iv_code = mc_ok OR iv_code = 204 ).
+      FREE me->ms_node-last_time.
+      " all good - who cares what the response says
+    ELSE.
+      handle_ws_error.
+    ENDIF.
+    IF ( lx_node IS BOUND ).
+      RAISE EXCEPTION lx_node.
+    ENDIF.
+  ENDMETHOD.                    "inner_sTOP_transform
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_NODE_AWS->INSTANCE_TO_ME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_INSTANCE                    TYPE        CSIS_AWS_RUNNINGINSTANCES_ITEM
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD instance_to_me.
+    me->ms_aws_node = is_instance.
+    DATA:
+      lv_name TYPE csi_description,
+      lv_pub_ip TYPE csi_ip_address,
+      lv_pub_dns type csi_string.
+    lv_name = is_instance-instance_id.
+    lv_pub_ip = is_instance-ip_address.
+    lv_pub_dns = is_instance-dns_name.
+    " for private virtual clouds, take the private IP address
+    IF ( is_instance-vpc_id IS NOT INITIAL ).
+      lv_pub_ip = is_instance-private_ip_address.
+      lv_pub_dns = is_instance-private_dns_name.
+    ENDIF.
+    me->set_if_node_info(
+      iv_name = lv_name
+      iv_public_host = lv_pub_dns
+      iv_private_host = is_instance-private_dns_name
+      iv_private_ip = is_instance-private_ip_address
+      iv_public_ip = lv_pub_ip
+    ).
+  ENDMETHOD.                    "instance_to_me
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_NODE_AWS=>INSTANCE_TO_NODE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_INSTANCE                    TYPE        CSIS_AWS_RUNNINGINSTANCES_ITEM
+* | [--->] IV_SECURITY_GROUP              TYPE        CSI_AWS_SECURITY_GROUP(optional)
+* | [<-->] CS_NODE                        TYPE        CSIS_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD instance_to_node.
+    cs_node-name = is_instance-instance_id.
+    cs_node-image_name = is_instance-image_id.
+    IF ( iv_security_group IS SUPPLIED ).
+      cs_node-security_group = iv_security_group.
+    ENDIF.
+    cs_node-instance_number = 1.
+    cs_node-size_type = is_instance-instance_size.
+    cs_node-key_name = is_instance-key_name.
+    cs_node-location = is_instance-placement.
+    cs_node-last_code = is_instance-instance_state-code.
+    cs_node-last_state = is_instance-instance_state-name.
+    cs_node-subnet_id = is_instance-subnet_id.
+    FREE cs_node-last_time.
+  ENDMETHOD.                    "instance_to_node
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_CSI_NODE_AWS=>REFRESH_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING(optional)
+* | [--->] IV_CODE                        TYPE        CSI_INT(optional)
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IV_NAME                        TYPE        CSI_DESCRIPTION
+* | [<---] ES_RESERVATION                 TYPE        CSIS_AWS_RESERVATION_INFO_ITEM
+* | [<---] ET_RESERVATION                 TYPE        CSIT_AWS_RESERVATION_INFO_ITEM
+* | [!CX!] CX_CSI_NODE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD refresh_transform.
+    define_exception.
+    IF ( iv_code = mc_ok ).
+      DATA:
+        ls_descr_resp TYPE csis_aws_reservation_info_type.
+      TRY.
+        "cl_abap_browser=>show_xml( xml_xstring = iv_data context_menu = abap_true ).
+        CALL TRANSFORMATION csixt_st_aws_describe_instance
+          SOURCE XML iv_data
+          RESULT root = ls_descr_resp.
+        FIELD-SYMBOLS:
+          <ls_reservation> TYPE csis_aws_reservation_info_item.
+
+        " depending on what we "supplied", we get one instance or all
+        IF ( iv_name IS NOT INITIAL ).
+          LOOP AT ls_descr_resp-reservation_set ASSIGNING <ls_reservation>.
+            " ==> get the correct instance
+            READ TABLE <ls_reservation>-instances_set WITH TABLE KEY instance_id = iv_name TRANSPORTING NO FIELDS.
+            IF ( sy-subrc = 0 ).
+              es_reservation = <ls_reservation>.
+              EXIT. " loop
+            ENDIF.
+          ENDLOOP.
+        ELSE.
+          et_reservation = ls_descr_resp-reservation_set.
+        ENDIF.
+        "GET TIME STAMP FIELD cv_last_check.
+        handle_transform_error.
+      ENDTRY.
+    ELSE.
+      handle_ws_error.
+    ENDIF.
+    IF ( lx_node IS BOUND ).
+      RAISE EXCEPTION lx_node.
+    ENDIF.
+  ENDMETHOD.                    "inner_status_transform
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_NODE_AWS->SET_IF_NODE_INFO
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ID                          TYPE        CSI_NODE_ID(optional)
+* | [--->] IV_NAME                        TYPE        CSI_DESCRIPTION(optional)
+* | [--->] IV_PUBLIC_IP                   TYPE        CSI_IP_ADDRESS(optional)
+* | [--->] IV_PUBLIC_HOST                 TYPE        CSI_STRING(optional)
+* | [--->] IV_PRIVATE_IP                  TYPE        CSI_IP_ADDRESS(optional)
+* | [--->] IV_PRIVATE_HOST                TYPE        CSI_STRING(optional)
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD set_if_node_info.
+    DEFINE setif.
+      if ( iv_&1 is supplied ).
+        gv_&1 = iv_&1.
+      endif.
+    END-OF-DEFINITION.
+    setif:
+      name,
+      public_ip,
+      public_host,
+      private_ip,
+      private_host,
+      region.
+  ENDMETHOD.                    "set_if_node_info
+ENDCLASS.
