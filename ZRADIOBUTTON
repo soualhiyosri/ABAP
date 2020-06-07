@@ -1,0 +1,23 @@
+REPORT ZRADIOBUTTON.
+
+
+*PARAMETERS : P_RAD1 RADIOBUTTON GROUP RAD,
+*             P_RAD2 RADIOBUTTON GROUP RAD.
+
+
+TABLES sscrfields.
+
+PARAMETERS: drill RADIOBUTTON GROUP rad ,
+            Instance RADIOBUTTON GROUP rad.
+
+
+IF drill = 'X'.
+  Write : 'Drilldown'.
+
+ENDIF.
+
+
+IF Instance = 'X'.
+  Write : 'Instance'.
+
+ENDIF.
