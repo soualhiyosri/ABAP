@@ -1,0 +1,41 @@
+*&---------------------------------------------------------------------*
+*& Report ZCONSUME_API_12_SUB
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZCONSUME_API_12_SUB.
+
+PARAMETERS  : lv_gl_id type string ,
+              lv_res type CHAR30,
+              lv_per type string,
+              lv_meth type  string,
+              lv_mtrc type string  .
+
+
+
+data lt_ret_series type  FRN_FI_DP_SERIES_TT .
+data lt_ret_messages TYPE  FRN_FI_DP_RET_MESSAGE_TT.
+
+
+
+
+
+PERFORM ConsumeAPI
+   USING
+     lv_gl_id
+     lv_res
+     lv_per
+     lv_meth
+     lv_mtrc
+  CHANGING
+    lt_ret_series
+    lt_ret_messages.
+
+
+PERFORM TO_ALV_RESULT
+USING lt_ret_series.
+
+
+INCLUDE nsume_api_12_f01.
+
+INCLUDE nsume_api_12_sub_f01.
