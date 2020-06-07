@@ -1,0 +1,47 @@
+REPORT z_my_try .
+
+
+*DATA ld_input TYPE scal-week VALUE 201902.
+*DATA  ld_output TYPE scal-date .
+*CALL FUNCTION 'WEEK_GET_FIRST_DAY'
+*  EXPORTING
+*    week = ld_input
+*  IMPORTING
+*    date = ld_output.
+** EXCEPTIONS
+** WEEK_INVALID = 1
+** OTHERS = 2
+*
+*CALL FUNCTION 'CONVERSION_EXIT_BCVWK_OUTPUT'
+*  EXPORTING
+*    input  = ld_input
+**   iv_datfm =                   ld_iv_datfm
+*  IMPORTING
+*    output = ld_output
+*  .  "  CONVERSION_EXIT_BCVWK_OUTPUT
+
+DATA: BEGIN OF line,
+        col1 TYPE i,
+        col2 TYPE i,
+      END OF line.
+
+DATA itab LIKE HASHED TABLE OF line WITH UNIQUE KEY col1.
+
+DO 4 TIMES.
+  line-col1 = sy-index.
+  line-col2 = sy-index ** 2.
+  INSERT line INTO TABLE itab.
+ENDDO.
+
+line-col1 = 2. line-col2 = 3.
+
+READ TABLE itab FROM line INTO line COMPARING col2.
+
+WRITE: 'SY-SUBRC =', sy-subrc.
+SKIP.
+WRITE: / line-col1, line-col2.
+
+
+
+
+BREAK-POINT.
