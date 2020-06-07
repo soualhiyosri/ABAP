@@ -1,0 +1,815 @@
+*&---------------------------------------------------------------------*
+*& Report Z_MAINTENANCE
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_maintenance.
+
+TYPES : BEGIN OF ts_sys_prod,
+          name    TYPE string,
+          version TYPE string,
+          date    TYPE string,
+        END OF ts_sys_prod .
+
+
+
+TYPES : BEGIN OF ts_comp_prod,
+          name       TYPE string,
+          release    TYPE string,
+          current_sp TYPE string,
+          latest_sp  TYPE string,
+        END OF ts_comp_prod .
+
+
+
+TYPES : BEGIN OF ts_sys_kern,
+          comp_on    TYPE string,
+          comp_time  TYPE string,
+          dblib      TYPE string,
+          patchlevel TYPE string,
+          rel        TYPE string,
+          platform   TYPE string,
+        END OF ts_sys_kern .
+
+
+******host******************
+
+TYPES : BEGIN OF ts_sys_host,
+          host       TYPE string,
+          patchlevel TYPE string,
+          date       TYPE string,
+        END OF ts_sys_host .
+
+DATA lt_host  TYPE tt_diagls_hosts.
+DATA ls_sys_host TYPE ts_sys_host.
+DATA lt_sys_host TYPE TABLE OF ts_sys_host.
+
+FIELD-SYMBOLS <lfs_host> LIKE LINE OF lt_host.
+
+
+DATA ls_os TYPE sdiagls_operating_system.
+DATA ls_slds TYPE sdiagls_soft_comp_vers.
+
+*************************
+
+
+
+*****DB******************
+
+TYPES : BEGIN OF ts_sys_db,
+          db_name       TYPE string,
+          revision TYPE string,
+          date       TYPE string,
+        END OF ts_sys_db .
+
+DATA ls_sys_db TYPE ts_sys_db.
+DATA lt_sys_db TYPE TABLE OF ts_sys_db.
+
+
+*************************
+
+
+
+
+
+
+
+DATA ls_sys_kern TYPE ts_sys_kern.
+
+
+DATA : lv_int_latest_sp        TYPE i,
+       lv_int_latest_sp_field  TYPE i,
+       lv_int_current_sp_field TYPE i,
+       ls_data_comp            TYPE ts_comp_prod,
+       lt_data_comp            TYPE TABLE OF  ts_comp_prod.
+
+*  DATA scvnr             TYPE REF TO cl_dswp_get_ppms_data_for_scv.
+
+*  DATA lv_component TYPE dswpppmsonr.
+
+
+
+DATA:
+*  lr_landscape_factory TYPE REF TO cl_diagls_factory,
+  lv_system            TYPE diagls_id,
+  ls_technical_systems TYPE sdiagls_technical_system,
+  lt_product_version   TYPE tt_diagls_product_versions,
+  lr_technical_system  TYPE REF TO cl_diagls_technical_system,
+  ls_sld               TYPE diagls_sld_id,
+  it_node_id_system    TYPE lmdb_t_generic_id,
+  it_node_id           TYPE lmdb_t_generic_id,
+  et_node_id           TYPE TABLE OF  lmdb_s_sp_refstring_attr,
+  ls_node              LIKE LINE OF et_node_id,
+  ls_app               LIKE LINE OF it_node_id,
+  lr_ref_system        TYPE REF TO /plmb/cl_spi_connector,
+  ls_data_sys          TYPE ts_sys_prod,
+  lt_data_sys          TYPE TABLE OF  ts_sys_prod,
+
+  lv_end_date          TYPE datum,
+  lv_date_comp         LIKE sy-datum,
+  lv_duration          TYPE i,
+  lv_ns                TYPE diagls_namespace.
+
+DATA it_soft_components TYPE lmdb_t_sp_ts_swcomp.
+DATA ls_soft_comp LIKE LINE OF it_soft_components.
+
+
+TYPES:
+  BEGIN OF ts_ccdb_data_flat.
+    INCLUDE TYPE ccdb_dirv.
+  TYPES:
+    cd_element_id   TYPE ccdb_element_id,
+    cd_hist_date    TYPE ccdb_hist_date,
+    cd_hist_date_to TYPE ccdb_hist_date,
+    cd_hist_mod     TYPE ccdb_hist_mod,
+    key_cols        TYPE string,
+    data_cols       TYPE string,
+  END OF ts_ccdb_data_flat .
+
+DATA: lt_items TYPE STANDARD TABLE OF ts_ccdb_data_flat .
+DATA: ls_items      TYPE ts_ccdb_data_flat.
+
+DATA lv_fn_flat_rc TYPE i.
+DATA lv_fn_flat_rc_str TYPE string.
+
+
+DATA: read_items  TYPE REF TO cl_ccdb_read,
+      lv_store_id TYPE ccdb_store_id.
+
+DATA : lt2_lmdb_scope_guids TYPE cl_ccdb_read=>tt_guid32,
+       ls2_lmdb_scope_guids LIKE LINE OF lt2_lmdb_scope_guids.
+
+
+
+DATA: ls_itemss TYPE ccdb_dirv,
+      lt_itemss TYPE tt_ccdb_dirv.
+
+
+
+
+DATA(domain_manager) = cl_lmdb_cim_factory=>get_domain_manager( ).
+DATA(domain_context) = domain_manager->get_domain_context( cl_lmdb_cim_domain=>ldb ).
+DATA(guid_client)    =  domain_context->create_guid_client( ).
+DATA(ns) = guid_client->get_namespace_by_object_guid( object_guid = '6CAE8B74A0DE1EE9ABA90F451E32B1E6' ).
+lv_ns = ns->name.
+
+ls2_lmdb_scope_guids-guid = '6CAE8B74A0DE1EE9ABA90F451E32B1E6'.
+APPEND ls2_lmdb_scope_guids TO lt2_lmdb_scope_guids.
+
+PERFORM get_sys_prod USING lv_ns  CHANGING lt_data_sys .
+
+CLEAR : it_node_id_system, ls_app  .
+
+PERFORM get_sys_comp USING lv_ns  CHANGING lt_data_comp .
+
+
+PERFORM get_sys_kern USING ls2_lmdb_scope_guids  CHANGING ls_sys_kern .
+
+
+PERFORM get_sys_os USING lv_ns  CHANGING lt_sys_host .
+
+
+PERFORM get_sys_db USING lv_ns  CHANGING lt_sys_db .
+
+
+
+
+BREAK-POINT.
+
+
+
+
+FORM get_sys_db USING lv_ns  CHANGING lt_sys_db like lt_sys_db .
+
+
+  DATA lt_databases TYPE tt_diagls_databases .
+  DATA ls_physical_database TYPE sdiagls_database.
+  DATA lm_id  TYPE diagls_id.
+*  DATA lv_database_name TYPE diagls_database_dbcname.
+
+  FIELD-SYMBOLS <lfs_database> LIKE LINE OF lt_databases.
+
+
+    data ls_sld type sdiagls_soft_comp_vers.
+    data ls_primary type sdiagls_database.
+
+     data lv_stackname type string.
+
+  TRY.
+      " Get factory
+      DATA(lr_landscape_factory) = cl_diagls_factory=>new_instance( im_namespace = lv_ns ).
+    CATCH cx_diagls_retrieve_exception cx_root INTO DATA(cx_root). "#EC NO_HANDLER
+  ENDTRY.
+
+
+  IF lr_landscape_factory IS NOT INITIAL.
+
+*    CONCATENATE me->system_id '~' me->system_type INTO lv_system.
+
+    TRY.
+        "Get technical system by sys_id and sys_type to optimize number of the authorization checks
+        CALL METHOD lr_landscape_factory->get_technical_system_by_id
+          EXPORTING
+            im_id               = 'FD4~ABAP'
+            im_diag_relevant    = abap_false
+          RECEIVING
+            re_technical_system = ls_technical_systems.
+      CATCH cx_diagls_retrieve_exception .
+    ENDTRY.
+
+  ENDIF .
+
+*  READ TABLE lt_technical_systems INTO ls_technical_systems WITH KEY long_sid = me->SYSTEM_ID type = me->SYSTEM_TYPE .
+
+  CHECK ls_technical_systems IS NOT INITIAL.
+
+
+  lr_technical_system = ls_technical_systems-technical_system.
+
+
+
+
+  TRY.
+      " Get the databases via the TS object
+      lt_databases = lr_technical_system->get_databases( ).
+    CATCH cx_diagls_retrieve_exception.                 "#EC NO_HANDLER
+  ENDTRY.
+
+  LOOP AT lt_databases ASSIGNING <lfs_database>.
+    CLEAR ls_sys_db.
+*    if <lfs_database>-type ne 'HDB'.
+
+    ls_sld = <lfs_database>-database->get_soft_comp_version( ).
+
+    IF ls_sld IS INITIAL.
+      ls_physical_database = <lfs_database>-database->get_physical_database( ).
+
+      IF ls_physical_database IS NOT INITIAL.
+        ls_primary = ls_physical_database-database->get_replication_primary_db( ).
+        IF ls_primary IS INITIAL.
+          ls_sld = ls_physical_database-database->get_soft_comp_version( ).
+        ELSE.
+          ls_sld = ls_primary-database->get_soft_comp_version( ).
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+    IF ls_sld IS NOT INITIAL.
+      CREATE OBJECT lr_ref_system
+        EXPORTING
+          iv_abbid = 'LMDB_CIM_I'.
+      ls_app-lmdb_refstring = ls_sld-sld_key.
+      ls_app-lmdb_refstring_ki = ls_app-lmdb_refstring .
+      APPEND ls_app TO it_node_id_system.
+
+      TRY.
+          CALL METHOD lr_ref_system->/plmb/if_spi_appl_access~retrieve
+            EXPORTING
+              iv_node_name        = 'LMUF_REFSTRING'
+              iv_target_node_name = 'LMUF_REFSTRING_ATTR'
+              it_node_id          = it_node_id_system
+            IMPORTING
+              et_node_data        = et_node_id.
+        CATCH cx_root.
+      ENDTRY.
+      CLEAR ls_app.
+*        Database name
+      READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'caption'.
+      ls_sys_db-db_name = ls_node-value.
+
+*        Revision
+
+      ls_sys_db-revision = <lfs_database>-release.
+
+      READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'warrantyenddate'.
+      lv_date_comp = ls_node-value .
+
+
+*      ""retreive the latest SP
+*      CALL METHOD me->retrieve_latest_sp
+*        IMPORTING
+*          et_sp_hana = lt_hana_data.
+*
+*      LOOP AT lt_hana_data INTO ls_hana_data.
+*
+*        IF lv_timestamp IS INITIAL OR lv_timestamp < ls_hana_data-field4.
+*          lv_timestamp = ls_hana_data-field4.
+*          lv_stackname = ls_hana_data-field3.
+*        ENDIF.
+*
+*      ENDLOOP.
+*          Stackname
+*      ls_sys_db-date = lv_stackname.
+
+      CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+                EXPORTING
+                  date_internal            = lv_date_comp
+                IMPORTING
+                  date_external            = ls_sys_db-date
+                EXCEPTIONS
+                  date_internal_is_invalid = 1
+                  OTHERS                   = 2.
+              IF sy-subrc <> 0.
+                ls_sys_db-date = lv_date_comp.
+              ENDIF.
+
+      CALL FUNCTION 'DURATION_DETERMINE'
+        IMPORTING
+          duration                   = lv_duration
+        CHANGING
+          start_date                 = sy-datum ##WRITE_OK
+          start_time                 = sy-uzeit ##WRITE_OK
+          end_date                   = lv_date_comp
+          end_time                   = sy-uzeit ##WRITE_OK
+        EXCEPTIONS
+          factory_calendar_not_found = 1
+          date_out_of_calendar_range = 2
+          date_not_valid             = 3
+          unit_conversion_error      = 4
+          si_unit_missing            = 5
+          parameters_not_valid       = 6
+          OTHERS                     = 7.
+      IF sy-subrc <> 0.
+        lv_duration = 0 .
+
+      ENDIF.
+*
+*      IF lv_duration < me->os_supp_red_threshold.
+*        ls_node_database-field4 = 3.
+*      ELSEIF lv_duration < me->os_supp_yellow_threshold.
+*        ls_node_database-field4 = 2.
+*      ELSE .
+*        ls_node_database-field4 = 1.
+*      ENDIF.
+
+    ENDIF.
+    APPEND ls_sys_db TO lt_sys_db.
+    CLEAR et_node_id.
+    CLEAR it_node_id.
+    CLEAR it_node_id_system.
+  ENDLOOP.
+
+
+ENDFORM.
+
+
+
+FORM get_sys_os USING lv_ns  CHANGING  lt_data_app LIKE lt_sys_host  .
+
+
+  TRY .
+      " Get factory
+      DATA(lr_landscape_factory) = cl_diagls_factory=>new_instance( im_namespace = lv_ns ).
+    CATCH cx_diagls_retrieve_exception cx_root INTO DATA(cx_root). "#EC NO_HANDLER
+  ENDTRY.
+
+
+  IF lr_landscape_factory IS NOT INITIAL.
+
+*    CONCATENATE me->system_id '~' me->system_type INTO lv_system.
+
+    TRY.
+        "Get technical system by sys_id and sys_type to optimize number of the authorization checks
+        CALL METHOD lr_landscape_factory->get_technical_system_by_id
+          EXPORTING
+            im_id               = 'FT7~ABAP'
+            im_diag_relevant    = abap_false
+          RECEIVING
+            re_technical_system = ls_technical_systems.
+      CATCH cx_diagls_retrieve_exception .
+    ENDTRY.
+
+  ENDIF .
+
+
+  CHECK ls_technical_systems IS NOT INITIAL.
+
+  lr_technical_system = ls_technical_systems-technical_system.
+
+  TRY.
+      " Get the product via the TS object
+      lt_host = lr_technical_system->get_hosts( ).
+
+    CATCH cx_diagls_retrieve_exception.                 "#EC NO_HANDLER
+  ENDTRY.
+
+
+
+  LOOP AT  lt_host ASSIGNING <lfs_host>  .
+
+    ls_sys_host-host = <lfs_host>-caption.
+
+    TRY .
+        ls_os = <lfs_host>-host->get_operating_system( ).
+      CATCH cx_diagls_retrieve_exception .
+
+    ENDTRY.
+
+    IF ls_os IS NOT INITIAL.
+
+      TRY .
+          ls_slds    = ls_os-operating_system->get_soft_comp_version( ).
+        CATCH  cx_diagls_retrieve_exception .
+
+      ENDTRY.
+
+    ENDIF.
+    IF ls_sld IS NOT INITIAL.
+      CREATE OBJECT lr_ref_system
+        EXPORTING
+          iv_abbid = 'LMDB_CIM_I'.
+      ls_app-lmdb_refstring = ls_slds-sld_key.
+      ls_app-lmdb_refstring_ki = ls_app-lmdb_refstring .
+      APPEND ls_app TO it_node_id_system.
+
+      TRY.
+          CALL METHOD lr_ref_system->/plmb/if_spi_appl_access~retrieve
+            EXPORTING
+              iv_node_name        = 'LMUF_REFSTRING'
+              iv_target_node_name = 'LMUF_REFSTRING_ATTR'
+              it_node_id          = it_node_id_system
+            IMPORTING
+              et_node_data        = et_node_id.
+        CATCH cx_root.
+      ENDTRY.
+      CLEAR ls_app.
+
+      READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'warrantyenddate'.
+      lv_end_date = ls_node-value .
+      CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+        EXPORTING
+          date_internal            = lv_end_date
+        IMPORTING
+          date_external            = ls_sys_host-date
+        EXCEPTIONS
+          date_internal_is_invalid = 1
+          OTHERS                   = 2.
+      IF sy-subrc <> 0.
+        ls_sys_host-date = lv_end_date.
+      ENDIF.
+
+*      ls_sys_host-date =   lv_formatted_date.
+      READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'description'.
+      ls_sys_host-patchlevel = ls_node-value .
+
+      READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'version'.
+      CONCATENATE   ls_sys_host-patchlevel ls_node-value INTO   ls_sys_host-patchlevel SEPARATED BY space. .
+
+
+
+      CALL FUNCTION 'DURATION_DETERMINE'
+        IMPORTING
+          duration                   = lv_duration
+        CHANGING
+          start_date                 = sy-datum ##WRITE_OK
+          start_time                 = sy-uzeit ##WRITE_OK
+          end_date                   = lv_end_date
+          end_time                   = sy-uzeit ##WRITE_OK
+        EXCEPTIONS
+          factory_calendar_not_found = 1
+          date_out_of_calendar_range = 2
+          date_not_valid             = 3
+          unit_conversion_error      = 4
+          si_unit_missing            = 5
+          parameters_not_valid       = 6
+          OTHERS                     = 7.
+      IF sy-subrc <> 0.
+        lv_duration = 0 .
+
+      ENDIF.
+
+*      IF lv_duration < me->os_supp_red_threshold.
+*        ls_node_product_d-field4 = 3.
+*      ELSEIF lv_duration < me->os_supp_yellow_threshold.
+*        ls_node_product_d-field4 = 2.
+*      ELSE .
+*        ls_node_product_d-field4 = 1.
+*      ENDIF.
+    ENDIF.
+    APPEND ls_sys_host TO lt_sys_host.
+    CLEAR et_node_id.
+    CLEAR it_node_id.
+    CLEAR it_node_id_system.
+    CLEAR ls_os.
+    CLEAR ls_slds.
+  ENDLOOP.
+
+
+
+
+ENDFORM.
+
+
+FORM get_sys_kern USING ls2_lmdb_scope_guids  CHANGING ls_kern  .
+
+*  data ls_kern  TYPE ts_sys_kern.
+
+  CREATE OBJECT read_items.
+
+  read_items->get_rt_store_list(
+   EXPORTING
+    im_tt_guid32    =  lt2_lmdb_scope_guids  "guid of single system
+   IMPORTING
+    ex_ccdb_dirv = lt_itemss ).
+
+*READ TABLE lt_val  from lt_itemss USING KEY .
+
+  READ TABLE lt_itemss  INTO DATA(ls_item)   WITH KEY store_name =  'SAP_KERNEL'.
+
+  TRY.
+      read_items->get_sn_flat(
+        EXPORTING
+         im_store_id    =  ls_item-store_id  "guid of single system
+     "  include deleted; in UI use filter
+         im_include_deleted = 'X'
+        IMPORTING
+         ex_tt_ccdb_data_flat = lt_items
+         ex_rc = lv_fn_flat_rc
+         ex_rc_string = lv_fn_flat_rc_str ).
+    CATCH cx_ccdb_exception .
+  ENDTRY.
+
+
+  READ TABLE lt_items INTO DATA(ls_it)  INDEX  1.
+  SPLIT ls_it-data_cols AT 'VALUE=' INTO DATA(lv_aux) ls_sys_kern-comp_on.
+  ls_sys_kern-comp_on = substring( val = ls_sys_kern-comp_on off = 0 len = strlen( ls_sys_kern-comp_on ) - 1 ).
+*ls_sys_kern-comp_on =  ls_it-data_cols.
+
+  READ TABLE lt_items INTO ls_it INDEX  2.
+  SPLIT ls_it-data_cols AT 'VALUE=' INTO lv_aux ls_sys_kern-comp_time .
+  ls_sys_kern-comp_time = substring( val = ls_sys_kern-comp_time off = 0 len = strlen( ls_sys_kern-comp_time ) - 1 ).
+*ls_sys_kern-comp_time =  ls_it-data_cols.
+
+
+  READ TABLE lt_items INTO ls_it  INDEX  3.
+  SPLIT ls_it-data_cols AT 'VALUE=' INTO lv_aux ls_sys_kern-dblib .
+  ls_sys_kern-dblib = substring( val = ls_sys_kern-dblib off = 0 len = strlen( ls_sys_kern-dblib ) - 1 ).
+*ls_sys_kern-dblib =  ls_it-data_cols.
+
+  READ TABLE lt_items INTO ls_it  INDEX  4.
+  SPLIT ls_it-data_cols AT 'VALUE=' INTO lv_aux ls_sys_kern-patchlevel .
+  ls_sys_kern-patchlevel = substring( val = ls_sys_kern-patchlevel off = 0 len = strlen( ls_sys_kern-patchlevel ) - 1 ).
+*ls_sys_kern-patchlevel =  ls_it-data_cols.
+
+
+
+  READ TABLE lt_items INTO ls_it  INDEX  5.
+  SPLIT ls_it-data_cols AT 'VALUE=' INTO lv_aux ls_sys_kern-rel .
+  ls_sys_kern-rel = substring( val = ls_sys_kern-rel off = 0 len = strlen( ls_sys_kern-rel ) - 1 ).
+*ls_sys_kern-rel =  ls_it-data_cols.
+
+
+  READ TABLE lt_items INTO ls_it  INDEX  6.
+  SPLIT ls_it-data_cols AT 'VALUE=' INTO lv_aux ls_sys_kern-platform .
+  ls_sys_kern-platform = substring( val = ls_sys_kern-platform off = 0 len = strlen( ls_sys_kern-platform ) - 1 ).
+*ls_sys_kern-platform =  ls_it-data_cols.
+
+
+
+
+
+ENDFORM.
+
+FORM  get_sys_comp USING  lv_ns  CHANGING  lt_data_app LIKE lt_data_comp  .
+
+  DATA ls_data_app LIKE LINE OF lt_data_comp.
+
+
+  TRY .
+      " Get factory
+      DATA(lr_landscape_factory) = cl_diagls_factory=>new_instance( im_namespace = lv_ns ).
+    CATCH cx_diagls_retrieve_exception cx_root INTO DATA(cx_root). "#EC NO_HANDLER
+  ENDTRY.
+
+  IF lr_landscape_factory IS NOT INITIAL.
+
+*    CONCATENATE me->system_id '~' me->system_type INTO lv_system.
+
+    TRY.
+        "Get technical system by sys_id and sys_type to optimize number of the authorization checks
+        CALL METHOD lr_landscape_factory->get_technical_system_by_id
+          EXPORTING
+            im_id               = 'FT7~ABAP'
+            im_diag_relevant    = abap_false
+          RECEIVING
+            re_technical_system = ls_technical_systems.
+      CATCH cx_diagls_retrieve_exception .
+    ENDTRY.
+
+    CHECK ls_technical_systems IS NOT INITIAL.
+
+*    ls_app-lmdb_refstring_ki = ls_technical_systems-sld_key .
+    ls_app-lmdb_refstring_ki = 'sap_bcsystem.creationclassname="SAP_BCSystem",name="FD4.SystemNumber.0020270862.SystemHome.lddbfd4"' .
+
+    CREATE OBJECT lr_ref_system
+      EXPORTING
+        iv_abbid = 'LMDB_TS'
+*       IS_OPTIONS =
+      .
+
+    APPEND ls_app TO it_node_id_system.
+
+    TRY.
+        CALL METHOD lr_ref_system->/plmb/if_spi_appl_access~retrieve
+          EXPORTING
+            iv_node_name        = 'LMDB_TS_HEADER'
+            iv_target_node_name = 'LMDB_TS_SWCOMP_TS'
+            it_node_id          = it_node_id_system
+          IMPORTING
+            et_node_data        = it_soft_components.
+      CATCH cx_root.
+    ENDTRY.
+
+    IF  it_soft_components IS NOT INITIAL.
+
+      LOOP AT it_soft_components INTO ls_soft_comp .
+
+        " Component name
+        ls_data_comp-name =  ls_soft_comp-name.
+        " Version
+        ls_data_comp-release =  ls_soft_comp-version.
+        " Current SP
+        ls_data_comp-current_sp =  ls_soft_comp-spversion.
+        lv_int_current_sp_field = ls_data_comp-current_sp.
+        IF lv_int_current_sp_field IS INITIAL.
+          ls_data_comp-current_sp = ''.
+        ELSE.
+          ls_data_comp-current_sp = lv_int_current_sp_field.
+        ENDIF.
+
+        " Lastest Avail SP
+        ls_data_comp-latest_sp =  ls_soft_comp-sppatchlevel.
+
+*      lv_component = ls_soft_comp-ppms_number.
+*      CREATE OBJECT scvnr
+*        EXPORTING
+*          iv_scvnr = lv_component.
+*
+*      CALL METHOD scvnr->get_last_released_sp
+*        RECEIVING
+*          rs_support_package = ls_dswp_s_ppms_sp_info.
+
+*      lv_latest_sp = ls_dswp_s_ppms_sp_info-splevel.
+*      lv_int_latest_sp = lv_latest_sp.
+*      lv_int_latest_sp_field = ls_data_app-latest_sp.
+
+*      CLEAR ls_data_app-latest_sp.
+*      IF lv_int_latest_sp_field IS INITIAL .
+*        IF lv_int_latest_sp IS INITIAL.
+*          ls_data_app-latest_sp = ''.
+*        ELSE.
+*          ls_data_app-latest_sp  = lv_int_latest_sp.
+*        ENDIF.
+*      ELSEIF lv_int_latest_sp_field < lv_int_latest_sp .
+*        ls_data_app-latest_sp = lv_int_latest_sp.
+*      ELSE.
+*        ls_data_app-latest_sp = lv_int_latest_sp_field.
+*      ENDIF.
+*
+*      IF ls_data_app-latest_sp IS INITIAL.
+*        ls_data_app-latest_sp = ''.
+*      ENDIF.
+
+        APPEND ls_data_comp TO lt_data_comp.
+
+      ENDLOOP.
+
+
+    ENDIF.
+
+  ENDIF.
+
+
+ENDFORM.
+
+
+FORM  get_sys_prod USING  lv_ns  CHANGING  lt_data_app LIKE lt_data_sys  .
+
+  DATA ls_data_app LIKE LINE OF lt_data_sys.
+
+  TRY .
+      " Get factory
+      DATA(lr_landscape_factory) = cl_diagls_factory=>new_instance( im_namespace = lv_ns ).
+    CATCH cx_diagls_retrieve_exception cx_root INTO DATA(cx_root).
+      DATA(lv_text) = cx_root->get_text( ).             "#EC NO_HANDLER
+  ENDTRY.
+
+**          ************************ get system details *****************************************************
+  IF lr_landscape_factory IS NOT INITIAL.
+*  CONCATENATE me->system_id '~' me->system_type INTO lv_system.
+    TRY.
+        "Get technical system by sys_id and sys_type to optimize number of the authorization checks
+        CALL METHOD lr_landscape_factory->get_technical_system_by_id
+          EXPORTING
+            im_id               = 'FT7~ABAP'
+            im_diag_relevant    = abap_false
+          RECEIVING
+            re_technical_system = ls_technical_systems.
+      CATCH cx_diagls_retrieve_exception .
+    ENDTRY.
+**          ************************ get system product *****************************************************
+    IF ls_technical_systems IS NOT INITIAL.
+
+      lr_technical_system = ls_technical_systems-technical_system.
+
+      TRY.
+          lt_product_version = lr_technical_system->get_product_versions( im_diag_relevant = abap_false ).
+
+
+          LOOP AT lt_product_version INTO DATA(ls_product_version).
+
+            ls_sld = ls_product_version-sld_key.
+
+            IF ls_sld IS NOT INITIAL.
+              CREATE OBJECT lr_ref_system
+                EXPORTING
+                  iv_abbid = 'LMDB_CIM_I'.
+              ls_app-lmdb_refstring = ls_sld.
+              ls_app-lmdb_refstring_ki = ls_app-lmdb_refstring .
+              APPEND ls_app TO it_node_id_system.
+
+              TRY.
+                  CALL METHOD lr_ref_system->/plmb/if_spi_appl_access~retrieve
+                    EXPORTING
+                      iv_node_name        = 'LMUF_REFSTRING'
+                      iv_target_node_name = 'LMUF_REFSTRING_ATTR'
+                      it_node_id          = it_node_id_system
+                    IMPORTING
+                      et_node_data        = et_node_id.
+                CATCH cx_root.
+              ENDTRY.
+
+              CLEAR ls_app.
+              " Append to structure
+              " Product name
+              READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'name'.
+              ls_data_app-name = ls_product_version-name.
+              " Version
+              READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'version'.
+              ls_data_app-version = ls_node-value.
+
+              READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'warrantystartdate'.
+              lv_end_date = ls_node-value .
+              READ TABLE et_node_id INTO ls_node WITH KEY key_extension =  'warrantyduration'.
+              lv_end_date = lv_end_date + ls_node-value .
+
+              ls_data_app-date =   lv_end_date.
+              lv_date_comp = ls_data_app-date.
+
+              CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+                EXPORTING
+                  date_internal            = lv_date_comp
+                IMPORTING
+                  date_external            = ls_data_app-date
+                EXCEPTIONS
+                  date_internal_is_invalid = 1
+                  OTHERS                   = 2.
+              IF sy-subrc <> 0.
+                ls_data_app-date = lv_end_date.
+              ENDIF.
+              IF lv_date_comp IS NOT INITIAL.
+                " Calculate duration for the product
+                CALL FUNCTION 'DURATION_DETERMINE'
+                  IMPORTING
+                    duration                   = lv_duration
+                  CHANGING
+                    start_date                 = sy-datum ##WRITE_OK
+                    start_time                 = sy-uzeit ##WRITE_OK
+                    end_date                   = lv_date_comp
+                    end_time                   = sy-uzeit ##WRITE_OK
+                  EXCEPTIONS
+                    factory_calendar_not_found = 1
+                    date_out_of_calendar_range = 2
+                    date_not_valid             = 3
+                    unit_conversion_error      = 4
+                    si_unit_missing            = 5
+                    parameters_not_valid       = 6
+                    OTHERS                     = 7.
+
+                IF sy-subrc <> 0.
+                  lv_duration = 0 .
+                ENDIF.
+
+                " Get the status
+*          IF lv_duration < me->prod_maint_red_threshold.
+*            ls_data_app-field4 = 3.
+*          ELSEIF lv_duration < me->prod_maint_yellow_threshold.
+*            ls_data_app-field4 = 2.
+*          ELSE.
+*            ls_data_app-field4 = 1.
+*          ENDIF.
+              ENDIF.
+
+              " Add to returning table even if there is data returned
+              APPEND  ls_data_app  TO lt_data_app.
+            ENDIF.
+
+          ENDLOOP.
+        CATCH cx_diagls_retrieve_exception.             "#EC NO_HANDLER
+      ENDTRY.
+    ENDIF.
+  ENDIF.
+
+
+
+ENDFORM .
