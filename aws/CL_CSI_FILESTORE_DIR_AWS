@@ -1,0 +1,693 @@
+class CL_CSI_FILESTORE_DIR_AWS definition
+  public
+  inheriting from CL_CSI_FILESTORE_OBJECT_AWS
+  final
+  create private
+
+  global friends CL_CSI_FILESTORE
+                 CL_CSI_FILESTORE_AWS
+                 CL_CSI_FILESTORE_FILE_AWS
+                 CL_CSI_FILESTORE_OBJECT
+                 CL_CSI_PROVIDER_AWS .
+
+public section.
+*"* public components of class CL_CSI_FILESTORE_DIR_AWS
+*"* do not include other source files here!!!
+  type-pools CSIAW .
+
+  constants MC_DIRECTORY_ID type CSI_STRING value '$folder$'. "#EC NOTEXT
+  constants MC_DIRECTORY_SPLITTER type CSI_STRING value '_'. "#EC NOTEXT
+protected section.
+*"* protected components of class CL_CSI_FILESTORE_DIR_AWS
+*"* do not include other source files here!!!
+
+  methods INITIALIZE
+    redefinition .
+  methods INNER_CALL_PROVIDER
+    redefinition .
+  methods INNER_COPY_PREPARE
+    redefinition .
+  methods INNER_COPY_TRANSFORM
+    redefinition .
+  methods INNER_CREATE_PREPARE
+    redefinition .
+  methods INNER_CREATE_TRANSFORM
+    redefinition .
+  methods INNER_DELETE_PREPARE
+    redefinition .
+  methods INNER_DELETE_TRANSFORM
+    redefinition .
+  methods INNER_DOWNLOAD_PREPARE
+    redefinition .
+  methods INNER_DOWNLOAD_TRANSFORM
+    redefinition .
+  methods INNER_EXISTS_PREPARE
+    redefinition .
+  methods INNER_EXISTS_TRANSFORM
+    redefinition .
+  methods INNER_GET_UPLOAD_SIGNATURE
+    redefinition .
+  methods INNER_LIST_PREPARE
+    redefinition .
+  methods INNER_LIST_TRANSFORM
+    redefinition .
+  methods INNER_MOVE_PREPARE
+    redefinition .
+  methods INNER_MOVE_TRANSFORM
+    redefinition .
+  methods INNER_REFRESH_PREPARE
+    redefinition .
+  methods INNER_REFRESH_TRANSFORM
+    redefinition .
+  methods INNER_UPLOAD_PREPARE
+    redefinition .
+  methods INNER_UPLOAD_TRANSFORM
+    redefinition .
+PRIVATE SECTION.
+*"* private components of class CL_CSI_FILESTORE_DIR_AWS
+*"* do not include other source files here!!!
+
+  TYPES:
+    BEGIN OF gtys_list_data,
+      object_type TYPE  csi_filestore_objecttype,
+      object_filter TYPE  csi_string,
+      max_results TYPE  csi_int,
+      rel_url TYPE csi_string,
+      bucket TYPE csi_string,
+      directory TYPE csi_string,
+    END OF gtys_list_data.
+
+  METHODS make_fullpath_directory .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_FILESTORE_DIR_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INITIALIZE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INITIALIZE.
+*CALL METHOD SUPER->INITIALIZE
+*    .
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_CALL_PROVIDER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ACTION                      TYPE        CSI_FILESTORE_OBJECT_ACTION
+* | [--->] IT_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DATA                        TYPE        XSTRING
+* | [<---] EV_CDATA                       TYPE        CSI_STRING
+* | [<---] EV_CODE                        TYPE        CSI_INT
+* | [<---] EV_REASON                      TYPE        CSI_STRING
+* | [<-->] CR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_call_provider.
+  csiaw_mcx_define.
+  csiaw_m_split_define.
+
+  CASE iv_action.
+    WHEN if_csi_filestore_c=>gc_action_create OR if_csi_filestore_c=>gc_action_delete.
+      TRY.
+        DATA lv_delete TYPE csi_bool VALUE abap_false.
+        IF ( iv_action = if_csi_filestore_c=>gc_action_delete ).
+          lv_delete = abap_true.
+        ENDIF.
+        make_fullpath_directory( ).
+        cl_csi_provider_aws_helper=>s3_bucket_operation(
+          EXPORTING
+            iv_http_destination = get_provider( )->get_file_destination( )
+            iv_bucket           = gv_full_path
+            iv_delete           = lv_delete
+            io_account          = get_account( )
+          IMPORTING
+            ev_code = ev_code
+            ev_reason = ev_reason
+        ).
+        csiaw_mcx_convert_exception.
+      ENDTRY.
+    WHEN if_csi_filestore_c=>gc_action_exists OR if_csi_filestore_c=>gc_action_refresh.
+      lv_rel_url = go_filestore->get_path_separator( ).
+      internal_get(
+        EXPORTING
+          iv_uri = lv_rel_url
+          iv_raise_exception = abap_false " do not raise exception, just pass the return-code
+        IMPORTING
+          ev_code = ev_code
+          ev_data = ev_data
+      ).
+    WHEN if_csi_filestore_c=>gc_action_list.
+      "get the data
+      FIELD-SYMBOLS <ls_param> TYPE gtys_list_data.
+      ASSIGN cr_add_data->* TO <ls_param>.
+      IF ( <ls_param> IS NOT ASSIGNED ).
+        RETURN.
+      ENDIF.
+      "lv_object_type = <ls_param>-object_type.
+      lv_bucket = <ls_param>-bucket.
+      lv_directory = <ls_param>-directory.
+      lv_rel_url = <ls_param>-rel_url.
+
+      internal_get(
+        EXPORTING
+          iv_uri = lv_rel_url
+          iv_bucket = lv_bucket
+        IMPORTING
+          ev_code = ev_code
+          ev_reason = ev_reason
+          ev_data = ev_data
+      ).
+    WHEN OTHERS.
+  ENDCASE.
+  csiaw_mcx_raise.
+
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_COPY_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NEW_PATH                    TYPE        CSI_STRING
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_copy_PREPARE.
+  RAISE EXCEPTION TYPE cx_csi_filestore
+    EXPORTING
+      textid      = cx_csi_filestore=>wrong_operation_type
+      object_type = gv_object_type.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_COPY_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_COPY_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_CREATE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_create_prepare.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_CREATE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_CREATE_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_DELETE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_delete_prepare.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_DELETE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_delete_transform.
+  IF ( iv_code = 409 ). " overwrite in case the bucket is not empty
+    RAISE EXCEPTION TYPE cx_csi_filestore
+      EXPORTING
+        textid     = cx_csi_filestore=>bucket_not_empty
+        text_token = gv_full_path
+        code       = iv_code.
+  ENDIF.
+  IF ( iv_code = 404 ).
+    RETURN. " consistent => File->Delete does also not raise any exception for missing files
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_DOWNLOAD_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD INNER_download_PREPARE.
+  RAISE EXCEPTION TYPE cx_csi_filestore
+    EXPORTING
+      textid      = cx_csi_filestore=>wrong_operation_type
+      object_type = gv_object_type.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_DOWNLOAD_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<---] ET_FILE_DATA                   TYPE        CSIT_FILESTORE_FILEDATA
+* | [<---] EV_CONTENT_TYPE                TYPE        CSI_STRING
+* | [<---] EV_CONTENT_LENGTH              TYPE        CSI_BIGINT
+* | [<---] EV_CONTENT_RANGE               TYPE        CSI_STRING
+* | [<---] EV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_DOWNLOAD_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_EXISTS_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD INNER_exists_PREPARE.
+  csiaw_m_split_define.
+
+  make_fullpath_directory( ).
+
+  csiaw_m_split_set.
+  csiaw_m_split_path.
+  IF ( lv_directory IS not INITIAL ).
+    ev_do_not_call_provider = abap_true.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_EXISTS_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_EXISTS                      TYPE        ABAP_BOOL
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_exists_transform.
+  csiaw_m_split_define.
+  csiaw_m_split_set.
+  csiaw_m_split_path.
+
+  rv_exists = abap_false.
+  IF ( lv_directory IS INITIAL ).
+    " we do the more complicated way for checking that bucket name in order to get some further information on the directory entry
+    IF ( iv_code = mc_ok ).
+      DATA:
+        ls_buckets TYPE csis_aws_list_bucket_type.
+      FIELD-SYMBOLS:
+        <ls_bucket> TYPE csis_aws_bucket_item.
+      CALL TRANSFORMATION csixt_st_aws_list_all_buckets
+        SOURCE XML iv_data
+        RESULT root = ls_buckets.
+      READ TABLE ls_buckets-buckets WITH TABLE KEY name = lv_bucket ASSIGNING <ls_bucket>. "#EC WARNOK
+      IF ( <ls_bucket> IS ASSIGNED ).
+        rv_exists = abap_true.
+        gv_created = gv_modified = <ls_bucket>-creation_date.
+      ENDIF.
+    ENDIF.
+  ELSE.
+    " 2) check the fake directory (=file)
+    csiaw_m_split_makepath.
+    DATA lo_file TYPE REF TO cl_csi_filestore_file_aws.
+    lo_file ?= go_filestore->file( lv_rel_url ).
+    rv_exists = lo_file->exists( ). " refreshs the metadata as well
+    gv_modified = gv_created = lo_file->gv_modified.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_GET_UPLOAD_SIGNATURE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP
+* | [--->] IV_CONTENT_TYPE                TYPE        CSI_STRING(optional)
+* | [<---] EV_SIGNATURE                   TYPE        CSI_STRING
+* | [<---] ET_PARAMETER                   TYPE        CSIT_FILESTORE_SIG_PARAMETER
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_GET_UPLOAD_SIGNATURE.
+  RAISE EXCEPTION TYPE cx_csi_filestore
+    EXPORTING
+      textid      = cx_csi_filestore=>wrong_operation_type
+      object_type = gv_object_type.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_LIST_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_OBJECT_TYPE                 TYPE        CSI_FILESTORE_OBJECTTYPE(optional)
+* | [--->] IV_OBJECT_FILTER               TYPE        CSI_STRING(optional)
+* | [--->] IV_MAX_RESULTS                 TYPE        CSI_INT(optional)
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_list_prepare.
+  csiaw_m_split_define.
+
+  DATA lv_sep TYPE csi_string.
+  lv_sep = go_filestore->get_path_separator( ).
+
+  csiaw_m_split_set.
+  csiaw_m_split_path.
+  IF ( lv_bucket IS INITIAL AND iv_object_type = if_csi_filestore_c=>gc_object_file ).
+    RETURN. " no files in root...
+  ENDIF.
+  " in case we find an additional path in addition to the bucket, we must use query-parameters...
+  " ==> bucket has to be passed in via a subDomain...
+  IF ( lv_directory IS NOT INITIAL ).
+    lv_len = strlen( lv_directory ) - 1.  " strip away the last /
+    FIND FIRST OCCURRENCE OF lv_sep IN lv_directory(lv_len) MATCH OFFSET lv_len.
+    "lv_sep && lv_bucket &&
+    lv_rel_url = `?` && mc_directory_prefix && `=` && lv_directory && lv_sep.
+    lv_len = lv_len + 1.
+    lv_rel_url = lv_rel_url && `&` && mc_directory_delimiter && `=` && lv_sep.
+  ELSE.
+    lv_rel_url = lv_sep. " && lv_bucket.
+  ENDIF.
+
+  " pass the data
+  DATA ls_param TYPE gtys_list_data.
+  FIELD-SYMBOLS <ls_param> LIKE ls_param.
+
+  ls_param-object_type = iv_object_type.
+  ls_param-object_filter = iv_object_filter.
+  ls_param-max_results = iv_max_results.
+  ls_param-bucket = lv_bucket.
+  ls_param-directory = lv_directory.
+  ls_param-rel_url = lv_rel_url.
+
+
+  CREATE DATA er_add_data LIKE ls_param.
+  ASSIGN er_add_data->* TO <ls_param>.
+  <ls_param> = ls_param.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_LIST_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RT_OBJECTS                     TYPE        CSIT_FILESTORE_OBJECT
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_list_transform.
+  csiaw_mcx_define.
+  csiaw_m_split_define.
+  DATA:
+    lv_sep TYPE csi_string.
+  lv_sep = go_filestore->get_path_separator( ).
+
+  DATA:
+    lv_object_type TYPE csi_filestore_objecttype.
+
+  "get the data
+  FIELD-SYMBOLS <ls_param> TYPE gtys_list_data.
+  ASSIGN ir_add_data->* TO <ls_param>.
+  IF ( <ls_param> IS NOT ASSIGNED ).
+    RETURN.
+  ENDIF.
+  lv_object_type = <ls_param>-object_type.
+  lv_bucket = <ls_param>-bucket.
+  lv_directory = <ls_param>-directory.
+  lv_rel_url = <ls_param>-rel_url.
+
+  IF ( lv_bucket IS INITIAL AND lv_object_type = if_csi_filestore_c=>gc_object_file ).
+    RETURN. " no files in root...
+  ENDIF.
+
+  IF ( iv_code = mc_ok ).
+    DATA:
+      ls_obj TYPE csis_filestore_object,
+      lv_full_path TYPE csi_string.
+    IF ( lv_bucket IS INITIAL ).  " listAllMyBuckets
+      DATA:
+        ls_buckets TYPE csis_aws_list_bucket_type,
+        lo_dir TYPE REF TO cl_csi_filestore_dir_aws.
+      FIELD-SYMBOLS:
+        <ls_bucket> TYPE csis_aws_bucket_item.
+      "cl_abap_browser=>show_xml( xml_xstring = lv_data context_menu = abap_true ).
+      CALL TRANSFORMATION csixt_st_aws_list_all_buckets
+        SOURCE XML iv_data
+        RESULT root = ls_buckets.
+      LOOP AT ls_buckets-buckets ASSIGNING <ls_bucket>.
+        ls_obj-name = lv_sep && <ls_bucket>-name && lv_sep.
+        lv_full_path = ls_obj-name.
+        lo_dir ?= go_filestore->directory( lv_full_path ).
+        lo_dir->gv_created = <ls_bucket>-creation_date.
+        ls_obj-object_ref = lo_dir.
+        INSERT ls_obj INTO TABLE rt_objects.
+        FREE ls_obj.
+      ENDLOOP.
+    ELSE.
+      DATA:
+        ls_list_entry TYPE csis_aws_list_entry,
+        lo_file TYPE REF TO cl_csi_filestore_file_aws.
+      FIELD-SYMBOLS:
+        <ls_content> TYPE csis_aws_list_entry_content.
+      "cl_abap_browser=>show_xml( xml_xstring = lv_data context_menu = abap_true ).
+      CALL TRANSFORMATION csixt_st_aws_list_bucket
+        SOURCE XML iv_data
+        RESULT root = ls_list_entry.
+      DATA:
+        lv_file TYPE string,
+        lv_dummy TYPE string,
+        lv_search_len TYPE i,
+        lv_is_file TYPE abap_bool VALUE abap_true.
+      lv_search_len = strlen( mc_directory_id ).
+      LOOP AT ls_list_entry-contents ASSIGNING <ls_content>.
+        ls_obj-name = <ls_content>-key.
+        lv_is_file = abap_true.
+        " check if this is a file or directory
+        " 1) a directory has size 0
+        " 2) and ends with a given ID. E.g. dir1_$folder$
+        IF ( <ls_content>-size = 0 ).
+          " could have used find / count / replace... but ... what is faster?
+          lv_len = strlen( ls_obj-name ) - lv_search_len.
+          IF ( lv_len > 0 ) AND ( ls_obj-name+lv_len(lv_search_len) = mc_directory_id ). "=0 is not ok
+            lv_len = lv_len - 1.  " there is a _ splitting both parts, so get rid of that too
+            ls_obj-name = ls_obj-name(lv_len) && lv_sep && `dummyfile`. " this helps to distinguish later on between a path and a file
+            lv_is_file = abap_false.
+          ENDIF.
+        ENDIF.
+        " we build an internal directory structure by separating the directory and file by a SEPARATOR
+        lv_len = strlen( lv_directory ).
+        IF ( strlen( ls_obj-name ) < lv_len OR ls_obj-name(lv_len) <> lv_directory ).
+          " then ignore this file
+          CONTINUE.
+        ENDIF.
+        " correct the name (strip away the path)
+        IF ( lv_directory IS NOT INITIAL ).
+          lv_len = lv_len + 1. " strip away the ending /
+        ENDIF.
+        ls_obj-name = ls_obj-name+lv_len.
+        SPLIT ls_obj-name AT lv_sep INTO lv_file lv_dummy.
+        IF ( lv_dummy IS NOT INITIAL ).
+          lv_is_file = abap_false.
+          lv_file = lv_file && lv_sep.  " directories end with a separator
+        ELSE.
+          lv_is_file = abap_true.
+        ENDIF.
+        " make the name a fullname
+        lv_full_path = gv_full_path && lv_file.
+        ls_obj-name = lv_full_path.
+        IF ( lv_is_file = abap_false AND ( lv_object_type IS INITIAL OR lv_object_type = if_csi_filestore_c=>gc_object_directory ) ).
+          READ TABLE rt_objects WITH TABLE KEY name = ls_obj-name TRANSPORTING NO FIELDS.
+          " not necessarily important as we could easily add the same name twice, but creating that object again might take longer
+          " than just checking a hashed table
+          IF ( sy-subrc <> 0 ).
+            lo_dir ?= go_filestore->directory( lv_full_path ).
+            ls_obj-object_ref = lo_dir.
+            lo_dir->gv_modified = <ls_content>-last_modified.
+            lo_dir->gv_size = <ls_content>-size.
+            INSERT ls_obj INTO TABLE rt_objects.
+          ENDIF.
+        ELSEIF ( lv_is_file = abap_true AND ( lv_object_type IS INITIAL OR lv_object_type = if_csi_filestore_c=>gc_object_file ) ).
+          lo_file ?= go_filestore->file( lv_full_path ).
+          ls_obj-object_ref = lo_file.
+          lo_file->gv_modified = <ls_content>-last_modified.
+          lo_file->gv_size = <ls_content>-size.
+          INSERT ls_obj INTO TABLE rt_objects.
+        ENDIF.
+        FREE ls_obj.
+      ENDLOOP.
+    ENDIF.
+  ELSE.
+    DATA:
+      lv_code LIKE iv_code,
+      lv_reason LIKE iv_reason.
+    lv_code = iv_code.
+    lv_reason = iv_reason.
+    csiaw_mcx_raise_errorcode.
+  ENDIF.
+  csiaw_mcx_raise.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_MOVE_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NEW_PATH                    TYPE        CSI_STRING
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_MOVE_PREPARE.
+  RAISE EXCEPTION TYPE cx_csi_filestore
+    EXPORTING
+      textid      = cx_csi_filestore=>wrong_operation_type
+      object_type = gv_object_type.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_MOVE_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_MOVE_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_REFRESH_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD inner_refresh_prepare.
+  inner_exists_prepare( IMPORTING et_parameter = et_parameter ev_do_not_call_provider = ev_do_not_call_provider er_add_data = er_add_data ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_REFRESH_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_REFRESH_TRANSFORM.
+  inner_exists_transform( iv_data = iv_data iv_cdata = iv_cdata iv_code = iv_code iv_reason = iv_reason ir_add_data = ir_add_data ).
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_UPLOAD_PREPARE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_FILE_DATA                   TYPE        CSIT_FILESTORE_FILEDATA
+* | [--->] IV_CONTENT_TYPE                TYPE        CSI_STRING
+* | [--->] IV_CONTENT_LENGTH              TYPE        CSI_BIGINT
+* | [<---] ET_PARAMETER                   TYPE        CSIT_PARAMETER
+* | [<---] EV_DO_NOT_CALL_PROVIDER        TYPE        CSI_BOOL
+* | [<---] ER_ADD_DATA                    TYPE REF TO DATA
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_UPLOAD_PREPARE.
+  RAISE EXCEPTION TYPE cx_csi_filestore
+    EXPORTING
+      textid      = cx_csi_filestore=>wrong_operation_type
+      object_type = gv_object_type.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_FILESTORE_DIR_AWS->INNER_UPLOAD_TRANSFORM
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATA                        TYPE        XSTRING
+* | [--->] IV_CDATA                       TYPE        CSI_STRING
+* | [--->] IV_CODE                        TYPE        CSI_INT
+* | [--->] IV_REASON                      TYPE        CSI_STRING
+* | [--->] IR_ADD_DATA                    TYPE REF TO DATA(optional)
+* | [<-()] RV_ID                          TYPE        CSI_STRING
+* | [!CX!] CX_CSI_FILESTORE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method INNER_UPLOAD_TRANSFORM.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_FILESTORE_DIR_AWS->MAKE_FULLPATH_DIRECTORY
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD make_fullpath_directory.
+  DATA lv_len TYPE i.
+  lv_len = strlen( gv_full_path ) - 1.
+  IF ( gv_full_path IS NOT INITIAL ).
+    IF ( gv_full_path(1) <> go_filestore->get_path_separator( ) ).
+      gv_full_path = go_filestore->get_path_separator( ) && gv_full_path.
+    ENDIF.
+    IF ( gv_full_path+lv_len(1) <> go_filestore->get_path_separator( ) ).
+      gv_full_path = gv_full_path && go_filestore->get_path_separator( ).
+    ENDIF.
+  ELSE.
+    gv_full_path = go_filestore->get_path_separator( ).
+  ENDIF.
+ENDMETHOD.
+ENDCLASS.
