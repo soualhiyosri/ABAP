@@ -1,0 +1,435 @@
+class CL_ACMTEST_HTTP_SERVER definition
+  public
+  final
+  create public .
+
+public section.
+
+  interfaces IF_HTTP_EXTENSION .
+
+  types:
+    ty_request_id TYPE x LENGTH 20 .
+  types:
+    ty_request_type TYPE c LENGTH 4 .
+  types:
+    BEGIN OF ty_sql_request_s,
+      request_id   TYPE SYSUUID,
+      operation    TYPE string,
+      field_list   TYPE string,
+      resource     TYPE string,
+      from_clause  TYPE string,
+      where_clause TYPE string,
+      order_clause TYPE string,
+      result_type  TYPE string,
+    END OF ty_sql_request_s .
+  types:
+    BEGIN OF ty_test_request_s,
+      request_id    TYPE ty_request_id,
+      request_type  TYPE ty_request_type,
+      request_text  TYPE string,
+      test_text     TYPE string,
+      full_response TYPE abap_bool,
+      max_rows      TYPE i,
+    END OF ty_test_request_s .
+
+  constants:
+    BEGIN OF co_request_type,
+      cdsv  TYPE ty_request_type VALUE 'CDSV', "CDS Entity or View
+      test  TYPE ty_request_type VALUE 'TEST', "Test request
+      coun  TYPE ty_request_type VALUE 'COUN', "COUNT(*) for a CDS Entity
+    END OF co_request_type .
+  constants:
+    BEGIN OF co_http_code,
+      http_200 TYPE i VALUE 200,   "Success
+      http_581 TYPE i VALUE 581,   "cx_sy_create_object_error
+      http_582 TYPE i VALUE 582,   "cx_sy_create_data_error
+      http_583 TYPE i VALUE 583,   "cx_abap_not_in_whitelist
+      http_584 TYPE i VALUE 584,   "cx_sy_dyn_call_illegal_class
+      http_585 TYPE i VALUE 585,   "cx_sy_dyn_call_illegal_method
+      http_586 TYPE i VALUE 586,   "
+      http_587 TYPE i VALUE 587,   "
+      http_588 TYPE i VALUE 588,   "
+      http_589 TYPE i VALUE 589,   "
+      http_591 TYPE i VALUE 591,   "
+      http_592 TYPE i VALUE 592,   "cx_sy_dynamic_osql_semantics
+      http_593 TYPE i VALUE 593,   "cx_sy_dynamic_osql_syntax
+      http_594 TYPE i VALUE 594,   "cx_sql_exception
+      http_595 TYPE i VALUE 595,   "Invalid Request
+      http_596 TYPE i VALUE 596,   "cx_transformation_error
+      http_598 TYPE i VALUE 598,   "
+      http_599 TYPE i VALUE 599,   "
+   END OF co_http_code .
+  constants:
+    CO_MEMORY_ID type C length 10 value 'ACMTST_MEM' ##NO_TEXT.
+  constants CO_INDX_ID type CHAR20 value 'ACMTST_HTTP_TOKEN' ##NO_TEXT.
+
+  methods HANDLE_CDSV_REQUEST
+    importing
+      !IV_ENTITY_WITH_PARAMS type CSEQUENCE
+      !IV_FULL_RESPONSE type ABAP_BOOL
+      !IV_MAX_ROWS type INT4 optional
+      !IV_DO_ONLY_COUNT type ABAP_BOOL default ABAP_FALSE
+    exporting
+      !EV_RESPONSE_DATA type XSTRING
+      !EV_STATUS_CODE type I
+      !EV_STATUS_REASON type STRING .
+protected section.
+private section.
+
+  methods CHECK_REQUEST
+    importing
+      !IV_REQUEST_ID type XSEQUENCE
+    returning
+      value(EV_OK) type ABAP_BOOL .
+  methods RESULT_TOO_LONG
+    importing
+      !IV_TABLE type ANY TABLE
+    returning
+      value(EV_TOO_LONG) type ABAP_BOOL .
+ENDCLASS.
+
+
+
+CLASS CL_ACMTEST_HTTP_SERVER IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_HTTP_SERVER->CHECK_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REQUEST_ID                  TYPE        XSEQUENCE
+* | [<-()] EV_OK                          TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD check_request.
+
+** Server side verification: is this a valid request?
+*
+*    DATA:
+*      lo_shm_data TYPE REF TO cl_acm_test_shm.
+*
+**   Pop request ID from Shared Memory for server verification
+**   It is guaranteed that the server application runs on the same server!
+*    TRY.
+*        DATA(lo_handle) = cl_acm_test_shm_area=>attach_for_update(
+*          attach_mode = cl_shm_area=>attach_mode_wait
+*          wait_time   = 2000
+*        ).
+*        lo_shm_data ?= lo_handle->get_root( ).
+*        ev_ok = lo_shm_data->pop_request( CONV #( iv_request_id ) ).
+*        lo_handle->detach_commit( ).
+*      CATCH cx_shm_attach_error.
+**       Tolerate this error
+*        ev_ok = abap_true.
+*    ENDTRY.
+    DATA lv_request_id TYPE ty_request_id.
+    IMPORT token = lv_request_id FROM SHARED BUFFER indx(ac) ID  cl_acmtest_http_server=>co_indx_id.
+    IF lv_request_id IS NOT INITIAL AND lv_request_id = iv_request_id.
+      ev_ok = abap_true.
+    ELSE.
+      ev_ok = abap_false.
+    ENDIF.
+
+    CLEAR lv_request_id.
+    EXPORT token = lv_request_id TO DATABASE indx(ac) ID cl_acmtest_http_server=>co_indx_id.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_HTTP_SERVER->HANDLE_CDSV_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ENTITY_WITH_PARAMS          TYPE        CSEQUENCE
+* | [--->] IV_FULL_RESPONSE               TYPE        ABAP_BOOL
+* | [--->] IV_MAX_ROWS                    TYPE        INT4(optional)
+* | [--->] IV_DO_ONLY_COUNT               TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [<---] EV_RESPONSE_DATA               TYPE        XSTRING
+* | [<---] EV_STATUS_CODE                 TYPE        I
+* | [<---] EV_STATUS_REASON               TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD handle_cdsv_request.
+*
+* This method is called for Request-Type:  CDSV
+*   It executes a SELECT via OpenSQL  (=a normal ABAP-SELECT!)
+*
+* ---------------------------------------------------------------------
+  DATA: lt_returned_uuids    TYPE acmtst_t_ids.
+  DATA: lv_entityname_without_params  TYPE string.
+  DATA: lv_checked_from_string TYPE string.
+  DATA: lv_count TYPE int8, lv_count_priv TYPE int8.
+
+  DATA:           lrt_result_table  TYPE REF TO data.
+  FIELD-SYMBOLS:  <ft_result_table> TYPE STANDARD TABLE.
+
+
+* ---------------------------------------------------------------------
+* Initialization
+* ---------------------------------------------------------------------
+  CLEAR: ev_response_data, ev_status_code, ev_status_reason.
+
+
+* ---------------------------------------------------------------------
+* Handle probably existing parameters
+* ---------------------------------------------------------------------
+  lv_entityname_without_params  =
+      substring_before( val = iv_entity_with_params   sub = '(' ).
+  IF ( lv_entityname_without_params IS INITIAL ).
+    lv_entityname_without_params = iv_entity_with_params.  "No Params were supplied
+  ENDIF.
+
+
+* --------------------------------------------------------------------
+
+  " Removed code with CL_ABAP_DYN_PRG (SAP Note 2839100)
+  lv_checked_from_string = iv_entity_with_params.
+
+  DATA ls_message TYPE bapiret2.
+
+  cl_acm_authorization=>check_read_from_cds_view(
+    EXPORTING
+      iv_cds_view_name = CONV #( lv_entityname_without_params )
+    IMPORTING
+      ev_is_authorized = DATA(lv_is_authorized)
+    CHANGING
+      cs_message       = ls_message
+  ).
+  IF lv_is_authorized = abap_false.
+    ev_status_code = 403.
+    MESSAGE ID ls_message-id TYPE ls_message-type NUMBER ls_message-number INTO ev_status_reason
+    WITH ls_message-message_v1 ls_message-message_v2 ls_message-message_v3 ls_message-message_v4.
+    RETURN.
+  ENDIF.
+* ---------------------------------------------------------------------
+* Get the data from CDS-Entity:  IV_ENTITY_WITH_PARAMS
+* ---------------------------------------------------------------------
+  TRY.
+*     ------------------------------
+*     Return full table with all columns  --> Used e.g. by ACMRT-Tool-UI
+      IF ( iv_full_response = abap_true ) AND ( iv_do_only_count = abap_false ).
+*       Create corresponding result table
+        CREATE DATA lrt_result_table TYPE STANDARD TABLE OF (lv_entityname_without_params).
+        ASSIGN lrt_result_table->* TO <ft_result_table>.
+*       Execute the OpenSQL-Select
+        SELECT * FROM (lv_checked_from_string)
+          INTO TABLE @<ft_result_table>
+          BYPASSING BUFFER
+          UP TO @iv_max_rows ROWS.
+        IF iv_max_rows = 0 OR lines( <ft_result_table> ) < iv_max_rows.
+          lv_count = lines( <ft_result_table> ).
+        ELSE.
+          SELECT COUNT(*) FROM (lv_checked_from_string)
+            INTO @lv_count
+            BYPASSING BUFFER.
+        ENDIF.
+        DATA(lv_from_with_privileged) = |{ lv_checked_from_string } WITH PRIVILEGED ACCESS|.
+        SELECT COUNT(*) FROM (lv_from_with_privileged)
+          INTO @lv_count_priv
+          BYPASSING BUFFER.
+*       Prepare response
+        CALL TRANSFORMATION id
+          SOURCE result     = <ft_result_table>
+                 count      = lv_count
+                 count_priv = lv_count_priv
+          RESULT XML      ev_response_data.
+*     ------------------------------
+*     Return COUNT(*) for ths supplied Entity
+      ELSEIF ( iv_do_only_count = abap_true ).
+*       Create corresponding result table
+        CREATE DATA lrt_result_table TYPE STANDARD TABLE OF (lv_entityname_without_params).
+        ASSIGN lrt_result_table->* TO <ft_result_table>.
+*       Execute the OpenSQL-SelectCount
+        SELECT COUNT(*) FROM (lv_checked_from_string)
+          INTO @lv_count
+          BYPASSING BUFFER. "To be sure that the statement is recorded
+        lv_from_with_privileged = |{ lv_checked_from_string } WITH PRIVILEGED ACCESS|.
+        SELECT COUNT(*) FROM (lv_from_with_privileged)
+          INTO @lv_count_priv
+          BYPASSING BUFFER.
+*       Prepare response
+        CALL TRANSFORMATION id
+          SOURCE result = <ft_result_table>
+                 count      = lv_count
+                 count_priv = lv_count_priv
+          RESULT XML      ev_response_data.
+*     ------------------------------
+*     Return only the UUID-column   --> Used e.g. by ACMTST-RT-AUnittests
+      ELSE.
+*       Execute the OpenSQL-Select
+        SELECT uuid FROM (lv_checked_from_string)
+        INTO TABLE @lt_returned_uuids
+        BYPASSING BUFFER
+        ORDER BY uuid.
+*       Prepare response
+        CALL TRANSFORMATION id
+          SOURCE ids = lt_returned_uuids
+          RESULT XML   ev_response_data.
+      ENDIF.
+*     ------------------------------
+
+    CATCH cx_sy_create_data_error INTO DATA(lrx_sy_create_data_error).
+      ev_status_code    = co_http_code-http_582.
+      ev_status_reason  = lrx_sy_create_data_error->get_text( ).
+    CATCH cx_sy_dynamic_osql_semantics INTO DATA(lrx_sy_dynamic_osql_semantics).
+      ev_status_code    = co_http_code-http_592.
+      ev_status_reason  = lrx_sy_dynamic_osql_semantics->get_text( ).
+    CATCH cx_sy_dynamic_osql_syntax INTO DATA(lrx_sy_dynamic_osql_syntax).
+      ev_status_code    = co_http_code-http_593.
+      ev_status_reason  = lrx_sy_dynamic_osql_syntax->get_text( ).
+    CATCH cx_sql_exception INTO DATA(lrx_sql_exception).
+      ev_status_code    = co_http_code-http_594.
+      ev_status_reason  = lrx_sql_exception->get_text( ).
+    CATCH cx_transformation_error INTO DATA(lrx_transformation_error).
+      ev_status_code    = co_http_code-http_596.
+      ev_status_reason  = lrx_transformation_error->get_text( ).
+  ENDTRY.
+
+
+* ---------------------------------------------------------------------
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ACMTEST_HTTP_SERVER->IF_HTTP_EXTENSION~HANDLE_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] SERVER                         TYPE REF TO IF_HTTP_SERVER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_http_extension~handle_request.
+
+    DATA:
+      lv_test_text     TYPE string  ##needed,
+      ls_test_request  TYPE ty_test_request_s,
+      lv_received_data TYPE xstring,
+      lv_response_data TYPE xstring,
+      lv_status_code   TYPE i       VALUE 200,
+      lv_status_reason TYPE string.
+
+    IF server           IS NOT BOUND OR
+       server->request  IS NOT BOUND OR
+       server->response IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+
+
+*   Allow other extensions to do something
+    if_http_extension~flow_rc = if_http_extension=>co_flow_ok_others_opt.
+
+*   Get request data (XML format)
+    lv_received_data = server->request->get_data( vscan_scan_always = if_http_entity=>co_content_check_never ).
+
+    TRY.
+        CALL TRANSFORMATION id
+          SOURCE XML       lv_received_data
+          RESULT request = ls_test_request.
+      CATCH cx_transformation_error INTO DATA(lrx_transformation_error).
+        lv_status_code   = co_http_code-http_596.
+        lv_status_reason = lrx_transformation_error->get_text( ).
+*       Continue in CASE - OTHERS
+    ENDTRY.
+
+*   Check if this is a valid request
+    IF check_request( ls_test_request-request_id ) = abap_false.
+      ls_test_request-request_type = 'XXX'. "Make an invalid request
+    ENDIF.
+
+*   Process Request depending on Request Type
+    CASE ls_test_request-request_type.
+      WHEN co_request_type-test.
+
+*       Communication test: return the incomming message
+        ls_test_request-request_text =
+           cl_abap_dyn_prg=>escape_xss_xml_html( ls_test_request-request_text ).
+        server->response->set_cdata( ls_test_request-request_text ).
+
+        server->response->set_cdata( ls_test_request-request_text ).
+        server->response->set_content_type( 'text/plain' ) ##no_text.
+
+      WHEN co_request_type-cdsv.
+*       CDSV (=OpenSQL) execution request
+        handle_cdsv_request(
+          EXPORTING
+            iv_entity_with_params = ls_test_request-request_text
+            iv_full_response      = ls_test_request-full_response
+            iv_max_rows           = ls_test_request-max_rows
+          IMPORTING
+            ev_response_data      = lv_response_data
+            ev_status_code        = lv_status_code
+            ev_status_reason      = lv_status_reason
+        ).
+        server->response->set_data( lv_response_data ).
+        server->response->set_content_type( 'text/xml' ) ##no_text.
+
+      WHEN co_request_type-coun.
+*       COUN = OpenSQL execution request with: SELECT COUNT(*)
+        handle_cdsv_request(
+          EXPORTING
+            iv_entity_with_params = ls_test_request-request_text
+            iv_full_response      = ls_test_request-full_response
+            iv_do_only_count      = abap_true
+          IMPORTING
+            ev_response_data      = lv_response_data
+            ev_status_code        = lv_status_code
+            ev_status_reason      = lv_status_reason
+        ).
+        server->response->set_data( lv_response_data ).
+        server->response->set_content_type( 'text/xml' ) ##no_text.
+
+      WHEN 'XXX'.
+        lv_status_code   = co_http_code-http_595.
+        MESSAGE ID 'ACMTEST' TYPE 'E' NUMBER '010' INTO lv_status_reason.
+*        lv_status_reason = 'Invalid Request' ##no_text.
+
+        server->response->set_cdata( CONV #( ls_test_request-request_type ) ).
+        server->response->set_content_type( 'text/plain' ) ##no_text.
+      WHEN OTHERS.
+        lv_status_code   = co_http_code-http_595.
+        lv_status_reason = 'Invalid Request' ##no_text.
+
+        server->response->set_cdata( CONV #( ls_test_request-request_type ) ).
+        server->response->set_content_type( 'text/plain' ) ##no_text.
+    ENDCASE.
+
+* ----------------------------------------------------------
+*   Finish response
+        server->response->set_header_field(
+            name  = 'Expires'
+            value = '0'
+        ) ##no_text.
+
+        server->response->set_status(
+          code   = lv_status_code
+          reason = lv_status_reason ).
+
+      ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ACMTEST_HTTP_SERVER->RESULT_TOO_LONG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TABLE                       TYPE        ANY TABLE
+* | [<-()] EV_TOO_LONG                    TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD result_too_long.
+
+    DATA:
+      lv_max_string_c TYPE c LENGTH 20,
+      lv_max_string_i TYPE i.
+
+*   Check size of table if it would fit into a transformed XString
+*   The size of the transformed XString is usually smaller then the table size
+*   The maximum size of a Xstring is 2GB but could be reduced by profile parameter
+*   ztta/max_memreq_MB.
+    cl_abap_memory_utilities=>get_memory_size_of_object(
+      EXPORTING
+        object                     = iv_table
+        ignore_string_sharing      = abap_true
+        ignore_table_sharing       = abap_true
+      IMPORTING
+        referenced_size_used       = DATA(lv_table_size)
+    ).
+    CALL 'C_SAPGPARAM' ID 'NAME'  FIELD 'ztta/max_memreq_MB'
+                       ID 'VALUE' FIELD lv_max_string_c.    "#EC CI_CCALL
+    lv_max_string_i = lv_max_string_c.
+    IF lv_table_size / 1048576 > lv_max_string_i ##number_ok.
+      ev_too_long = abap_true.
+    ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.
