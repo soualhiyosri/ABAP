@@ -1,0 +1,92 @@
+*&---------------------------------------------------------------------*
+*& Report Z_UTILS
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_utils.
+
+
+
+CONSTANTS gc_mark VALUE 'X'.
+
+"************** BLOCK WITH TITLE *******************
+SELECTION-SCREEN BEGIN OF BLOCK wi WITH FRAME TITLE TEXT-001.
+PARAMETERS : pa_val1 TYPE sflight-carrid,
+             pa_val2 AS CHECKBOX DEFAULT 'X',
+             pa_val3 AS CHECKBOX DEFAULT 'X',
+             pa_val4 RADIOBUTTON GROUP val DEFAULT 'X',
+             pa_val5 RADIOBUTTON GROUP val,
+             pa_val6 RADIOBUTTON GROUP val,
+             pa_val7 RADIOBUTTON GROUP val.
+SELECTION-SCREEN END OF BLOCK wi.
+
+
+
+SELECTION-SCREEN BEGIN OF BLOCK so WITH FRAME TITLE TEXT-002.
+DATA gs_sflight TYPE sflight.
+SELECT-OPTIONS  : so_car FOR gs_sflight-carrid DEFAULT 'AA' ,
+ so_fld FOR gs_sflight-fldate.
+SELECTION-SCREEN END OF BLOCK so.
+
+*data pos type i .
+*POSITION pos .
+
+"************** Line *******************
+SELECTION-SCREEN BEGIN OF LINE.
+
+
+SELECTION-SCREEN COMMENT (20) TEXT-002 FOR FIELD pa_vl1.
+PARAMETERS : pa_vl1 TYPE sflight-carrid.
+SELECTION-SCREEN COMMENT (20) TEXT-002 FOR FIELD pa_vl2.
+PARAMETERS :     pa_vl2 AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN COMMENT (20) TEXT-002 FOR FIELD pa_vl3.
+PARAMETERS :      pa_vl3 AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN COMMENT (20) TEXT-002 FOR FIELD pa_va4.
+PARAMETERS :      pa_va4 RADIOBUTTON GROUP vl DEFAULT 'X'.
+SELECTION-SCREEN COMMENT (20) TEXT-002 FOR FIELD pa_va5.
+PARAMETERS :      pa_va5 RADIOBUTTON GROUP vl.
+
+
+SELECTION-SCREEN END OF LINE.
+
+IF pa_val2 EQ gc_mark.
+  WRITE pa_val2 .
+ENDIF.
+
+
+CASE gc_mark .
+  WHEN pa_val4.
+  WHEN pa_val5.
+  WHEN pa_val6.
+  WHEN pa_val7.
+  WHEN OTHERS.
+ENDCASE.
+
+
+
+
+
+"******************* TAB Selection ***********************
+SELECTION-SCREEN BEGIN OF SCREEN 1001 as SUBSCREEN.
+*Dgs_sflight TYPE sflight.
+SELECT-OPTIONS  : so_cars FOR gs_sflight-carrid DEFAULT 'AA' .
+SELECTION-SCREEN END OF SCREEN 1001 .
+
+SELECTION-SCREEN BEGIN OF SCREEN 1002 as SUBSCREEN.
+SELECT-OPTIONS  :  so_fld2 FOR gs_sflight-fldate.
+
+SELECTION-SCREEN END OF SCREEN 1002 .
+
+
+SELECTION-SCREEN BEGIN OF TABBED BLOCK tab for 5 lines.
+  SELECTION-SCREEN TAB (10) tab1 user-command comm1  DEFAULT SCREEN 1001.
+  SELECTION-SCREEN TAB (10) tab2 user-command comm2 DEFAULT SCREEN 1002.
+SELECTION-SCREEN end OF BLOCK tab.
+
+INITIALIZATION.
+"set text for pushbutton
+tab1 = 'Connextion'.
+tab2 = 'Date'.
+"Optional : setting intial tab
+tab-activetab  = 'comm2'.
+tab-dynnr  = 1002.
