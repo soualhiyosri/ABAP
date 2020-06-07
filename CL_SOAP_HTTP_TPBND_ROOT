@@ -1,0 +1,4971 @@
+class CL_SOAP_HTTP_TPBND_ROOT definition
+  public
+  inheriting from CL_SOAP_TRANSPORT_BINDING_ROOT
+  abstract
+  create public
+
+  global friends CL_SRT_WSP_RT_CONFIG
+                 CL_WS_SECURITY_PROTOCOL .
+
+public section.
+*"* public components of class CL_SOAP_HTTP_TPBND_ROOT
+*"* do not include other source files here!!!
+  type-pools TSOAP .
+  type-pools TSRC .
+
+  interfaces IF_SOAP_HTTP_TRANSPORT_BINDING
+      data values CO_PING_STATE_ON = '-' .
+
+  aliases CO_SESSMETH_COOKIE
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SESSMETH_COOKIE .
+  aliases CO_SESSMETH_NONE
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SESSMETH_NONE .
+  aliases CO_SESSTATE_NONE
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SESSTATE_NONE .
+  aliases CO_SESSTATE_OFF
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SESSTATE_OFF .
+  aliases CO_SESSTATE_ON
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SESSTATE_ON .
+  aliases CO_SOAP_RECEIVER
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SOAP_RECEIVER .
+  aliases CO_SOAP_SENDER
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_SOAP_SENDER .
+  aliases CO_URI_SOAP11_HTTP_TPBND
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~CO_URI_SOAP11_HTTP_TPBND .
+
+  constants CO_HTTP_HEADER_SERVER_INFO_EXT type STRING value 'sap-srt_server_info_ext'. "#EC NOTEXT
+
+  methods CONSTRUCTOR
+    importing
+      !TPBND_URI type ANYURI optional .
+  methods SET_RESP_HTTP_CODE_TO_202 .
+  methods SET_SOAP_VERSION_DATA
+    importing
+      !TPBND_URI type ANYURI
+      !SOAP_VERSION type ANYURI .
+  methods SWITCH_CURRENT_SOAP_VERSION
+    importing
+      !SWITCH_DIRECTION type I .
+  methods SET_HTTP_HDR_CONTENT_TYPE
+    changing
+      !ENTITY type ref to IF_HTTP_ENTITY .
+
+  methods IF_SOAP_CONFIGURABLE~GET_FEATURE_PROPERTY
+    redefinition .
+  methods IF_SOAP_CONFIGURABLE~SET_FEATURE_PROPERTY
+    redefinition .
+  methods IF_SOAP_HIBERNATION~INITIALIZE
+    redefinition .
+  methods IF_SOAP_HIBERNATION~PREPARE_FOR_DESERIALIZATION
+    redefinition .
+  methods IF_SOAP_HIBERNATION~PREPARE_FOR_SERIALIZATION
+    redefinition .
+  methods IF_SOAP_TRANSPORT_BINDING~INIT
+    redefinition .
+  methods IF_SOAP_TRANSPORT_BINDING~PREPARE_RESPONSE_FOR_FAULT
+    redefinition .
+  methods IF_SOAP_TRANSPORT_BINDING~PROCESS_BODY
+    redefinition .
+  methods IF_SOAP_TRANSPORT_BINDING~PROCESS_HEADER
+    redefinition .
+  methods IF_SOAP_TRANSPORT_BINDING~RECEIVE
+    redefinition .
+  methods IF_SOAP_TRANSPORT_BINDING~SEND
+    redefinition .
+protected section.
+
+*"* protected components of class CL_SOAP_HTTP_TPBND_ROOT
+*"* do not include other source files here!!!
+  aliases SET_CLIENT_BY_DESTINATION
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_DESTINATION .
+  aliases SET_CLIENT_BY_URL
+    for IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_URL .
+
+  interface IF_SXML load .
+  data M_BXML type IF_SXML=>XML_STREAM_TYPE value IF_SXML=>CO_XT_XML10. "#EC NOTEXT .  .  . " .
+  data M_CLIENT type ref to IF_HTTP_CLIENT .
+  data M_COMPRESS_REQUEST type STRING .
+  data M_COMPRESS_RESPONSE type STRING .
+  interface IF_HTTP_CLIENT load .
+  data M_CONS_MAX_TIMEOUT type I value IF_HTTP_CLIENT=>CO_TIMEOUT_DEFAULT. "#EC NOTEXT .  .  . " .
+  data M_DEST type RFCDEST .
+  data M_DEST_PATH type STRING .
+  data M_ENABLE_HTTP11 type BOOLEAN value TSOAP_TRUE. "#EC NOTEXT .  .  . " .
+  data M_ENABLE_SOAPACTION type BOOLEAN .
+  data M_ENFORCE_LOCAL_CALL type BOOLEAN .
+  data M_ENFORCE_NON_LOCAL_CALL type BOOLEAN .
+  data M_ENTITY type ref to IF_HTTP_ENTITY .
+  data M_LOCAL_CALL type BOOLEAN .
+  data M_LOGON_LANGUAGE type STRING .
+  data M_METHOD type QNAME .
+  data M_PROXY_HOST type STRING .
+  data M_PROXY_PORT type STRING .
+  data M_PROXY_PWD type STRING .
+  data M_PROXY_USER type STRING .
+  data M_REQUEST type ref to IF_HTTP_REQUEST .
+  data M_RESPONSE type ref to IF_HTTP_RESPONSE .
+  data M_SAP_LOGON_LANGUAGE type SYLANGU .
+  data M_SERVER type ref to IF_HTTP_SERVER .
+  data M_SESSION_METHOD type I value CL_SOAP_RUNTIME=>CO_SESSMETH_NONE. "#EC NOTEXT .  .  . " .
+  data M_SESSION_STATE type I .
+  data M_SOAPACTION type STRING .
+  data M_TRCTX type ref to IF_SOAP_HTTP_TRANSPORT_CONTEXT .
+  data M_URL type STRING .
+  data M_URL_HOST type STRING .
+  data M_URL_PATH type STRING .
+  data M_URL_PORT type STRING .
+  data M_URL_PROT type STRING .
+
+  methods SET_FORM_FIELDS
+    importing
+      !ENTITY type ref to IF_HTTP_ENTITY .
+  methods TRACE_RESPONSE .
+  methods TRACE_REQUEST .
+  methods CREATE_CLIENT_BY_URL .
+  methods CREATE_CLIENT_BY_DESTINATION .
+  methods CREATE_CLIENT_BY_CONFIG .
+  methods UPDATE_CLIENT_BY_CONFIG .
+  methods SET_HTTP_HEADERS
+    importing
+      value(ENTITY) type ref to IF_HTTP_ENTITY .
+  methods GET_HTTP_HEADERS
+    importing
+      value(ENTITY) type ref to IF_HTTP_ENTITY .
+  methods handle_receive_http_ret_code
+    exporting
+      !EV_HTTP_CODE type CHAR10
+      !EV_ERROR_STRING type STRING .
+  methods handle_error_client
+    importing
+      value(iv_subrc) type sysubrc
+    exporting
+      ev_icferrorexc type string
+      ev_t100_text   type string
+      ev_http_class  type tadir-obj_name
+      ev_t100_area   type arbgb
+      ev_t100_msgno  type msgnr
+      ev_retry       type boolean
+    changing
+      cv_icferrormsg type string.
+  methods handle_send_error_client
+    importing
+      value(iv_subrc) type sysubrc.
+  methods handle_receive_error_client
+    importing
+      value(iv_subrc) type sysubrc.
+  methods TRACE_PAYLOAD
+    importing
+      !ENTITY type ref to IF_HTTP_ENTITY .
+  methods SET_ERROR
+    importing
+      !ENTITY type ref to IF_HTTP_ENTITY
+      !VALUE type STRING
+      !USE_CASE type STRING optional
+    exporting
+      !ERRORTEXT type STRING
+      value(ERRORCODE) type TSOAP_CORE_ERRORS .
+  methods SEND_BY_SHORTCUT .
+  methods SET_HTTP_HEADERS_FOR_SHORTCUT
+    importing
+      !TRANSPORT_CONTEXT type ref to IF_WS_LOCAL_CALL_TRANSPORT_CTX .
+private section.
+
+  types:
+*"* private components of class CL_SOAP_HTTP_TPBND_ROOT
+*"* do not include other source files here!!!
+    BEGIN OF ty_error_info,
+      http_code     TYPE string,
+      http_reason   TYPE string,
+      soap_fault    TYPE string,
+    END OF ty_error_info .
+
+  constants CO_CLASS_NAME type STRING value 'CL_SOAP_HTTP_TPBND_ROOT'. "#EC NOTEXT
+  type-pools TSRTM .
+  constants CO_ERR_AREA_ID type SRT_MONI_ERRORAREA value TSRTM_ERRAREA_CORE. "#EC NOTEXT
+  constants CO_HTTP_HEADER_SERVER_INFO type STRING value 'SAP-SRT_SERVER_INFO'. "#EC NOTEXT
+  constants CO_PROCESSOR_ID type SRT_MONI_PROC_ID value TSRTM_PROC_ID_TRANSP_BND_HTTP. "#EC NOTEXT
+  constants CO_SEPARATOR_EQUAL type STRING value '{=}'. "#EC NOTEXT
+  constants CO_SEPARATOR_HASH type STRING value '{#}'. "#EC NOTEXT
+  constants CO_SERIAL_VERS_710_0 type SRT_SERIAL_VERS value '000'. "#EC NOTEXT
+  constants CO_SERIAL_VERS_710_1 type SRT_SERIAL_VERS value '001'. "#EC NOTEXT
+  constants CO_SERIAL_VERS_CURRENT type SRT_SERIAL_VERS value CO_SERIAL_VERS_710_1. "#EC NOTEXT
+  constants CO_SIMPLE_TRANS_ID type CXSLTDESC value TSRTM_HIB_TB_HTTP_ROOT. "#EC NOTEXT
+  data MR_LOCAL_HTTP_EXTENSION type ref to CL_WS_LOCAL_CALL_HTTP_EXT .
+  data M_FORM_FIELDS type TIHTTPNVP .
+  data M_FUNC_STACK_LEVEL type I .
+  data M_PLOAD_STACK_LEVEL type I .
+  data MV_IGNORE_RESPONSE_BODY type XSDBOOLEAN .
+  data M_USED_CONFIG type XSDBOOLEAN .
+  data M_TPBND_RELOADED type ref to IF_SRT_WSP_RT_CONFIG .
+
+  methods FILL_PART .
+  methods GET_SOAP_FAULT_FRAGMENT
+    importing
+      !HTTP_RESPONSE type ref to IF_HTTP_RESPONSE
+      !HTTP_ERROR_TEXT type STRING
+    exporting
+      !FAULT_FRAGMENT type XSTRING
+      !HTML_ERROR_PAGE type STRING
+      !FAULT_STRING type STRING .
+  methods SEARCH_FAULT_TAG
+    importing
+      !INPUT type STRING
+      !TAGNAME type STRING
+    returning
+      value(FRAGMENT) type STRING .
+  type-pools ABAP .
+  methods SET_SOAP_VERS_BY_CONT_TYPE
+    importing
+      !VALUE type STRING
+      !IS_LOCAL_CALL type BOOLEAN default ABAP_FALSE .
+ENDCLASS.
+
+
+
+CLASS CL_SOAP_HTTP_TPBND_ROOT IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] TPBND_URI                      TYPE        ANYURI(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD constructor.
+
+* -0- call super
+  CALL METHOD super->constructor( ).
+
+* -1- clear members
+  CLEAR: m_client,
+         m_server,
+         m_entity,
+         m_request,
+         m_response,
+         m_dest,
+         m_dest_path,
+         m_url,
+         m_trctx,
+         m_session_method,
+         m_session_state,
+         m_enable_http11,
+         m_soapaction,
+         m_enable_soapaction.
+
+  m_local_call = tsoap_false.
+
+* -2- set internal class name
+  _class_name = 'CL_SOAP_HTTP_TPBND_ROOT'.
+
+* -3- fill list of my supported features
+* -3a- design time features
+  "-- TO BE DONE...
+* -3b- runtime features
+  "-- binding URI (for the sake of completeness)
+  APPEND tsrc_feature_uri_tpbnd TO m_feat_uris.
+
+* -4- default session-relevant members
+  m_session_method = co_sessmeth_none.
+  m_session_state  = co_sesstate_none.
+
+* -6- default to HTTP 1.0
+  m_enable_http11  = tsoap_true.
+
+ENDMETHOD. "-- C'tor
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->CREATE_CLIENT_BY_CONFIG
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_client_by_config.
+  srt_init_errorhandling 'CREATE_CLIENT_BY_CONFIG'.         "#EC NOTEXT
+
+  DATA: icferrorexc TYPE string.
+  DATA: icferrormsg TYPE string.
+  DATA: icferrortxt TYPE string.
+
+  DATA: l_t100_text  TYPE string,                           "#EC NEEDED
+        l_http_class TYPE tadir-obj_name,
+        l_t100_area  TYPE arbgb,
+        l_t100_msgno TYPE msgnr.
+
+  DATA: l_url TYPE string.
+  DATA: l_ssl_id TYPE ssfapplssl.
+  DATA: l_uname TYPE string.
+  DATA: l_pwd TYPE string.
+  DATA: l_sso_ticket TYPE boolean.
+  DATA: l_sso_sysid  TYPE sysysid.
+  DATA: l_sso_client TYPE symandt.
+  DATA: l_config TYPE REF TO if_srt_wsp_rt_config.
+  DATA: l_saproutercall TYPE abap_bool value abap_false.
+  DATA: l_schema        TYPE I.
+  DATA: l_prot          TYPE STRING.
+
+  srt_util_perf_start 'Create_HTTP_Client_By_Config'.       "#EC NOTEXT
+
+* Set Flag for stateful session
+  m_used_config = 'X'.
+
+* -1- create ICF client and update members
+*  call WSSE API to get the security-related
+*  settings to be provided to the HTTP-client-object
+  IF m_tpbnd_reloaded IS NOT INITIAL.
+    l_config = m_tpbnd_reloaded.
+  ELSE.
+    l_config = m_ctx->get_config( ).
+  ENDIF.
+  CALL FUNCTION 'WSSE_FEATURE_TO_HTTP_CLIENT'
+    EXPORTING
+      config         = l_config
+    IMPORTING
+      sslc_pse       = l_ssl_id
+      user           = l_uname
+      password       = l_pwd
+      use_ass_ticket = l_sso_ticket
+      client         = l_sso_client
+      system_id      = l_sso_sysid.
+
+  if strlen( m_url_host ) >= 3 and m_url_host(3) = '/H/'.
+
+    l_saproutercall = abap_true.
+    l_prot = m_url_prot.
+
+    translate l_prot to upper case.
+
+    if l_prot = 'HTTP'.
+      l_schema = 1.
+    else.
+      l_schema = 2.
+    endif.
+
+*   Functional Trace if required
+    IF cl_soap_util=>m_func_trace_level IS NOT INITIAL.
+      cl_soap_util=>trace_call(
+        EXPORTING
+          pname_01 = 'RouteString'
+          pdata_01 = m_url_host
+          pname_02 = 'RemoteUser'
+          pdata_02 = l_uname
+          pname_03 = 'SSL_ID'
+          pdata_03 = l_ssl_id
+          pname_04 = 'Path'
+          pdata_04 = m_url_path
+       ).
+    ENDIF.
+
+*   create client
+    call method cl_http_client=>create
+      exporting
+        host               = m_url_host
+        service            = m_url_port
+        scheme             = l_schema
+        ssl_id             = l_ssl_id
+      importing
+        client             = m_client
+      exceptions
+        argument_not_found = 1
+        plugin_not_active  = 2
+        internal_error     = 3
+        OTHERS             = 4.
+
+  else.
+
+*   create absolute URL
+    if m_url_port is initial.
+      concatenate m_url_prot '://' m_url_host m_url_path into l_url.
+    else.
+      CONCATENATE: m_url_prot '://' m_url_host ':' m_url_port m_url_path
+        INTO l_url.
+    endif.
+
+*   Functional Trace if required
+  IF cl_soap_util=>m_func_trace_level IS NOT INITIAL.
+    cl_soap_util=>trace_call(
+      EXPORTING
+        pname_01 = 'URL'
+        pdata_01 = l_url
+        pname_02 = 'RemoteUser'
+        pdata_02 = l_uname
+        pname_03 = 'SSL_ID'
+        pdata_03 = l_ssl_id
+        pname_04 = 'PROXY_HOST'
+        pdata_04 = m_proxy_host
+        pname_05 = 'PROXY_PORT'
+        pdata_05 = m_proxy_port
+    ).
+  ENDIF.
+
+*   create HTTP client object
+  CALL METHOD cl_http_client=>create_by_url
+    EXPORTING
+      url                = l_url
+      proxy_host         = m_proxy_host
+      proxy_service      = m_proxy_port
+      ssl_id             = l_ssl_id
+    IMPORTING
+      client             = m_client
+    EXCEPTIONS
+      argument_not_found = 1
+      plugin_not_active  = 2
+      internal_error     = 3
+      OTHERS             = 4.
+  endif.
+
+  IF sy-subrc NE 0.
+    l_t100_area  = 'SRT_CORE'.                              "#EC NOTEXT
+    l_http_class = 'CL_HTTP_CLIENT'.                        "#EC NOTEXT
+    CASE sy-subrc.
+      WHEN 1.
+        icferrorexc = 'ARGUMENT NOT FOUND'.                 "#EC NOTEXT
+        l_t100_msgno = 101.
+        MESSAGE e101(srt_core) INTO l_t100_text.
+      WHEN 2.
+        icferrorexc = 'PLUGIN NOT ACTIVE'.                  "#EC NOTEXT
+        l_t100_msgno = 104.
+        MESSAGE e104(srt_core) INTO l_t100_text.
+      WHEN 3.
+        icferrorexc = 'INTERNAL ERROR'.                     "#EC NOTEXT
+        l_t100_msgno = 105.
+        MESSAGE e105(srt_core) INTO l_t100_text.
+      WHEN OTHERS.
+        icferrorexc = 'UNKNOWN ERROR'.                      "#EC NOTEXT
+        l_t100_msgno = 105.
+        MESSAGE e105(srt_core) INTO l_t100_text.
+    ENDCASE.
+    IF m_client IS BOUND.
+      CALL METHOD m_client->get_last_error
+        IMPORTING
+          message = icferrormsg.
+    ENDIF.
+    CONCATENATE 'ICF Error when creating HTTP client object by Config for URL "'
+                l_url '":' INTO icferrortxt.                "#EC NOTEXT
+    IF NOT icferrormsg IS INITIAL.
+      CONCATENATE icferrortxt icferrormsg INTO icferrortxt SEPARATED BY space.
+    ELSE.
+      CONCATENATE icferrortxt icferrorexc INTO icferrortxt SEPARATED BY space.
+    ENDIF.
+
+* Write an Error Log entry
+    cl_soap_util=>log_write(
+      EXPORTING
+        main_entry    = 'X'
+        error_info    = icferrortxt
+        short_text    = icferrormsg
+        t100_area     = l_t100_area
+        t100_msgno    = l_t100_msgno
+        soap_context  = m_ctx
+        non_srt_class = l_http_class
+        http_client   = m_client
+        http_prot     = m_url_prot
+        http_host     = m_url_host
+        http_port     = m_url_port
+        http_uri      = m_url_path
+        proxy_host    = m_proxy_host
+        proxy_port    = m_proxy_port
+        proxy_user    = m_proxy_user
+    ).
+
+* Functional Trace Error if required
+    IF cl_soap_util=>m_func_trace_level IS NOT INITIAL.
+      cl_soap_util=>trace_http_error(
+        EXPORTING
+          call_type     = if_soap_util_constants=>trace_type_call
+          error_message = l_t100_text
+          destination   = m_dest
+      ).
+    ENDIF.
+
+    srt_throw_soap_core_text 2 tsoap_ecannot_create_object icferrortxt. "#EC NOTEXT
+  ENDIF.
+  srt_assert_ref_bound m_client 3.
+
+* -2- set members
+  m_request   = m_client->request.
+  srt_assert_ref_bound m_request 4.
+  m_response  = m_client->response.
+  srt_assert_ref_bound m_response 5.
+  m_node_type = if_soap_transport_binding=>co_soap_sender.
+
+* cookie handling depending on session mode
+  IF m_session_state = co_sesstate_on.
+    m_client->propertytype_accept_cookie = m_client->co_enabled.
+  ELSE.
+    m_client->propertytype_accept_cookie = m_client->co_disabled.
+  ENDIF.
+
+* provide the compression settings to the HTTP client object
+*  a) compress request
+  IF m_compress_request EQ tsrtp_f_bdg_compress_true.
+    CALL METHOD m_client->set_compression
+      EXPORTING
+        options                  = if_http_client=>co_compress_in_all_cases
+      EXCEPTIONS
+        compression_not_possible = 1.                       "#EC *
+* ignore this exception to have the same behaviour as for clients created
+* via sm59-destination: for this clients the method set_compression is
+* called within the method SEND without exception handling!
+  ENDIF.
+
+
+* b) compress response
+  IF m_compress_response EQ tsrtp_f_bdg_compress_true.
+    m_client->propertytype_accept_compress = if_http_client=>co_enabled.
+  ELSE.
+    m_client->propertytype_accept_compress = if_http_client=>co_disabled.
+  ENDIF.
+
+* according to RFC2612, section 10.3. (10.3.2, 10.3.3, 10.3.8)
+* the HTTP client is not allowed to follow an redirect automatically
+* for methods other than HEAD and GET => prevent this for WS calls
+* NOTE: prevent the redirect also for PING functionalty although HEAD is
+* used in this case in order to get an reliable PING-result
+  m_client->propertytype_redirect = if_http_client=>co_disabled.
+
+* provide logon information
+  IF l_uname IS NOT INITIAL AND
+     l_pwd IS NOT INITIAL.
+* basic authentification
+    m_client->authenticate(
+       EXPORTING password = l_pwd
+                 proxy_authentication = space
+                 username = l_uname    ).
+  ENDIF.
+  IF l_sso_ticket IS NOT INITIAL.
+* send assertion ticket
+    IF l_sso_sysid IS NOT INITIAL.
+      m_client->send_sap_assertion_ticket(
+                  client    = l_sso_client
+                  system_id = l_sso_sysid ).
+    ELSE.
+      m_client->send_sap_logon_ticket( ).
+    ENDIF.
+  ENDIF.
+
+  IF cl_soap_util=>get_logon_popup( ) = abap_false.
+    m_client->propertytype_logon_popup = if_http_client=>co_disabled.
+  ENDIF.
+
+* provide proxy logon data, if configurated
+  IF m_proxy_user IS NOT INITIAL AND
+     m_proxy_pwd IS NOT INITIAL.
+    m_client->authenticate(
+      EXPORTING password = m_proxy_pwd
+              proxy_authentication = abap_true
+              username = m_proxy_user   ).
+  ENDIF.
+
+  if l_saproutercall = abap_true.
+
+    cl_http_utility=>set_request_uri( request = m_client->request uri = m_url_path ).
+
+  endif.
+
+* clear attributes not relevant for CREATE_BY_CONFIG
+  CLEAR: m_url, m_dest_path, m_dest.
+
+  srt_util_perf_end.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->CREATE_CLIENT_BY_DESTINATION
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method create_client_by_destination.
+
+  srt_init_errorhandling 'CREATE_CLIENT_BY_DESTINATION'.    "#EC NOTEXT
+  srt_init_error_area.
+
+  srt_util_perf_start 'Create_HTTP_Client_By_DEST'.         "#EC NOTEXT
+
+  data: srt_trc_dummy1 type string.
+  data: icferrorexc type string.
+  data: icferrormsg type string.
+  data: icferrortxt type string.
+
+  data: l_t100_text  type string,                           "#EC NEEDED
+        l_http_class type tadir-obj_name,
+        l_t100_area  type arbgb,
+        l_t100_msgno type msgnr.
+
+  data:
+        lv_dest_as_str type c length 512,
+        lx_https_dest  type ref to cx_dest_http_abap_special.
+
+  srt_trc_dummy1 = m_dest.
+  concatenate 'Try to create ICF Client for DESTINATION =' srt_trc_dummy1 into srt_trc_dummy1 separated by space. "#EC NOTEXT
+  srt_trc_lvl_full_stat_succ srt_trc_dummy1.                "#EC NOTEXT
+
+* -0- checks
+  srt_assert_not_initial m_dest 1.
+
+* Functional Trace if required
+  if cl_soap_util=>m_func_trace_level is not initial.
+    cl_soap_util=>trace_call(
+      exporting
+        pname_01 = 'Destination'
+        pdata_01 = m_dest
+    ).                                                      "#EC NOTEXT
+  endif.
+
+  lv_dest_as_str = m_dest.
+
+* -1- create ICF client and update members
+  call method cl_http_client=>create_by_destination
+    exporting
+      destination              = lv_dest_as_str
+    importing
+      client                   = m_client
+    exceptions
+      argument_not_found       = 1
+      destination_not_found    = 2
+      destination_no_authority = 3
+      plugin_not_active        = 4
+      internal_error           = 5
+      others                   = 6.
+
+  case sy-subrc.
+    when 2.
+      "Fallback solution, if HTTP destinaton is no longer valid (can happen
+      "for lower SPs, when a cache refresh creates a new config key and a
+      "new HTTP destination). In that case, read the new HTTP destination
+      "via proxy class name and logical port name.
+      data: l_sysubrc     type sysubrc,
+            l_config      type ref to if_srt_wsp_rt_config,
+            l_proxy_class type srt_wsp_dt_obj_name,
+            l_lp          type srt_lp_name,
+            l_dest        type rfcdest,
+            lr_assign     type ref to if_srt_wsp_assign_config_clnt,
+            l_text        type string.
+      l_sysubrc = sy-subrc.
+      l_config      = m_ctx->if_soap_context~get_config( ).
+      l_proxy_class = l_config->dt_obj_name.
+      l_lp          = l_config->lp_name.
+      try.
+          lr_assign = cl_srt_wsp_assign_config=>open_client( pi_lp_name          = l_lp
+                                                             pi_proxy_class_name = l_proxy_class ).
+          l_dest = lr_assign->get_destination( ).
+          if l_dest is initial.
+* The current configuration does not contain the destination =>
+* reinit the object properties from the configuration
+* (needed only for messages stored in the 'old' persistence layer)
+            clear: m_dest,
+                   m_dest_path,
+                   m_url,
+                   m_cons_max_timeout,
+                   m_url_path,
+                   m_url_host,
+                   m_url_port,
+                   m_url_prot,
+                   m_proxy_host,
+                   m_proxy_port,
+                   m_proxy_user,
+                   m_proxy_pwd,
+                   m_compress_request,
+                   m_compress_response.
+* init the transporting binding
+* read config from database
+            m_tpbnd_reloaded = cl_srt_wsp_rt_config=>get_new_cfg_for_http_tbndg( me ).
+            call method if_soap_configurable~init
+              exporting
+                config = m_tpbnd_reloaded.
+* create client object by configuration
+            call method create_client_by_config.
+            exit.
+          elseif l_dest ne m_dest.
+            call method cl_http_client=>create_by_destination
+              exporting
+                destination              = l_dest
+              importing
+                client                   = m_client
+              exceptions
+                argument_not_found       = 1
+                destination_not_found    = 2
+                destination_no_authority = 3
+                plugin_not_active        = 4
+                internal_error           = 5
+                others                   = 6.
+            l_sysubrc = sy-subrc. "now use return code of fallback attempt
+            if l_sysubrc = 0.
+              m_dest = l_dest.
+              m_dest_path = lr_assign->get_url_suffix( ). "used later to set HTTP (pseudo-) header
+              if cl_soap_util=>m_func_trace_level is not initial.
+                cl_soap_util=>trace_call(
+                  exporting
+                    pname_01 = 'CONFIGURATION'
+                    pdata_01 = 'Fallback'
+                    pname_02 = 'PROXY'
+                    pdata_02 = l_proxy_class
+                    pname_03 = 'LOGICAL_PORT'
+                    pdata_03 = l_lp
+                    pname_04 = 'DESTINATION'
+                    pdata_04 = m_dest
+                ).                                          "#EC NOTEXT
+              endif.
+            endif.
+          endif.
+        catch cx_root.                                      "#EC *
+      endtry.
+      sy-subrc = l_sysubrc.
+      lv_dest_as_str = m_dest.
+    when 4.
+      if m_dest = 'NONE'.
+        l_sysubrc = sy-subrc.
+* Replace Dest NONE by dynamic HTTPS destination if no http port is active
+        try.
+            lv_dest_as_str = cl_dest_http_abap_special=>get_destination_none_secure( ).
+* Functional Trace if required
+            if cl_soap_util=>m_func_trace_level is not initial.
+              cl_soap_util=>trace_call(
+                exporting
+                  pname_01 = 'Destination NONE replaced by'
+                  pdata_01 = lv_dest_as_str
+              ).                                            "#EC NOTEXT
+            endif.
+            call method cl_http_client=>create_by_destination
+              exporting
+                destination              = lv_dest_as_str
+              importing
+                client                   = m_client
+              exceptions
+                argument_not_found       = 1
+                destination_not_found    = 2
+                destination_no_authority = 3
+                plugin_not_active        = 4
+                internal_error           = 5
+                others                   = 6.
+          catch cx_dest_http_abap_special into lx_https_dest.
+* Write an Error Log entry
+            cl_soap_util=>log_create_from_exception( lx_https_dest ).
+            sy-subrc = l_sysubrc.
+        endtry.
+      endif.
+  endcase.
+
+  if sy-subrc ne 0.
+    l_t100_area  = 'SRT_CORE'.                              "#EC NOTEXT
+    l_http_class = 'CL_HTTP_CLIENT'.                        "#EC NOTEXT
+    case sy-subrc.
+      when 1.
+        icferrorexc = 'ARGUMENT NOT FOUND'.                 "#EC NOTEXT
+        l_t100_msgno = 101.
+        message e101(srt_core) into l_t100_text.
+      when 2.
+        icferrorexc = 'DESTINATION NOT FOUND'.              "#EC NOTEXT
+        l_t100_msgno = 102.
+        message e102(srt_core) into l_t100_text.
+      when 3.
+        icferrorexc = 'NO AUTHORITY FOR DESTINATION'.       "#EC NOTEXT
+        l_t100_msgno = 103.
+        message e103(srt_core) into l_t100_text.
+      when 4.
+        icferrorexc = 'PLUGIN NOT ACTIVE'.                  "#EC NOTEXT
+        l_t100_msgno = 104.
+        message e104(srt_core) into l_t100_text.
+      when 5.
+        icferrorexc = 'INTERNAL ERROR'.                     "#EC NOTEXT
+        l_t100_msgno = 105.
+        message e105(srt_core) into l_t100_text.
+      when others.
+        icferrorexc = 'UNKNOWN ERROR'.                      "#EC NOTEXT
+        l_t100_msgno = 105.
+        message e105(srt_core) into l_t100_text.
+    endcase.
+    if m_client is bound.
+      call method m_client->get_last_error
+        importing
+          message = icferrormsg.
+    endif.
+    concatenate 'ICF Error when creating object for HTTP DESTINATION "'
+                lv_dest_as_str '":' into icferrortxt.       "#EC NOTEXT
+    if not icferrormsg is initial.
+      concatenate icferrortxt icferrormsg into icferrortxt separated by space.
+    else.
+      concatenate icferrortxt icferrorexc into icferrortxt separated by space.
+    endif.
+
+* Write an Error Log entry
+    cl_soap_util=>log_write(
+      exporting
+        main_entry    = 'X'
+        error_info    = icferrortxt
+        short_text    = icferrormsg
+        t100_area     = l_t100_area
+        t100_msgno    = l_t100_msgno
+        soap_context  = m_ctx
+        non_srt_class = l_http_class
+        http_client   = m_client
+        http_prot     = m_url_prot
+        http_host     = m_url_host
+        http_port     = m_url_port
+        http_uri      = m_url_path
+        proxy_host    = m_proxy_host
+        proxy_port    = m_proxy_port
+        proxy_user    = m_proxy_user
+    ).
+
+* Functional Trace Error if required
+    if cl_soap_util=>m_func_trace_level is not initial.
+      cl_soap_util=>trace_http_error(
+        exporting
+          call_type     = if_soap_util_constants=>trace_type_call
+          error_message = l_t100_text
+          destination   = |{ lv_dest_as_str }|
+      ).
+    endif.
+
+    srt_throw_soap_core_text 2 tsoap_ecannot_create_object icferrortxt. "#EC NOTEXT
+  endif.
+  srt_assert_ref_bound m_client 3.
+
+* -2- set members
+  m_request   = m_client->request.
+  srt_assert_ref_bound m_request 4.
+  m_response  = m_client->response.
+  srt_assert_ref_bound m_response 5.
+  m_node_type = if_soap_transport_binding=>co_soap_sender.
+
+  if m_session_state = co_sesstate_on.
+    m_client->propertytype_accept_cookie = m_client->co_enabled.
+  else.
+    m_client->propertytype_accept_cookie = m_client->co_disabled.
+  endif.
+
+  clear: m_url.
+
+  srt_trc_lvl_full_stat_succ 'ICF Client created by DESTINATION'. "#EC NOTEXT
+
+  srt_util_perf_end_1 'Destination' lv_dest_as_str.         "#EC NOTEXT
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_DESTINATION
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->CREATE_CLIENT_BY_URL
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_client_by_url.
+  srt_init_errorhandling  'CREATE_CLIENT_BY_URL'.           "#EC NOTEXT
+  srt_init_error_area.
+
+  srt_util_perf_start 'Create_HTTP_Client_By_URL'.          "#EC NOTEXT
+
+*  srt_set_class_method 'CREATE_CLIENT_BY_URL'.              "#EC NOTEXT "obsolete
+*  srt_init_error 'CL_SOAP_HTTP_TPBND_ROOT'                              "obsolete
+*    'create_client_by_url'.                                 "#EC NOTEXT "obsolete
+*  srt_trace_prepare 'SOAP HTTP Binding'.                    "#EC NOTEXT "obsolete
+  DATA: srt_trc_dummy1 TYPE string.
+
+  DATA: icferrorexc TYPE string.
+  DATA: icferrormsg TYPE string.
+  DATA: icferrortxt TYPE string.
+
+  CONCATENATE 'Try to create ICF Client for URL =' m_url INTO srt_trc_dummy1 SEPARATED BY space."#EC NOTEXT
+
+  srt_trc_lvl_full_stat_succ srt_trc_dummy1.                "#EC NOTEXT
+
+* -0- check
+  srt_assert_not_initial m_url 1.
+
+* Functional Trace if required
+  IF cl_soap_util=>m_func_trace_level IS NOT INITIAL.
+    cl_soap_util=>trace_call(
+      EXPORTING
+        pname_01 = 'URL'
+        pdata_01 = m_url
+    ).
+  ENDIF.
+
+* -1- create ICF client and update member
+
+  CALL METHOD cl_http_client=>create_by_url
+    EXPORTING
+      url                = m_url
+*     proxy_host         =
+*     proxy_service      =
+*     ssl_id             =
+    IMPORTING
+      client             = m_client
+    EXCEPTIONS
+      argument_not_found = 1
+      plugin_not_active  = 2
+      internal_error     = 3
+      OTHERS             = 4.
+  IF sy-subrc NE 0.
+    CASE sy-subrc.
+      WHEN 1.
+        icferrorexc = 'ICF Error: ARGUMENT NOT FOUND'.      "#EC NOTEXT
+      WHEN 2.
+        icferrorexc = 'ICF Error: PLUGIN NOT ACTIVE'.       "#EC NOTEXT
+      WHEN 3.
+        icferrorexc = 'ICF Error: INTERNAL ERROR'.          "#EC NOTEXT
+      WHEN OTHERS.
+        icferrorexc = 'ICF Error: UNKNOWN ERROR'.           "#EC NOTEXT
+    ENDCASE.
+    IF m_client IS BOUND.
+      CALL METHOD m_client->get_last_error
+        IMPORTING
+          message = icferrormsg.
+    ENDIF.
+
+    CONCATENATE 'ICF Error when creating ICF object for URL "'
+                m_url '":' INTO icferrortxt.                "#EC NOTEXT
+    IF NOT icferrormsg IS INITIAL.
+      CONCATENATE icferrortxt icferrormsg INTO icferrortxt SEPARATED BY space.
+    ELSE.
+      CONCATENATE icferrortxt icferrorexc INTO icferrortxt SEPARATED BY space.
+    ENDIF.
+
+    srt_throw_soap_core_text 2 tsoap_ecannot_create_object icferrortxt."#EC NOTEXT
+  ENDIF.
+  srt_assert_ref_bound m_client 3.
+
+* -2- set members
+  m_request   = m_client->request.
+  srt_assert_ref_bound m_request 4.
+  m_response  = m_client->response.
+  srt_assert_ref_bound m_response 5.
+  m_node_type = if_soap_transport_binding=>co_soap_sender.
+
+  IF m_session_state = co_sesstate_on.
+    m_client->propertytype_accept_cookie = m_client->co_enabled.
+  ENDIF.
+
+  CLEAR: m_dest,
+         m_dest_path.
+
+  srt_trc_lvl_full_stat_succ 'ICF Client created by URL'.   "#EC NOTEXT
+
+  srt_util_perf_end_1 'URL' m_url.                          "#EC NOTEXT
+
+ENDMETHOD. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_URL
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_SOAP_HTTP_TPBND_ROOT->FILL_PART
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD fill_part.
+  DATA: lv_data_part TYPE REF TO if_sxmlp_data_st.
+  DATA: lv_data_ref  TYPE REF TO data.
+  DATA: lv_factory   TYPE REF TO if_sxmlp_factory.
+
+
+  lv_factory = cl_sxmlp=>create_factory( ).
+* -0- create data_st part
+  lv_data_part = lv_factory->create_data_st(
+   name  = lcl_hibernation=>co_xml_name ).
+
+  lv_data_part->set_transformation( co_simple_trans_id ).
+
+
+  GET REFERENCE OF m_method INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+    name = lcl_hibernation=>co_xml_method
+    data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_dest INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_dest
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_dest_path INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_dest_path
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_url  INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+    name = lcl_hibernation=>co_xml_url
+    data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_session_method INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_session_method
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_session_state INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_session_state
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_enable_http11 INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_enable_http11
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_soapaction INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_soapaction
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_enable_soapaction INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_enable_soapaction
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_local_call INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_xml_local_call
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_cons_max_timeout INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_cons_max_timeout
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_url_path INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_url_path
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_url_host INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_url_host
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_url_port INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_url_port
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_url_prot INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_url_prot
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_proxy_host INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_proxy_host
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_proxy_port INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_proxy_port
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_proxy_user INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_proxy_user
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_proxy_pwd INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_proxy_pwd
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_compress_request INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_compress_request
+   data_ref = lv_data_ref ).
+
+  GET REFERENCE OF m_compress_response INTO lv_data_ref.
+  lv_data_part->add_data_ref(
+   name     = lcl_hibernation=>co_compress_response
+   data_ref = lv_data_ref ).
+
+* add part to m_xml_listpart
+  m_xml_listpart->add_part( lv_data_part ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->GET_HTTP_HEADERS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ENTITY                         TYPE REF TO IF_HTTP_ENTITY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_http_headers .
+
+  srt_init_errorhandling 'get_http_headers'.
+  initerrorhandling get_http_headers.
+  srt_init_error_area.                                      "#EC NOTEXT
+
+  DATA: l_value                  TYPE string,
+        l_errstr                 TYPE string,
+        dummy                    TYPE string,
+        l_body_length            TYPE i,
+        l_errcode                TYPE tsoap_core_errors,
+        l_soap_vers_content_type TYPE string,
+        l_accept                 TYPE string,
+        l_http_code              TYPE i,
+        l_request                TYPE REF TO cl_soap_message_new,
+        l_response               TYPE REF TO cl_soap_message_new,
+        l_httpreason             TYPE string.
+
+  DATA: l_type                    TYPE string,
+        l_subtype                 TYPE string,
+        l_parameters              TYPE tsoap_properties,
+        l_encoding                TYPE string.
+
+* -0- checks
+  srt_assert_ref_bound entity 1.
+
+  l_value = entity->get_header_field(
+     if_http_header_fields=>content_type
+    ).
+
+  l_accept = entity->get_header_field(
+      name = if_http_header_fields=>accept
+  ).
+
+  l_encoding =  entity->get_header_field(
+    name = if_http_header_fields=>content_encoding
+).
+
+  CASE m_node_type.
+    WHEN if_soap_http_transport_binding~co_soap_sender.
+      srt_assert_not_initial if_soap_transport_binding~uri 2.
+      CASE if_soap_transport_binding~uri.
+        WHEN tsrc_soap_11_http_tpbnd.
+          l_soap_vers_content_type = tsrc_soap_11_http_content_type.
+        WHEN tsrc_soap_12_http_tpbnd.
+          l_soap_vers_content_type = tsrc_soap_12_http_content_type.
+      ENDCASE.
+
+      srt_assert_ref_bound m_response 3.
+      CALL METHOD m_response->get_status
+        IMPORTING
+          code   = l_http_code
+          reason = l_httpreason.
+
+**** do not check the Content-Type when it is TerminateSequence
+      IF l_http_code EQ 202.
+        EXIT.
+      ELSEIF l_http_code EQ 200 AND
+        if_soap_http_transport_binding~get_ignore_response_body( ) = abap_true.
+        RETURN.
+      ELSE.
+        CLEAR mv_ignore_response_body.
+      ENDIF.
+
+      IF NOT l_value CS l_soap_vers_content_type
+        AND NOT l_value CS tsrc_soap_bx_http_content_type
+        AND NOT l_value CS tsrc_soap_mtom_http_cont_type
+        AND NOT l_value CS tsrc_soap_mp_http_content_type.
+
+        CALL METHOD me->set_error
+          EXPORTING
+            entity    = entity
+            value     = l_value
+          IMPORTING
+            errortext = l_errstr
+            errorcode = l_errcode.
+
+* TASK: raise exception of type CX_SOAP_CORE with given details, previous exception
+*       and an additional text
+* NOTE: fault location is TSOAP_FAULT_LOCAL always
+        srt_raise_soap_core_text 4 l_errcode l_errstr.
+      ENDIF.
+
+    WHEN if_soap_transport_binding~co_soap_receiver.
+      "it was checked for HTTP Accept hedaer, but it is changed change because of interop issues
+      if_soap_http_transport_binding~set_bxml( tsoap_false ).
+      if_soap_http_transport_binding~set_mtom_accepted( tsoap_false ).
+
+* set binary XML as active for optimized xml transfer
+      IF l_encoding EQ tsrc_soap_bx_http_content_type OR l_accept CS tsrc_soap_bx_http_content_type.
+        if_soap_http_transport_binding~set_bxml( tsoap_true ).
+* set MTOM as active for optimized xml transfer
+      ELSEIF l_value CS tsrc_soap_mtom_http_cont_type OR l_accept CS tsrc_soap_mtom_http_cont_type.
+        if_soap_http_transport_binding~set_mtom_accepted( tsoap_true ).
+      ENDIF.
+* Metering via HTTP Header! Extract the information!
+      IF m_ctx IS BOUND.
+        DATA: l_rt_protocol   TYPE REF TO if_soap_runtime_protocol.
+        l_rt_protocol ?= m_ctx->get_runtime_protocol( ).
+        l_rt_protocol->get_metering_http_hdr( m_request ).
+      ENDIF.
+
+    WHEN OTHERS.
+      srt_throw_soap_core_usage 5.
+  ENDCASE.
+
+******* if the content type is ok but the HTTP Body is empty
+  entity->get_data_length( importing data_length = l_body_length ).
+  IF l_body_length = 0.
+    CALL METHOD me->set_error
+      EXPORTING
+        entity    = entity
+        value     = l_value
+        use_case  = tsrc_err_empty_http_body
+      IMPORTING
+        errortext = l_errstr
+        errorcode = l_errcode.
+    srt_raise_soap_core_text 6 l_errcode l_errstr.
+  ENDIF.
+
+  "-1-check if MTOM will be enabled or not
+  if_soap_http_transport_binding~set_mtom_enabled( tsoap_false ).
+
+  IF l_value CS tsrc_soap_mtom_http_cont_type. " OR l_accept CS tsrc_soap_mtom_http_cont_type.
+    "If MTOM is enabled parse the Multy-Part Content type and set the message Mime Type
+    if_soap_http_transport_binding~set_mtom_enabled( tsoap_true ).
+    cl_mime_type_parser=>parse(
+      EXPORTING
+        mime_type = l_value
+      IMPORTING
+        type      = l_type
+        subtype   = l_subtype
+        parameter = l_parameters
+    ).
+
+    IF if_soap_http_transport_binding=>co_soap_sender EQ m_node_type.
+      srt_assert_ref_bound m_soap_res_msg 7.
+      m_soap_res_msg->set_mime_type( type = l_type subtype = l_subtype parameters = l_parameters ).
+    ELSEIF if_soap_http_transport_binding=>co_soap_receiver EQ m_node_type.
+      srt_assert_ref_bound m_soap_req_msg 8.
+      m_soap_req_msg->set_mime_type( type = l_type subtype = l_subtype parameters = l_parameters ).
+    ENDIF.
+  ENDIF.
+
+* -2b- Test Case (for Consumer and Provider)
+  CLEAR l_value.
+  l_value = entity->get_header_field( if_soap_http_transport_binding~co_http_hdr_test_case ).
+  IF NOT l_value IS INITIAL.
+    cl_soap_test_case=>deserialize( l_value ).
+  ENDIF.
+
+ENDMETHOD. "-- GET_HTTP_HEADERS
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_SOAP_HTTP_TPBND_ROOT->GET_SOAP_FAULT_FRAGMENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] HTTP_RESPONSE                  TYPE REF TO IF_HTTP_RESPONSE
+* | [--->] HTTP_ERROR_TEXT                TYPE        STRING
+* | [<---] FAULT_FRAGMENT                 TYPE        XSTRING
+* | [<---] HTML_ERROR_PAGE                TYPE        STRING
+* | [<---] FAULT_STRING                   TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_soap_fault_fragment.
+
+  SET EXTENDED CHECK OFF.                            "#EC CI_USE_WANTED
+
+  CONSTANTS: co_fault_beg     TYPE string VALUE '<SOAP_FAULT>',
+             co_fault_end     TYPE string VALUE '</SOAP_FAULT>',
+             co_no_fault_text TYPE string VALUE 'No faultstring available',
+             co_html_received TYPE string VALUE 'HTML error page received',
+             co_http_error    TYPE string VALUE 'HTTP_ERROR_TEXT',
+             co_html_page     TYPE string VALUE 'HTML_ERROR_PAGE',
+             co_http_loc      TYPE string VALUE 'HTTP_REDIRECT_LOCATION'.
+
+  SET EXTENDED CHECK ON.                             "#EC CI_USE_WANTED
+
+  DATA: l_part_no       TYPE i,
+        l_num_parts     TYPE i,
+        l_content_type  TYPE string,
+        lv_location     TYPE string,
+        l_payload       TYPE xstring,
+        l_http_entity   TYPE REF TO if_http_entity.
+
+* Get Payload
+  l_num_parts = http_response->num_multiparts( ).
+  IF l_num_parts = 0.
+    l_payload = http_response->get_data( ).
+  ELSE.
+    l_part_no = 1.
+    l_http_entity = http_response->get_multipart( l_part_no ).
+    l_payload = l_http_entity->get_data( ).
+  ENDIF.
+
+* Check HTML Error Page
+  l_content_type = http_response->get_header_field( if_http_header_fields=>content_type ).
+  lv_location    =  http_response->get_header_field( if_http_header_fields=>location ).
+  IF l_payload IS NOT INITIAL AND
+     l_content_type CS tsrc_wsdl_er_http_content_type.
+    cl_soap_xml_helper=>transform_to_xml(
+      EXPORTING
+        tag_name = co_http_error
+        data     = http_error_text
+      CHANGING
+        xml      = fault_fragment
+    ).
+    html_error_page = cl_soap_xml_helper=>xstring_to_string( input = l_payload ).
+    cl_soap_xml_helper=>transform_to_xml(
+      EXPORTING
+        tag_name = co_html_page
+        data     = co_html_received
+      CHANGING
+        xml      = fault_fragment
+    ).
+    if lv_location is not initial.
+      cl_soap_xml_helper=>transform_to_xml(
+        exporting
+          tag_name = co_http_loc
+          data     = lv_location
+        changing
+          xml      = fault_fragment
+      ).
+    endif.
+    EXIT.
+  ENDIF.
+
+* Standard Error Info if Response is empty
+  IF l_payload IS INITIAL.
+    CLEAR fault_string.
+    cl_soap_xml_helper=>transform_to_xml(
+      EXPORTING
+        tag_name = co_http_error
+        data     = http_error_text
+      CHANGING
+        xml      = fault_fragment
+    ).
+    cl_soap_xml_helper=>transform_to_xml(
+      EXPORTING
+        tag_name = co_fault_beg
+        data     = co_no_fault_text
+      CHANGING
+        xml      = fault_fragment
+    ).
+  ELSE.
+
+* Get Error Info from SOAP Fault
+    cl_soap_util=>get_info_from_soap_fault(
+      IMPORTING
+        error_text     = fault_string
+        fault_fragment = fault_fragment
+      CHANGING
+        payload        = l_payload
+    ).
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->HANDLE_ERROR_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SUBRC                       TYPE        SYSUBRC
+* | [<---] EV_ICFERROREXC                 TYPE        STRING
+* | [<---] EV_T100_TEXT                   TYPE        STRING
+* | [<---] EV_HTTP_CLASS                  TYPE        TADIR-OBJ_NAME
+* | [<---] EV_T100_AREA                   TYPE        ARBGB
+* | [<---] EV_T100_MSGNO                  TYPE        MSGNR
+* | [<---] EV_RETRY                       TYPE        BOOLEAN
+* | [<-->] CV_ICFERRORMSG                 TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method handle_error_client.
+    data lv_errcode type sysubrc.
+
+    ev_retry = abap_false.
+    ev_t100_area  = 'SRT_CORE'.                             "#EC NOTEXT
+    ev_http_class = 'CL_HTTP_CLIENT'.                       "#EC NOTEXT
+    case iv_subrc.
+      when 1.
+        ev_icferrorexc = 'HTTP COMMUNICATION FAILURE'.      "#EC NOTEXT
+        ev_t100_msgno = 111.
+        message e111(srt_core) into ev_t100_text.
+        ev_retry = tsoap_true.
+      when 2.
+        ev_icferrorexc = 'INVALID HTTP STATE'.              "#EC NOTEXT
+        ev_t100_msgno = 112.
+        message e112(srt_core) into ev_t100_text.
+        ev_retry = tsoap_false.
+      when 3.
+        ev_icferrorexc = 'HTTP PROCESSING FAILED'.          "#EC NOTEXT
+        ev_t100_msgno = 113.
+        message e113(srt_core) into ev_t100_text.
+        ev_retry = tsoap_false.
+      when 4.
+        ev_icferrorexc = 'INVALID HTTP TIMEOUT'.            "#EC NOTEXT
+        ev_t100_msgno = 105.
+        message e105(srt_core) into ev_t100_text.
+        ev_retry = tsoap_true.
+      when others.
+        ev_icferrorexc = 'UNKNOWN ERROR'.                   "#EC NOTEXT
+        ev_t100_msgno = 105.
+        message e105(srt_core) into ev_t100_text.
+        ev_retry = tsoap_false.
+    endcase.
+
+    if m_client is bound.
+      clear cv_icferrormsg.
+      call method m_client->get_last_error
+        importing
+          code           = lv_errcode
+          message        = cv_icferrormsg
+          message_class  = data(lv_t100_area)
+          message_number = data(lv_t100_msgno).
+      cv_icferrormsg = cl_http_utility=>if_http_utility~unescape_url( escaped = cv_icferrormsg ).
+
+      if sy-subrc = 0 and lv_t100_area is not initial and lv_t100_msgno is not initial.
+        ev_t100_area  = lv_t100_area.
+        ev_t100_msgno = lv_t100_msgno.
+        message id ev_t100_area type 'E' number ev_t100_msgno into ev_t100_text.
+        " consumer retry not supported in 7.40
+*          if lv_errcode = 402. "timeout
+*            ev_retry = tsoap_true.
+*          else.
+*            ev_retry = tsoap_false.
+*          endif.
+      elseif cv_icferrormsg = 'ICM_HTTP_TIMEOUT'.
+        ev_t100_msgno = 114.
+        message e114(srt_core) into ev_t100_text.
+*      " consumer retry not supported in 7.40 ev_retry = tsoap_true.
+      endif.
+    endif.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->HANDLE_RECEIVE_ERROR_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SUBRC                       TYPE        SYSUBRC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method handle_receive_error_client.
+    data:
+      icferrorexc           type string,
+      icferrormsg           type string,
+      icferrortxt           type string,
+      l_t100_text           type string,                    "#EC NEEDED
+      l_http_class          type tadir-obj_name,
+      l_t100_area           type arbgb,
+      l_t100_msgno          type msgnr,
+      l_retry               type boolean,
+      l_pctrl               type ref to if_set_luw_processing_info,
+      lv_subrc              type sysubrc,
+      lv_msg_id             TYPE guid_32.
+
+    srt_init_errorhandling  'HANDLE_RECEIVE_ERROR_CLIENT'.  "#EC NOTEXT
+
+    lv_subrc  = iv_subrc.
+    lv_msg_id = m_ctx->m_request_id.
+
+    if lv_subrc <> 0.
+      handle_error_client(
+        exporting
+          iv_subrc = lv_subrc
+        importing
+          ev_icferrorexc = icferrorexc
+          ev_http_class  = l_http_class
+          ev_t100_text   = l_t100_text
+          ev_t100_area   = l_t100_area
+          ev_t100_msgno  = l_t100_msgno
+          ev_retry       = l_retry
+        changing
+          cv_icferrormsg = icferrormsg ).
+
+      icferrortxt = 'ICF Error when receiving the response:'. "#EC NOTEXT
+      if not icferrormsg is initial.
+        icferrortxt = icferrormsg.
+      else.
+        concatenate icferrortxt icferrorexc into icferrortxt separated by space.
+      endif.
+* Write an Error Log entry
+      cl_soap_util=>log_write(
+        exporting
+          main_entry    = 'X'
+          error_info    = icferrortxt
+          short_text    = l_t100_text
+          t100_area     = l_t100_area
+          t100_msgno    = l_t100_msgno
+          soap_context  = m_ctx
+          non_srt_class = l_http_class
+      ).
+* Functional Trace Error if required
+      if cl_soap_util=>m_func_trace_level is not initial.
+        cl_soap_util=>trace_http_error(
+          exporting
+            call_type     = if_soap_util_constants=>trace_type_response
+            error_message = l_t100_text
+            destination   = m_dest
+        ).
+      endif.
+
+      cl_soap_ral_adapter_manager=>write_tech_error( iv_msg_id = lv_msg_id iv_error_msg = icferrortxt ).
+
+* check if call should be run into automatical retry mode. Allow consumer retry only for:
+* "Remote calls: IDoc, PS, WSRM create and WSRM message
+      if l_retry = tsoap_true and cl_soap_sector=>get_sector( ) = '2'.
+        l_pctrl = cl_soap_messaging_factory=>create_scd_luw_process_control( ).
+        l_pctrl->set_retry_luw( if_soap_seq_scd_const=>c_bgrfc_max_retry ).
+        srt_raise_soap_core_retry tsoap_core_consumer tsoap_http_error l_pctrl.
+      else.
+        srt_throw_soap_core_text 1 tsoap_eicf_error icferrortxt. "#EC NOTEXT
+      endif.
+    endif.
+
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->HANDLE_RECEIVE_HTTP_RET_CODE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] EV_HTTP_CODE                   TYPE        CHAR10
+* | [<---] EV_ERROR_STRING                TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD handle_receive_http_ret_code .
+
+  srt_init_errorhandling  'HANDLE_STATUS_CODE'.             "#EC NOTEXT
+
+  DATA: httpcode    TYPE i.
+  DATA: httpreason  TYPE string.
+  DATA: trace       TYPE string.
+  DATA: rcode(10)   TYPE c.
+
+  DATA: l_short_text       TYPE string,
+        l_t100_text        TYPE string,                     "#EC NEEDED
+        l_t100_area        TYPE arbgb,
+        l_t100_msgno       TYPE msgnr,
+        lx_error_info      TYPE xstring,
+        l_html_error_page  TYPE string,
+        l_prepare_only     TYPE xsdboolean,
+        l_fault_string     TYPE string,
+        l_sector_no        TYPE char1,
+        l_error_category   TYPE string.
+
+* -0- checks
+  srt_assert_ref_bound m_response 1.
+
+* -1- get/analyse status code
+  CALL METHOD m_response->get_status
+    IMPORTING
+      code   = httpcode
+      reason = httpreason.
+
+  WRITE httpcode TO rcode LEFT-JUSTIFIED.
+  CONCATENATE 'Received return code' rcode '(' httpreason ')'
+      INTO trace SEPARATED BY space.                        "#EC NOTEXT
+
+  IF rcode >= '300' AND rcode <= '599'.
+
+* Map HTTP Status Code to T100 Error Id
+    l_t100_area  = 'SRT_CORE'.                              "#EC NOTEXT
+    CASE rcode.
+      WHEN '301'.
+        l_t100_msgno     = 127.
+        MESSAGE e127(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_configuration.
+      WHEN '302'.
+        l_t100_msgno     = 127.
+        MESSAGE e127(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_configuration.
+      WHEN '307'.
+        l_t100_msgno     = 127.
+        MESSAGE e127(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_configuration.
+      WHEN '401'.
+        l_t100_msgno     = 121.
+        MESSAGE e121(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_configuration.
+      WHEN '403'.
+        l_t100_msgno     = 124.
+        MESSAGE e124(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_configuration.
+      WHEN '404'.
+        l_t100_msgno     = 125.
+        MESSAGE e125(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_configuration.
+      WHEN '415'.
+        l_t100_msgno     = 126.
+        MESSAGE e126(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_communication.
+      WHEN '500'.
+        l_t100_msgno     = 122.
+        MESSAGE e122(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_server_system.
+      WHEN OTHERS.
+        l_t100_msgno     = 123.
+        MESSAGE e123(srt_core) INTO l_t100_text.
+        l_error_category = if_soap_util_constants=>category_communication.
+    ENDCASE.
+
+* Prepare Error Info
+    CONCATENATE 'HTTP Code:' rcode '(' httpreason ')'
+      INTO l_short_text SEPARATED BY space.                 "#EC NOTEXT
+    get_soap_fault_fragment(
+      EXPORTING
+        http_response   = m_response
+        http_error_text = httpreason
+      IMPORTING
+        fault_fragment  = lx_error_info
+        html_error_page = l_html_error_page
+        fault_string    = l_fault_string
+    ).
+
+* Immediate write an Error Log in following cases
+*   - No FaultString
+*   - HTML Error Pag existing
+*   - Sector 2
+* Otherwise: Just prepare and save log entry within Observer-Part later
+    cl_soap_util=>get_sector_attributes(
+      IMPORTING
+        sector_no = l_sector_no
+    ).
+    IF l_fault_string IS INITIAL         OR
+       l_html_error_page IS NOT INITIAL  OR
+       l_sector_no = if_soap_util_constants=>rm_sender.
+      CLEAR l_prepare_only.
+    ELSE.
+      l_prepare_only = 'X'.
+    ENDIF.
+
+* If existing, use Fault String as Short Text
+    IF l_fault_string IS NOT INITIAL.
+      l_short_text = l_fault_string.
+    ENDIF.
+    cl_soap_util=>log_set_error_category( category = l_error_category ).
+    srt_util_set_error_location.
+    cl_soap_util=>log_write(
+      EXPORTING
+        main_entry      = 'X'
+        error_info_xml  = lx_error_info
+        short_text      = l_short_text
+        t100_area       = l_t100_area
+        t100_msgno      = l_t100_msgno
+        soap_context    = m_ctx
+        html_error_page = l_html_error_page
+        prepare_only    = l_prepare_only
+        http_client     = m_client
+        http_prot       = m_url_prot
+        http_host       = m_url_host
+        http_port       = m_url_port
+        http_uri        = m_url_path
+        proxy_host      = m_proxy_host
+        proxy_port      = m_proxy_port
+        proxy_user      = m_proxy_user
+    ).
+
+    srt_trc_lvl_errhndl_stat_error trace.
+    cl_soap_runtime_error=>save_fault_string( lx_error_info ).
+
+* PING Extension
+    IF if_soap_http_transport_binding~co_ping_state_on EQ 'X'. " check if ping is set
+      DATA: lv_code TYPE string,
+            lx_ping TYPE REF TO cx_soap_ping_call.
+      lv_code = httpcode.
+*     create ping exception
+      CREATE OBJECT lx_ping
+        EXPORTING
+          textid       = cx_soap_ping_call=>co_t100_173
+          g_error_code = lv_code
+          g_error_txt  = httpreason.
+*     raise ping exception via soap core exception
+      lx_ping->split_text_into_t100( text = httpreason ).
+      srt_raise_soap_core_prev 2 tsoap_eservice_ping_failed lx_ping.
+    ENDIF.
+
+    ev_http_code = rcode.
+      IF l_t100_text IS NOT INITIAL.
+        ev_error_string = l_t100_text.
+      ELSEIF l_fault_string IS NOT INITIAL.
+        ev_error_string = l_fault_string.
+    ENDIF.
+
+  ELSE.
+    srt_trc_lvl_full_stat_succ trace.                       "#EC NOTEXT
+  ENDIF.
+
+  srt_assert_not_initial httpcode 2.
+  "accept initial HTTP reason (see HTTP 1.1 specification)
+
+  IF httpcode EQ tsrc_soap_11_http_scode_202i AND httpreason EQ tsrc_soap_11_http_sreason_acc.
+    if_soap_http_transport_binding~enable_http_code_accepted( ).
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->HANDLE_SEND_ERROR_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SUBRC                       TYPE        SYSUBRC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method handle_send_error_client.
+
+    data: icferrorexc     type string,
+          icferrormsg     type string,
+          icferrortxt     type string,
+          l_t100_text     type string,                      "#EC NEEDED
+          l_http_class    type tadir-obj_name,
+          l_t100_area     type arbgb,
+          l_t100_msgno    type msgnr,
+          l_retry         type boolean,
+          l_pctrl         type ref to if_set_luw_processing_info,
+          lv_subrc        type sysubrc.
+
+    initerrorhandling send.
+    srt_init_errorhandling  'HANDLE_SEND_ERROR_CLIENT'.     "#EC NOTEXT
+
+    lv_subrc = iv_subrc.
+
+    if lv_subrc <> 0.
+* Prepartion for Error Log
+      handle_error_client(
+        exporting
+          iv_subrc = lv_subrc
+        importing
+          ev_icferrorexc = icferrorexc
+          ev_http_class  = l_http_class
+          ev_t100_text   = l_t100_text
+          ev_t100_area   = l_t100_area
+          ev_t100_msgno  = l_t100_msgno
+          ev_retry       = l_retry
+        changing
+          cv_icferrormsg = icferrormsg ).
+
+      icferrortxt = 'ICF Error when sending the request: '. "#EC NOTEXT
+      if not icferrormsg is initial.
+        concatenate icferrortxt icferrormsg into icferrortxt separated by space.
+      else.
+        concatenate icferrortxt icferrorexc into icferrortxt separated by space.
+      endif.
+* Write an Error Log entry
+      cl_soap_util=>log_write(
+        exporting
+          main_entry    = 'X'
+          error_info    = icferrortxt
+          short_text    = icferrormsg
+          t100_area     = l_t100_area
+          t100_msgno    = l_t100_msgno
+          soap_context  = m_ctx
+          non_srt_class = l_http_class
+          http_client   = m_client
+          http_prot     = m_url_prot
+          http_host     = m_url_host
+          http_port     = m_url_port
+          http_uri      = m_url_path
+          proxy_host    = m_proxy_host
+          proxy_port    = m_proxy_port
+          proxy_user    = m_proxy_user ).
+* Functional Trace Error if required
+      if cl_soap_util=>m_func_trace_level is not initial.
+        cl_soap_util=>trace_http_error(
+          exporting
+            call_type     = if_soap_util_constants=>trace_type_response
+            error_message = l_t100_text
+            destination   = m_dest ).
+      endif.
+
+* check if call should be run into automatical retry mode. Allow consumer retry only for:
+* "Remote calls: IDoc, PS, WSRM create and WSRM message
+      if l_retry = tsoap_true and cl_soap_sector=>get_sector( ) = '2'.
+        l_pctrl = cl_soap_messaging_factory=>create_scd_luw_process_control( ).
+        l_pctrl->set_retry_luw( if_soap_seq_scd_const=>c_bgrfc_max_retry ).
+        srt_raise_soap_core_retry tsoap_core_consumer tsoap_http_error l_pctrl.
+      else.
+        srt_throw_soap_core_text 6 tsoap_eicf_error icferrortxt. "#EC NOTEXT
+      endif.
+    endif.
+  endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_CONFIGURABLE~GET_FEATURE_PROPERTY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] FEATURE                        TYPE        ANYURI
+* | [--->] PROPERTY                       TYPE        ANYURI
+* | [<-()] VALUE                          TYPE        STRING
+* | [!CX!] CX_SOAP_WRONG_ARGUMENT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_CONFIGURABLE~GET_FEATURE_PROPERTY.
+
+* -0- call super
+  TRY.
+    value = SUPER->IF_SOAP_CONFIGURABLE~get_feature_property(
+      FEATURE = feature PROPERTY = property ).
+    IF NOT value IS INITIAL.
+      RETURN.
+    ELSE.
+      "-- not found in superclass, proceed below...
+    ENDIF.
+  CATCH CX_SOAP_WRONG_ARGUMENT.
+    "-- not found in superclass, proceed below...
+  ENDTRY.
+
+* -1- transport binding
+  IF TSRC_FEATURE_URI_TPBND EQ feature.
+
+* -1a- binding id
+    IF TSRC_PROPERTY_URI_TPBND_ID EQ property.
+      value = IF_SOAP_TRANSPORT_BINDING~URI.
+
+* -1b- binding target destination
+    ELSEIF TSRC_PROPERTY_URI_TPBND_DEST EQ property.
+      value = m_dest.
+
+* -1c- binding target URL
+    ELSEIF TSRC_PROPERTY_URI_TPBND_URL EQ property.
+      value = m_url.
+
+* -1d- ...other binding properties go here...
+    ELSE.
+      "-- ...
+    ENDIF.
+
+* -2- ...other features go here...
+  ELSE.
+
+    "-- ...
+  ENDIF.
+
+endmethod. "-- IF_SOAP_CONFIGURABLE~GET_FEATURE_PROPERTY
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_CONFIGURABLE~SET_FEATURE_PROPERTY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] FEATURE                        TYPE        ANYURI
+* | [--->] PROPERTY                       TYPE        ANYURI
+* | [--->] VALUE                          TYPE        STRING
+* | [!CX!] CX_SOAP_WRONG_ARGUMENT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_CONFIGURABLE~SET_FEATURE_PROPERTY.
+
+  srt_init_errorhandling 'IF_SOAP_CONFIGURABLE~SET_FEATURE_PROPERTY'.
+*  SRT_INIT_ERROR_WA 'CL_SOAP_HTTP_TPBND_ROOT'      "obsolete
+*    'IF_SOAP_CONFIGURABLE~set_feature_property'.   "obsolete
+
+  DATA: dest TYPE RFCDEST.
+  DATA: url  TYPE STRING.
+
+* -0- call super to see if feat/prop/val is handled there
+  TRY.
+    CALL METHOD SUPER->IF_SOAP_CONFIGURABLE~set_feature_property(
+      FEATURE = feature PROPERTY = property VALUE = value ).
+    RETURN.
+  CATCH CX_SOAP_WRONG_ARGUMENT.
+    "-- so, it isn't handled in the superclass
+    "   ==> proceed with the feat/prop/vals below
+  ENDTRY.
+
+* -1- transport binding-relevant features
+  IF TSRC_FEATURE_URI_TPBND EQ feature.
+
+* -1a- check/compare binding id
+    IF TSRC_PROPERTY_URI_TPBND_ID EQ property.
+      "-- make sure the URI fits to mine
+      SRT_ASSERT_EQUAL_VALUE value IF_SOAP_TRANSPORT_BINDING~uri 1.
+
+* -1b- set binding target as destination (SM59)
+    ELSEIF TSRC_PROPERTY_URI_TPBND_DEST EQ property.
+      dest = value.
+      CALL METHOD set_client_by_destination( dest ).
+
+* -1c- set binding target as URL
+    ELSEIF TSRC_PROPERTY_URI_TPBND_URL EQ property.
+      url = value.
+      CALL METHOD set_client_by_url( url ).
+
+* -1d- unexpected property -> exception
+    ELSE.
+      SRT_THROW_SOAP_WARG_INVPROP 2.
+    ENDIF.
+
+* -2- session handling not supported here!
+  ELSEIF TSRC_FEATURE_URI_COMSES EQ feature.
+
+    SRT_THROW_SOAP_WARG_INVFEAT 3.
+
+*   >>> never reach sections 2a & 2b >>>
+*   -2a- session mechanism
+    IF TSRC_PROPERTY_URI_COMSES_METH EQ property.
+      IF TSRC_FPVAL_COMSES_METH_COOKS EQ value.
+        "-- ???
+      ELSE.
+        SRT_THROW_SOAP_WARG_INVFPVAL 4.
+      ENDIF.
+*   -2b- enable/disable http session
+    ELSEIF TSRC_PROPERTY_URI_COMSES_ENABL EQ property.
+      IF TSRC_FPVAL_COMSES_ENABL_YES EQ value.
+        "-- ???
+      ELSEIF TSRC_FPVAL_COMSES_ENABL_NO EQ value.
+        "-- ???
+      ELSE.
+        SRT_THROW_SOAP_WARG_INVFPVAL 5.
+      ENDIF.
+    ENDIF.
+*   <<< never reach sections 2a & 2b <<<
+
+* -3- unexpected feature -> exception
+  ELSE.
+    SRT_THROW_SOAP_WARG_INVFEAT 6.
+  ENDIF.
+
+endmethod. "-- IF_SOAP_CONFIGURABLE~SET_FEATURE_PROPERTY
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HIBERNATION~INITIALIZE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_LOCATION                    TYPE        I (default =CO_LOCATION_CLIENT)
+* | [--->] IM_CONTEXT                     TYPE REF TO CL_SOAP_CONTEXT
+* | [--->] IM_SERIAL_VERS                 TYPE        TY_SERIAL_VERS(optional)
+* | [--->] IM_QXSTRINGS                   TYPE        TY_QXSTRINGS(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_hibernation~initialize.
+
+  srt_init_errorhandling  'IF_SOAP_HIBERNATION~INITIALIZE'. "#EC NOTEXT
+
+  DATA: valdest        TYPE rfcdest.
+  DATA: valurl         TYPE string.
+  DATA: lif_config     TYPE REF TO if_srt_wsp_rt_config.
+  DATA: cfgsval        TYPE string.
+  DATA: cfg_values     TYPE srt_rt_values.
+  DATA: cfg_value      TYPE LINE OF srt_rt_values.
+  DATA: l_qname        TYPE qname.
+  DATA: l_name         TYPE string.
+  DATA: lt_features    TYPE srt_rt_properties.
+  DATA: htb            TYPE REF TO if_soap_http_transport_binding.
+  DATA: tb             TYPE REF TO if_soap_transport_binding.
+
+  FIELD-SYMBOLS:
+        <wa_features> TYPE srt_rt_property.
+
+  super->if_soap_hibernation~initialize( im_context = im_context ).
+
+* make sure that we do not run into shortcut processing after hibernation
+  CLEAR m_local_call.
+  CLEAR m_enforce_local_call.
+
+  me->m_ctx = im_context.
+  lif_config ?= m_ctx->config_object.
+
+* ABUF-Transfer on Server: RT_CONFIG not needed
+  IF im_location = cl_soap_application=>co_location_server AND lif_config IS NOT BOUND.
+    EXIT.
+  ENDIF.
+
+* set namespace ( transport-binding )
+  l_qname-namespace = tsrc_feature_uri_tpbnd.
+
+* set destination of transport-binding
+  l_qname-name = tsrc_property_uri_tpbnd_dest.
+  cfg_values = lif_config->get_values_for_property( l_qname ).
+  READ TABLE cfg_values INDEX 1 INTO cfg_value.
+  IF sy-subrc EQ 0.
+    valdest = cfg_value.
+    CALL METHOD me->if_soap_http_transport_binding~set_client_by_destination( valdest ).
+  ENDIF.
+* set destination_p of transport-binding
+  l_qname-name = tsrc_property_uri_tpbnd_dest_p.
+  cfg_values = lif_config->get_values_for_property( l_qname ).
+  READ TABLE cfg_values INDEX 1 INTO cfg_value.
+  IF sy-subrc EQ 0.
+    cfgsval = cfg_value.
+    CALL METHOD me->if_soap_http_transport_binding~set_destination_url_path( cfgsval ).
+  ENDIF.
+* set uri of transport-binding
+  l_qname-name = tsrc_property_uri_tpbnd_url.
+  cfg_values = lif_config->get_values_for_property( l_qname ).
+  READ TABLE cfg_values INDEX 1 INTO cfg_value.
+  IF sy-subrc EQ 0.
+    valurl = cfg_value.
+    CALL METHOD me->if_soap_http_transport_binding~set_client_by_url( valurl ).
+  ENDIF.
+
+************************************************************************************************ new config initialisation
+  tb  ?= me.
+  htb ?= me.
+
+* get protocol version and config
+  l_name      = tsrtp_f_bdg_710.
+  lt_features[] = lif_config->get_config_for_feature( l_name ).
+  IF lt_features[] IS NOT INITIAL.
+    m_feature_uri = l_name.
+  ELSE.
+    l_name = tsrtp_f_bdg.
+    lt_features[] = lif_config->get_config_for_feature( l_name ).
+    IF lt_features[] IS NOT INITIAL.
+      m_feature_uri = l_name.
+    ENDIF.
+  ENDIF.
+
+
+  LOOP AT lt_features ASSIGNING <wa_features>.
+
+* 1 binding uri: check we've got the right one
+    IF tsrc_property_uri_tpbnd_id EQ <wa_features>-name.
+      cfgsval = tb->uri.
+      IF  if_soap_transport_binding=>co_soap_sender EQ m_node_type.
+        srt_assert_equal_value <wa_features>-value cfgsval 11.
+      ENDIF.
+
+* 2 destination (sm59)
+    ELSEIF tsrc_property_uri_tpbnd_dest EQ <wa_features>-name.
+      srt_assert_equal_value m_ctx->location cl_soap_application=>co_location_client 12.
+      valdest = <wa_features>-value.
+      CALL METHOD htb->set_client_by_destination( valdest ).
+
+* 4 destination (sm59) path suffix
+    ELSEIF tsrc_property_uri_tpbnd_dest_p EQ <wa_features>-name.
+      srt_assert_equal_value m_ctx->location cl_soap_application=>co_location_client 13.
+      cfgsval = <wa_features>-value.
+      CALL METHOD htb->set_destination_url_path( cfgsval ).
+
+* 5 destination (url)
+    ELSEIF tsrc_property_uri_tpbnd_url EQ <wa_features>-name.
+      srt_assert_equal_value m_ctx->location cl_soap_application=>co_location_client 14.
+      valurl = <wa_features>-value.
+      CALL METHOD htb->set_client_by_url( valurl ).
+
+* 6 soap action header
+    ELSEIF tsrc_property_uri_tpbnd_action EQ <wa_features>-name.
+      srt_assert_equal_value m_ctx->location cl_soap_application=>co_location_client 15.
+      cfgsval = <wa_features>-value.
+      CALL METHOD htb->set_soap_action( cfgsval ).
+
+    ENDIF.
+
+  ENDLOOP.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HIBERNATION~PREPARE_FOR_DESERIALIZATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_LOCATION                    TYPE        I (default =CO_LOCATION_CLIENT)
+* | [--->] IM_PART                        TYPE REF TO IF_SXMLP_PART(optional)
+* | [--->] IM_PERSIST_HEADER              TYPE REF TO IF_SOAP_PERSIST_HEADER(optional)
+* | [--->] IM_SERIAL_VERS                 TYPE        TY_SERIAL_VERS(optional)
+* | [--->] IM_QXSTRINGS                   TYPE        TY_QXSTRINGS(optional)
+* | [<-()] RE_PART                        TYPE REF TO IF_SXMLP_PART
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_hibernation~prepare_for_deserialization.
+* fill  part in super method
+  CALL METHOD super->if_soap_hibernation~prepare_for_deserialization.
+* fill part in local fill_part method
+  CALL METHOD fill_part.
+  re_part = m_xml_listpart.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HIBERNATION~PREPARE_FOR_SERIALIZATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_LOCATION                    TYPE        I (default =CO_LOCATION_CLIENT)
+* | [--->] IM_PART                        TYPE REF TO IF_SXMLP_PART(optional)
+* | [--->] IM_PERSIST_HEADER              TYPE REF TO IF_SOAP_PERSIST_HEADER(optional)
+* | [<---] EX_QXSTRINGS                   TYPE        TY_QXSTRINGS
+* | [<---] RE_PART                        TYPE REF TO IF_SXMLP_PART
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_hibernation~prepare_for_serialization.
+* fill  part in super method
+  CALL METHOD super->if_soap_hibernation~prepare_for_serialization.
+*   fill  part in local fill_part method
+  CALL METHOD fill_part.
+  re_part = m_xml_listpart.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~DISABLE_SESSION
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~disable_session.
+
+  srt_init_errorhandling 'IF_SOAP_HTTP_TRANSPORT_BINDING~disable_session'.
+  srt_init_error_area.
+
+  srt_util_perf_start 'Disable_Session'.                    "#EC NOTEXT
+
+  DATA: ls_operation  TYPE qname.
+
+* -0- check
+  srt_assert_equal_value co_sessmeth_cookie m_session_method 1.
+  IF co_sesstate_on NE m_session_state.
+    srt_util_perf_end.
+    RETURN. "-- no session in place, exiting...
+  ENDIF.
+
+* -1- cookie handling
+
+* -1a- on client side, disable cookie reception, clear cookie
+  IF co_soap_sender EQ m_node_type.
+
+*   New Logon necessary when using Cofniguration and not destination
+    IF m_used_config IS NOT INITIAL.
+      m_client->close( ).
+      CLEAR m_client.
+      cl_soap_util=>set_http_instance( http_client = m_client ).
+    ELSE.
+      IF m_client IS BOUND.
+        m_client->propertytype_accept_cookie = m_client->co_disabled.
+        CALL METHOD m_client->refresh_cookie
+          EXCEPTIONS
+            http_action_failed     = 1
+            http_processing_failed = 2
+            OTHERS                 = 3.
+        IF 0 NE sy-subrc.
+          srt_throw_soap_core 3 tsoap_eicf_error.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+* -1b- on server side, generate/remove session cookie
+  ELSEIF co_soap_receiver EQ m_node_type.
+
+    srt_assert_ref_bound m_server 3.
+    m_server->set_session_stateful(
+      stateful = if_http_server=>co_disabled
+      "-- PATH = '/sap/bc/srt/... need to be specified?
+      ).
+
+* Set Operation for Payload Trace if active
+    IF cl_soap_util=>m_pload_trace_level IS NOT INITIAL.
+      ls_operation-name      = 'Disable_Session'.           "#EC NOTEXT
+      ls_operation-namespace = tsrc_soap_session_protocol.
+      m_ctx->set_called_operation_new( im_operation = ls_operation ).
+    ENDIF.
+
+  ENDIF.
+
+* -2- update members
+  m_session_state = co_sesstate_off.
+
+  srt_util_perf_end.
+
+ENDMETHOD. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~DISABLE_SESSION
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_HTTP_CODE_ACCEPTED
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_HTTP_CODE_ACCEPTED.
+
+    m_ctx->IF_SOAP_CONTEXT~ENABLE_HTTP_CODE_ACCEPTED( ).
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_IGNORE_RESPONSE_BODY
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~enable_ignore_response_body.
+
+  mv_ignore_response_body = abap_true.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_LOCAL_CALL
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~enable_local_call.
+
+  DATA l_value TYPE srt_test_enviro-value.
+
+  l_value = cl_soap_test_environment=>get_value_by_name(
+               testuser = sy-uname
+               component = 'SOAP_TEST'
+               subcomponent = 'SUPPRESS_SHORTCUT'
+               name = space ).
+
+  IF l_value IS INITIAL.
+    m_local_call = tsoap_true.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_SESSION
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~enable_session.
+
+  srt_init_errorhandling 'IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_SESSION'.
+
+  srt_util_perf_start 'Enable_Session'.                     "#EC NOTEXT
+
+* -0- checks
+  srt_assert_equal_value co_sessmeth_cookie m_session_method 1.
+  IF co_sesstate_on EQ m_session_state.
+    "-- session already in place, quitting...
+    srt_util_perf_end.
+    RETURN.
+  ENDIF.
+
+* -1- cookie handling
+
+* -1a- on client side, enable cookie reception
+  IF co_soap_sender EQ m_node_type.
+
+    IF m_client IS BOUND.
+      m_client->propertytype_accept_cookie = m_client->co_enabled.
+    ENDIF.
+
+* -1b- on server side, generate session cookie
+  ELSEIF co_soap_receiver EQ m_node_type.
+
+    srt_assert_ref_bound m_server 3.
+
+*   Get Request URI & Assign to this HTTP connection
+    m_server->set_session_stateful(
+      stateful = if_http_server=>co_enabled
+      path     = m_server->request->if_http_entity~get_header_field( if_http_header_fields_sap=>path_translated )
+      ).
+
+  ENDIF.
+
+* -2- update member
+  m_session_state = co_sesstate_on.
+
+  srt_util_perf_end.
+
+ENDMETHOD. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~ENABLE_SESSION
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~ENFORCE_LOCAL_CALL
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~enforce_local_call.
+
+  m_enforce_local_call = tsoap_true.
+  m_enforce_non_local_call = tsoap_false.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~ENFORCE_NON_LOCAL_CALL
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~enforce_non_local_call.
+
+  m_enforce_non_local_call = tsoap_true.
+  m_enforce_local_call = tsoap_false.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_BXML
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RE_ENABLED                     TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_bxml.
+
+  re_enabled = m_ctx->if_soap_context~is_binary_xml_enabled( ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] CLIENT                         TYPE REF TO IF_HTTP_CLIENT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~GET_CLIENT.
+
+  client = m_client.
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~GET_CLIENT
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_HTTP_CODE_ACCEPTED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] E_HTTP_CODE_ACCEPTED           TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~GET_HTTP_CODE_ACCEPTED.
+
+  e_http_code_accepted = m_ctx->IF_SOAP_CONTEXT~GET_HTTP_CODE_ACCEPTED( ).
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_IGNORE_RESPONSE_BODY
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_IGNORE_RESPONSE_BODY        TYPE        XSDBOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_ignore_response_body.
+
+  rv_ignore_response_body = mv_ignore_response_body.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_LOCAL_CALL_FOR_NEW_SEQ
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] LOCAL_CALL_ENABLED             TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~GET_LOCAL_CALL_FOR_NEW_SEQ.
+
+  local_call_enabled = m_local_call.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_LOCAL_CALL_FOR_PROCESSING
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] LOCAL_CALL_ENABLED             TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD IF_SOAP_HTTP_TRANSPORT_BINDING~GET_LOCAL_CALL_FOR_PROCESSING.
+
+  IF m_enforce_local_call = tsoap_true.
+    local_call_enabled = tsoap_true.
+  ELSEIF m_enforce_non_local_call = tsoap_true.
+    local_call_enabled = tsoap_false.
+  ELSE.
+    local_call_enabled = m_local_call.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_LOGON_LANGUAGE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] LANGUAGE                       TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_logon_language.
+
+  DATA l_iso_language TYPE t002-laiso.
+
+  IF m_logon_language IS INITIAL.
+
+    CALL FUNCTION 'LANGUAGE_CODE_SAP_TO_ISO'
+      EXPORTING
+        sap_code = sy-langu
+      IMPORTING
+        iso_code = l_iso_language
+      EXCEPTIONS
+        OTHERS   = 1.
+
+    IF sy-subrc = 0.
+      m_logon_language = l_iso_language.
+      TRANSLATE m_logon_language TO LOWER CASE.             "#EC NOTEXT
+    ELSE.
+      m_logon_language = tsrtp_f_bdg_url_language_none.
+    ENDIF.
+
+  ENDIF.
+
+  language = m_logon_language.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_MTOM_ACCEPTED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] E_MTOM_ACCEPTED                TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_mtom_accepted.
+
+  e_mtom_accepted = m_ctx->if_soap_context~get_mtom_accepted( ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_MTOM_ENABLED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] E_MTOM_ENABLED                 TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_mtom_enabled.
+  e_mtom_enabled = m_ctx->get_mtom_enabled( ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_PING_ENABLED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] PING_ENABLED                   TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~GET_PING_ENABLED.
+  ping_enabled = IF_SOAP_HTTP_TRANSPORT_BINDING~co_ping_state_on.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_SAP_LOGON_LANGUAGE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] LANGUAGE                       TYPE        SYLANGU
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_sap_logon_language.
+
+  DATA:
+    l_language       TYPE string,
+    l_iso_language   TYPE t002-laiso.
+
+  IF m_sap_logon_language IS INITIAL.
+
+    l_language = me->if_soap_http_transport_binding~get_logon_language( ).
+
+    IF NOT l_language IS INITIAL AND l_language NE tsrtp_f_bdg_url_language_none.
+
+      l_iso_language = l_language.
+
+      CALL FUNCTION 'LANGUAGE_CODE_ISO_TO_SAP'
+        EXPORTING
+          iso_code = l_iso_language
+        IMPORTING
+          sap_code = m_sap_logon_language
+        EXCEPTIONS
+          OTHERS   = 1.
+
+      IF sy-subrc <> 0.
+        CLEAR m_sap_logon_language.
+      ENDIF.
+
+    ENDIF.
+
+  ENDIF.
+
+  language = m_sap_logon_language.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_SERVER
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] SERVER                         TYPE REF TO IF_HTTP_SERVER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~GET_SERVER.
+
+  server = m_server.
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~GET_SERVER
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_SOAP_ACTION
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] SOAP_ACTION                    TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_soap_action.
+  soap_action = m_soapaction.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~GET_XOP_ATTACHM_CREATED
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] XOP_CREATED                    TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~get_xop_attachm_created.
+  xop_created = m_ctx->get_xop_attachm_created( ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_BXML
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IM_ENABLE                      TYPE        BOOLEAN (default =TSOAP_FALSE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~set_bxml.
+
+  IF im_enable EQ tsoap_true.
+    m_ctx->if_soap_context~enable_binary_xml( ).
+  ELSE.
+    m_ctx->if_soap_context~disable_binary_xml( ).
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] CLIENT                         TYPE REF TO IF_HTTP_CLIENT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT.
+
+  srt_init_errorhandling 'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT'.
+*  SRT_INIT_ERROR 'CL_SOAP_HTTP_TPBND_ROOT'               "obsolete
+*    'IF_SOAP_HTTP_TRANSPORT_BINDING~set_client'.         "obsolete
+
+* -0- checks
+  SRT_ASSERT_REF_BOUND client 1.
+  SRT_ASSERT_REF_BOUND client->request 2.
+  SRT_ASSERT_REF_BOUND client->response 3.
+
+* -1- set members
+  m_client    = client.
+  m_request   = m_client->request.
+  m_response  = m_client->response.
+  m_node_type = IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_SENDER.
+
+  CLEAR: m_dest,
+         m_dest_path,
+         m_url.
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_DESTINATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] DESTINATION                    TYPE        RFCDEST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method if_soap_http_transport_binding~set_client_by_destination.
+  srt_init_errorhandling 'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_DESTINATION'."#EC NOTEXT
+
+
+*  srt_set_class_method 'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_DESTINATION'."#EC NOTEXT "obsolete
+*  srt_init_error 'CL_SOAP_HTTP_TPBND_ROOT'                                     "obsolete
+*    'IF_SOAP_HTTP_TRANSPORT_BINDING~set_client_by_destination'."#EC NOTEXT     "obsolete
+*  srt_trace_prepare 'SOAP HTTP Binding'.                    "#EC NOTEXT "obsolete
+  data: srt_trc_dummy1      type string.
+  data: icferrorexc type string.
+  data: icferrormsg type string.
+  data: icferrortxt type string.
+
+  srt_trc_dummy1 = destination.
+  concatenate 'Set DESTINATION for HTTP client = ' srt_trc_dummy1 into srt_trc_dummy1 separated by space."#EC NOTEXT
+  srt_trc_lvl_full_stat_succ srt_trc_dummy1.                "#EC NOTEXT
+
+* -0- checks
+  srt_assert_not_initial destination 1.
+
+* -1- create ICF client and update members
+  m_dest = destination.
+
+  m_node_type = if_soap_transport_binding=>co_soap_sender.
+
+  clear: m_url.
+
+  srt_trc_lvl_full_stat_succ 'ICF Client created by DESTINATION'."#EC NOTEXT
+
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_DESTINATION
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_URL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] URL                            TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method if_soap_http_transport_binding~set_client_by_url.
+  srt_init_errorhandling  'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_URL'."#EC NOTEXT
+
+*  srt_set_class_method 'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_URL'."#EC NOTEXT "obsolete
+*  srt_init_error 'CL_SOAP_HTTP_TPBND_ROOT'                                 "obsolete
+*    'IF_SOAP_HTTP_TRANSPORT_BINDING~set_client_by_url'.     "#EC NOTEXT    "obsolete
+*  srt_trace_prepare 'SOAP HTTP Binding'.                    "#EC NOTEXT "obsolete
+  data: srt_trc_dummy1 type string.
+  data: icferrorexc type string.
+  data: icferrormsg type string.
+  data: icferrortxt type string.
+
+  concatenate 'Set Url for HTTP client = ' url into srt_trc_dummy1 separated by space."#EC NOTEXT
+  srt_trc_lvl_full_stat_succ srt_trc_dummy1.                "#EC NOTEXT
+
+* -0- check
+  srt_assert_not_initial url 1.
+
+* -1- create ICF client and update members
+  m_url = url.
+
+  m_node_type = if_soap_transport_binding=>co_soap_sender.
+
+  clear: m_dest,
+         m_dest_path.
+
+  srt_trc_lvl_full_stat_succ  'ICF Client created by URL'.  "#EC NOTEXT
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_CLIENT_BY_URL
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_DESTINATION_URL_PATH
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] PATH                           TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method if_soap_http_transport_binding~set_destination_url_path.
+  srt_init_errorhandling  'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_DESTINATION_URL_PATH'."#EC NOTEXT
+
+*  srt_set_class_method 'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_DESTINATION_URL_PATH'."#EC NOTEXT "obsolete
+*  srt_trace_prepare 'SOAP HTTP Binding'.                                         "#EC NOTEXT "obsolete
+
+  data: trace type string.
+
+  concatenate 'Set DESTINATION PATH =' path into trace separated by space."#EC NOTEXT
+  srt_trc_lvl_full_stat_succ trace.                         "#EC NOTEXT
+
+  m_dest_path = path.
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_DESTINATION_URL_PATH
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_FORM_FIELD
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] NAME                           TYPE        STRING
+* | [--->] VALUE                          TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~SET_FORM_FIELD.
+
+   data:
+    ls_form_field like LINE OF m_form_fields.
+
+  ls_form_field-name  = name.
+  ls_form_field-value = value.
+  insert ls_form_field into table m_form_fields.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_LOGON_LANGUAGE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LANGUAGE                       TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~set_logon_language.
+
+  m_logon_language = language.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_MTOM_ACCEPTED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_MTOM_ACCEPTED                TYPE        BOOLEAN (default =TSOAP_FALSE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~set_mtom_accepted.
+
+  m_ctx->set_mtom_accepted( i_mtom_accepted ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_MTOM_ENABLED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_MTOM_ENABLED                 TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~SET_MTOM_ENABLED.
+  m_ctx->SET_MTOM_ENABLED( i_mtom_enabled ).
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_PING_ENABLED
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~SET_PING_ENABLED.
+  IF_SOAP_HTTP_TRANSPORT_BINDING~co_ping_state_on = 'X'.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SERVER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] SERVER                         TYPE REF TO IF_HTTP_SERVER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SERVER.
+
+  srt_init_errorhandling 'IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SERVER'.
+*  SRT_INIT_ERROR 'CL_SOAP_HTTP_TPBND_ROOT'          "obsolete
+*    'IF_SOAP_HTTP_TRANSPORT_BINDING~set_server'.    "obsolete
+
+* -0- check
+  SRT_ASSERT_REF_BOUND server 1.
+  SRT_ASSERT_REF_BOUND server->request 2.
+  SRT_ASSERT_REF_BOUND server->response 3.
+
+* -1- update member
+  m_server = server.
+  m_request = m_server->request.
+  m_response = m_server->response.
+  m_node_type = IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_RECEIVER.
+
+  CLEAR: m_dest,
+         m_dest_path,
+         m_url,
+         m_soapaction.
+  m_enable_soapaction = TSOAP_FALSE.
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SERVER
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SESSION_METHOD
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] METH                           TYPE        I (default =CO_SESSMETH_COOKIE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SESSION_METHOD.
+
+* -check for supported value
+  IF CO_SESSMETH_NONE EQ meth
+  OR CO_SESSMETH_COOKIE EQ meth.
+    m_session_method = meth.
+  ENDIF.
+
+endmethod. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SESSION_METHOD
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SOAP_ACTION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] URI                            TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~set_soap_action.
+  DATA: l_uri TYPE string.
+
+  srt_init_errorhandling 'IF_SOAP_CONFIGURABLE~INIT_FOR_OPERATION'.
+  srt_assert_equal_value m_ctx->location cl_soap_application=>co_location_client 1.
+
+  IF uri CP '"*"'.
+    l_uri = uri.
+  ELSE.
+    CONCATENATE '"' uri '"' INTO l_uri.
+  ENDIF.
+
+  m_soapaction = l_uri.
+
+  m_enable_soapaction = tsoap_true.
+
+ENDMETHOD. "-- IF_SOAP_HTTP_TRANSPORT_BINDING~SET_SOAP_ACTION
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_HTTP_TRANSPORT_BINDING~SET_XOP_ATTACHM_CREATED
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] XOP_CREATED                    TYPE        BOOLEAN
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_http_transport_binding~set_xop_attachm_created.
+  m_ctx->set_xop_attachm_created( xop_created ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_TRANSPORT_BINDING~INIT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] NODE_TYPE                      TYPE        I (default =0)
+* | [--->] CONTEXT                        TYPE REF TO CL_SOAP_CONTEXT
+* | [--->] IS_SOAP_TRANSITION             TYPE        BOOLEAN (default =ABAP_FALSE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_transport_binding~init.
+
+  initerrorhandling if_soap_transport_binding~init.
+  srt_init_errorhandling 'IF_SOAP_TRANSPORT_BINDING~init'.
+
+  DATA: trctx              TYPE REF TO if_soap_transport_context,
+        l_value            TYPE string,
+        l_http_tpbnd_type  TYPE string,
+        l_errstr           TYPE string,
+        l_body             TYPE string,
+        l_errcode          TYPE tsoap_core_errors,
+        l_soap_msg_version TYPE string,
+        l_wr_cnt_type      TYPE boolean,
+        l_err_log          TYPE string,
+        l_http_tpbnd_class TYPE tadir-obj_name,
+        l_t100_area        TYPE arbgb,
+        l_t100_msgno       TYPE msgnr,
+        l_short_text       TYPE string.
+
+* -0- call super
+  CALL METHOD super->if_soap_transport_binding~init(
+    node_type = node_type
+      context = context
+        ).
+
+* -1- on server side, keep transport context
+  IF if_soap_transport_binding=>co_soap_receiver EQ node_type
+  OR if_soap_transport_binding=>co_soap_receiver EQ m_node_type.
+
+    trctx = m_ctx->if_soap_context~get_transport_context( ).
+    srt_assert_ref_bound trctx 1.
+
+    m_trctx ?= trctx.
+    srt_assert_ref_bound m_trctx 2.
+
+    IF m_trctx->http_server IS BOUND.
+      " SHORT CUT: not bound and not needed for asynchronous short cut calls
+
+      m_server = m_trctx->http_server.
+      srt_assert_ref_bound m_server 3.
+
+      m_request = m_server->request.
+      srt_assert_ref_bound m_request 4.
+
+      m_response = m_server->response.
+      srt_assert_ref_bound m_response 5.
+
+      IF is_soap_transition EQ abap_true.
+        me->if_soap_transport_binding~uri = tsoap_co_tb_soap_11.
+        me->m_soap_msgversion = tsoap_co_msg_soap_11.
+        EXIT.
+      ENDIF.
+
+*** get Content-Type value
+      l_value = m_request->get_header_field(
+        if_http_header_fields=>content_type
+      ).
+***** set soap version according to the Content Type
+      me->set_soap_vers_by_cont_type( value = l_value ).
+    ELSE. "If server is not bound , then it is SHORTCUT
+      DATA: l_trp_ctx_local_call TYPE REF TO cl_ws_local_call_transport_ctx.
+      l_trp_ctx_local_call ?= trctx.
+      l_value = l_trp_ctx_local_call->if_ws_local_call_transport_ctx~get_http_header( name = if_http_header_fields=>content_type ).
+      me->set_soap_vers_by_cont_type(
+        is_local_call = abap_true
+        value         = l_value
+      ).
+    ENDIF.
+  ENDIF.
+
+*** set soap version to the context
+   srt_assert_not_initial m_soap_msgversion 6.
+   m_ctx->set_soap_version( m_soap_msgversion ).
+
+   m_ctx->set_transport_binding_id( me->if_soap_transport_binding~uri ).
+   " reset HTTP accepted status (202)
+   m_ctx->if_soap_context~enable_http_code_accepted( iv_enable = tsoap_false ).
+ENDMETHOD. "-- IF_SOAP_TRANSPORT_BINDING~INIT
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_TRANSPORT_BINDING~PREPARE_RESPONSE_FOR_FAULT
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_transport_binding~prepare_response_for_fault.
+
+  srt_init_errorhandling 'IF_SOAP_TRANSPORT_BINDING~prepare_response_for_fault'.
+*  SRT_INIT_ERROR 'CL_SOAP_HTTP_TPBND_ROOT'                       "obsolete
+*    'IF_SOAP_TRANSPORT_BINDING~prepare_response_for_fault'.      "obsolete
+
+* -0- call super
+  CALL METHOD
+    super->if_soap_transport_binding~prepare_response_for_fault( ).
+
+* -1- set HTTP headers for returning a SOAP Fault
+
+* the following unexpectedly does not work:
+*
+** -1a- status code 500
+*  CALL METHOD m_response->set_header_field(
+*    name = IF_HTTP_HEADER_FIELDS_SAP=>STATUS_CODE
+*    value = TSRC_SOAP_11_HTTP_SCODE_500 ).
+*
+** -1b- status reason
+*  CALL METHOD m_response->set_header_field(
+*    name = IF_HTTP_HEADER_FIELDS_SAP=>STATUS_REASON
+*    value = TSRC_SOAP_11_HTTP_SREASON_ISE ).
+*
+* therefore we'll apply another ICF API call:
+
+*TEST FRAMEWORK: manipulate the faulty response: instead of 500 set 200!
+  DATA: l_test_case_prov TYPE REF TO if_srt_test_case_info_provider,
+        l_test_case_available TYPE boolean,
+        test_cases       TYPE if_srt_test_case_info_provider=>tt_test_cases.
+  l_test_case_prov = cl_srt_test_case_info_provider=>get_test_case_info_provider( ).
+  l_test_case_available = l_test_case_prov->check_for_test_case( if_srt_test_case_info_provider=>co_pr_test_framework ).
+  IF l_test_case_available EQ abap_true.
+    test_cases[] = l_test_case_prov->get_test_cases( if_srt_test_case_info_provider=>co_pr_test_framework ).
+* look for the "HTTP 200" test case
+    READ TABLE test_cases TRANSPORTING NO FIELDS WITH KEY table_line = if_srt_test_case_info_provider=>co_tc_srt_frw_http_200.
+    IF sy-subrc EQ 0.
+      EXIT.
+    ENDIF.
+  ENDIF.
+  CALL METHOD m_response->set_status(
+    code = tsrc_soap_11_http_scode_500i
+    reason = tsrc_soap_11_http_sreason_ise ).
+
+ENDMETHOD. "-- IF_SOAP_TRANSPORT_BINDING~PREPARE_RESPONSE_FOR_FAULT
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_TRANSPORT_BINDING~PROCESS_BODY
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_transport_binding~process_body .
+  srt_init_errorhandling  'IF_SOAP_TRANSPORT_BINDING~PROCESS_BODY'."#EC NOTEXT
+
+*  srt_set_class_method 'IF_SOAP_TRANSPORT_BINDING~PROCESS_HEADER'."#EC NOTEXT "obsolete
+  initerrorhandling receive_body.
+*  srt_init_error 'CL_SOAP11_HTTP_TPBND' 'IF_SOAP_TRANSPORT_BINDING~RECEIVE_BODY'."#EC NOTEXT "obsolete
+*  srt_trace_prepare 'SOAP HTTP Binding'.                    "#EC NOTEXT "obsolete
+
+  DATA: dummy TYPE string.
+
+  srt_trc_lvl_full_stat_succ  'Try to process the body'.    "#EC NOTEXT
+
+* -0- call super
+  CALL METHOD super->if_soap_transport_binding~process_body( ).
+
+* -1- checks
+  raiseoninitial m_message 1.                               "#EC NOTEXT
+
+* -2- init (done by receive_header)
+* -3- get raw message (done by receive_header)
+* -5- read/handle http headers (done by receive_header)
+* -6- create/fill message object (done by receive_header)
+
+* -7- deserialize message
+  srt_basic_perf_begin if_soap_performance=>co_mp_deserialize_msg_body.
+
+  srt_util_perf_start 'Deserialize_Body'.                   "#EC NOTEXT
+
+  m_message->deserialize_body( ).
+
+  srt_util_perf_end.
+
+  srt_basic_perf_end   if_soap_performance=>co_mp_deserialize_msg_body.
+
+* -8- trace received message in case of server request
+  IF m_node_type EQ if_soap_transport_binding=>co_soap_receiver.
+    me->trace_request( ).
+  ENDIF.
+
+  srt_trc_lvl_full_stat_succ  'Body processed'.             "#EC NOTEXT
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_TRANSPORT_BINDING~PROCESS_HEADER
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_transport_binding~process_header .
+*no longer needed...old...
+
+
+  srt_init_errorhandling  'IF_SOAP_TRANSPORT_BINDING~PROCESS_HEADER'."#EC NOTEXT
+
+*  srt_set_class_method 'IF_SOAP_TRANSPORT_BINDING~PROCESS_HEADER'."#EC NOTEXT "obsolete
+  initerrorhandling receive_header.
+*  srt_init_error 'CL_SOAP11_HTTP_TPBND' 'IF_SOAP_TRANSPORT_BINDING~RECEIVE_HEADER'."#EC NOTEXT "obsolete
+*  srt_trace_prepare 'SOAP HTTP Binding'.                    "#EC NOTEXT "obsolete
+
+  DATA: dummy TYPE string.
+  DATA: l_security_protocol TYPE REF TO if_soap_security_helper.
+  srt_trc_lvl_full_stat_succ 'Try to process the header'.   "#EC NOTEXT
+
+* -0- call super
+  CALL METHOD super->if_soap_transport_binding~process_header( ).
+
+* -1- checks
+  raiseoninitial m_message 1.                               "#EC NOTEXT
+
+** -2- init
+*  CASE m_node_type.
+*
+*    WHEN IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_RECEIVER.
+*       m_entity = m_request.
+*
+*    WHEN IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_SENDER.
+*       m_entity = m_response.
+*
+*    WHEN others.
+*      dummy = m_node_type.
+*      raiseUnknownValueException 2 m_node_type dummy.
+*
+*  ENDCASE.
+*
+*  raiseOnInitial m_entity 3.
+
+** -3- get raw message
+*  CASE m_node_type.
+*
+*    WHEN IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_RECEIVER.
+*      "-- nothing todo here
+*
+*    WHEN IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_SENDER.
+*      CALL METHOD m_client->receive
+*        EXCEPTIONS HTTP_COMMUNICATION_FAILURE = 1
+*                   HTTP_INVALID_STATE         = 2
+*                   HTTP_PROCESSING_FAILED     = 3
+*                   OTHERS                     = 4.
+*      IF 0 NE SY-SUBRC.
+*        SRT_THROW_SOAP_CORE 4 TSOAP_EICF_ERROR.
+*      ENDIF.
+*
+*      CALL METHOD handle_status_code( ).
+*
+*    WHEN others.
+*      dummy = m_node_type.
+*      raiseUnknownValueException 5 m_node_type dummy.
+*
+*  ENDCASE.
+
+** -5- read/handle http headers
+*  CALL METHOD get_http_headers( m_entity ).
+*
+** -6- create/fill message object
+*  CREATE OBJECT m_msg_part TYPE CL_MESSAGE_PART_HTTP
+*    EXPORTING entity = m_entity.
+*
+** -7- init message and get method
+*  clear: m_method.
+*  m_method = m_message->init( m_msg_part ).
+
+* -8- run WS Security filter if available
+
+  l_security_protocol  = m_ctx->if_soap_context~get_security_protocol( ).
+
+  IF l_security_protocol IS BOUND.
+    CASE m_node_type.
+      WHEN if_soap_transport_binding=>co_soap_receiver.
+*       CALL METHOD l_security_protocol->pre_filter( ).
+
+      WHEN if_soap_transport_binding=>co_soap_sender.
+*       CALL METHOD l_security_protocol->post_filter( ).
+
+      WHEN OTHERS.
+        dummy = m_node_type.
+        raiseunknownvalueexception 4 m_node_type dummy.     "#EC NOTEXT
+    ENDCASE.
+  ENDIF.
+
+* -9- deserialize message header
+  srt_basic_perf_begin if_soap_performance=>co_mp_deserialize_msg_header.
+
+  srt_util_perf_start 'Deserialize_Header'.                 "#EC NOTEXT
+
+  m_message->deserialize_header( ).
+
+  srt_util_perf_end.
+
+  srt_basic_perf_end   if_soap_performance=>co_mp_deserialize_msg_header.
+
+  srt_trc_lvl_full_stat_succ 'Header processed'.            "#EC NOTEXT
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_TRANSPORT_BINDING~RECEIVE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] METHOD                         TYPE        QNAME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_transport_binding~receive .
+
+  CONSTANTS: co_security_abap_sp3  TYPE string VALUE 'http://schemas.xmlsoap.org/ws/2005/02/sc', "#EC NOTEXT
+             co_security_ws_sc_13  TYPE string VALUE 'http://docs.oasis-open.org/ws-sx/ws-secureconversation/200512', "#EC NOTEXT
+             co_wsrm_1_0           TYPE string VALUE 'http://schemas.xmlsoap.org/ws/2005/02/rm', "#EC NOTEXT
+             co_wsrm_1_1           TYPE string VALUE 'http://docs.oasis-open.org/ws-rx/wsrm/200702'. "#EC NOTEXT
+
+  srt_init_errorhandling 'IF_SOAP_TRANSPORT_BINDING~RECEIVE'. "#EC NOTEXT
+  srt_init_error_area.
+
+  initerrorhandling receive.                                "#EC NOTEXT
+
+  DATA: excnotsupported TYPE REF TO cx_soap_not_supported.
+  DATA: exctext         TYPE string.
+  DATA: dummy           TYPE string.
+  DATA: icferrorexc     TYPE string.
+  DATA: icferrormsg     TYPE string.
+  DATA: icferrortxt     TYPE string.
+  DATA: subrc           LIKE sy-subrc.
+
+  DATA: l_transport_context   TYPE REF TO if_ws_local_call_transport_ctx.
+  DATA: l_blocking            TYPE boolean.
+  DATA: l_sequence            TYPE REF TO cl_soap_sequence.
+  DATA: l_runtime             TYPE REF TO cl_soap_runtime_root.
+  DATA: l_receive_by_shortcut TYPE boolean.
+
+  DATA: l_t100_text   TYPE string,                          "#EC NEEDED
+        l_http_class  TYPE tadir-obj_name,
+        l_t100_area   TYPE arbgb,
+        l_t100_msgno  TYPE msgnr,
+        l_server_info       TYPE string,
+        lv_server_info_ext  TYPE string.
+
+  srt_util_perf_start 'Transport_Binding_Receive'.          "#EC NOTEXT
+
+  srt_trc_lvl_full_stat_succ 'Try to receive message'.      "#EC NOTEXT
+
+* -0- call super
+  CALL METHOD super->if_soap_transport_binding~receive( ).
+
+  DATA lv_msg_id    TYPE guid_32.
+  lv_msg_id    = m_ctx->m_request_id.
+
+* -1- get raw message
+  CASE m_node_type.
+
+    WHEN if_soap_transport_binding=>co_soap_receiver.
+      "-- nothing todo here
+
+    WHEN if_soap_transport_binding=>co_soap_sender.
+      srt_basic_perf_begin if_soap_performance=>co_mp_icf_receive.
+*     set flow direction to response
+      srt_set_flow_direction tsoap_false.
+
+      IF cl_soap_util=>m_clogtrace_mode IS NOT INITIAL.
+        cl_soap_moni_collector=>mr_collector->set_ts_end_mark(  ).
+      ENDIF.
+
+      srt_util_perf_start 'HTTP_Receive'.                   "#EC NOTEXT
+
+      CALL METHOD m_client->receive
+        EXCEPTIONS
+          http_communication_failure = 1
+          http_invalid_state         = 2
+          http_processing_failed     = 3
+          OTHERS                     = 4.
+
+      subrc = sy-subrc.
+
+      srt_util_perf_end.
+
+*     extract server runtime information if present
+      l_server_info       = m_response->get_header_field( co_http_header_server_info ).
+      IF l_server_info IS NOT INITIAL.
+        cl_soap_tool=>unpack_wscall_info( server_info = l_server_info ).
+      ENDIF.
+
+      lv_server_info_ext  = m_response->get_header_field( co_http_header_server_info_ext ).
+      IF lv_server_info_ext IS NOT INITIAL.
+        cl_soap_tool=>unpack_wscall_info_extension( lv_server_info_ext ).
+      ENDIF.
+
+* Trace if no communication error
+      IF subrc = 0.
+
+* FUNC and PLOAD Trace Response if required
+        IF cl_soap_util=>m_func_trace_level  IS NOT INITIAL OR
+           cl_soap_util=>m_pload_trace_level IS NOT INITIAL.
+          cl_soap_util=>trace_payload(
+            EXPORTING
+                call_type       = if_soap_util_constants=>trace_type_response
+                http_client     = m_client
+            CHANGING
+              func_stack_level  = m_func_stack_level
+              pload_stack_level = m_pload_stack_level
+          ).
+        ENDIF.
+
+      ENDIF.
+
+
+      IF cl_soap_util=>m_clogtrace_mode IS NOT INITIAL.
+        cl_soap_moni_collector=>mr_collector->set_ts_beg_mark(  ).
+      ENDIF.
+
+      srt_basic_perf_end if_soap_performance=>co_mp_icf_receive.
+      "-- clear sent message in case of client call
+      m_client->refresh_request( ).
+      if 0 <> subrc.
+        handle_receive_error_client( subrc ).
+      endif.
+
+      DATA: lv_http_code TYPE char10,
+            lv_error_str TYPE string.
+
+      handle_receive_http_ret_code( IMPORTING ev_http_code    = lv_http_code     " Http code
+                                              ev_error_string = lv_error_str ).  " Error string
+      IF lv_http_code = '500'.
+        cl_soap_ral_adapter_manager=>write_fault( iv_msg_id = lv_msg_id iv_error_msg = lv_error_str ).
+      ELSEIF lv_http_code >= '300'.
+        cl_soap_ral_adapter_manager=>write_tech_error( iv_msg_id = lv_msg_id iv_error_msg = lv_error_str ).
+      ENDIF.
+
+    WHEN OTHERS.
+      dummy = m_node_type.
+      raiseunknownvalueexception 2 m_node_type dummy.       "#EC NOTEXT
+
+  ENDCASE.
+
+* -2- trace response in case of client call
+  IF m_node_type EQ if_soap_transport_binding=>co_soap_sender.
+    me->trace_response( ).
+  ENDIF.
+
+* SHORTCUT: do not use HTTP reqeust object for asynchronous local calls (shortcut)
+  IF if_soap_http_transport_binding~get_local_call_for_processing( ) = tsoap_true.
+    " synchronous or asynchronous processing?
+    TRY.
+        l_transport_context ?= m_ctx->if_soap_context~get_transport_context( ).
+        l_blocking = l_transport_context->get_blocking_flag( ).
+        IF l_blocking = tsoap_false. "asynchronous call
+          l_receive_by_shortcut = tsoap_true.
+        ENDIF.
+      CATCH cx_root.
+    ENDTRY.
+  ENDIF.
+
+  IF l_receive_by_shortcut = tsoap_true.
+
+* -- set pre-scheduler mode (to inform runtime about asynch processing)
+    m_ctx->enable_hibernation( ).
+
+* -3- read/handle http headers
+* not relevant (in remote case just the content type is evaulated)
+
+* -- pass logical sequence into runtime object:
+    l_sequence = l_transport_context->get_sequence( ).
+    l_runtime = m_ctx->if_soap_context~get_runtime( ).
+    l_runtime->set_sequence( l_sequence ).
+
+*   parent Event ID must be transmitted to provider side
+    DATA: l_parent_event_msg_id TYPE sxmsguid.
+    l_parent_event_msg_id = l_transport_context->get_http_header( if_soap_eventing=>co_http_hdr_parent_id ).
+    m_ctx->set_parent_event_id( l_parent_event_msg_id ).
+
+* -4- create/fill message object
+    srt_util_perf_start 'Create_Message'.                   "#EC NOTEXT
+    TRY.
+        CREATE OBJECT m_msg_part TYPE cl_ws_local_call_msg_part
+          EXPORTING
+            transport_context = l_transport_context.
+      CATCH cx_soap_not_supported INTO excnotsupported.
+        exctext = excnotsupported->get_text( ).
+        srt_throw_soap_core_text 5 tsoap_e_soap_not_supported exctext. "#EC NOTEXT
+    ENDTRY.
+    srt_util_perf_end.
+
+  ELSE. "remote call
+
+* -2- init
+    CASE m_node_type.
+
+      WHEN if_soap_transport_binding=>co_soap_receiver.
+        m_entity = m_request.
+
+      WHEN if_soap_transport_binding=>co_soap_sender.
+        m_entity = m_response.
+
+      WHEN OTHERS.
+        dummy = m_node_type.
+        raiseunknownvalueexception 3 m_node_type dummy.     "#EC NOTEXT
+
+    ENDCASE.
+
+    raiseoninitial m_entity 4.                              "#EC NOTEXT
+
+
+* -3- read/handle http headers
+    IF if_soap_http_transport_binding~co_ping_state_on <> 'X'.   "# PING Extension
+      CALL METHOD get_http_headers( m_entity ).
+    ENDIF.
+
+
+* Add Performance Trace Data from Server System if necessary
+    IF cl_soap_util=>m_perf_trace_level IS NOT INITIAL AND
+       m_node_type = if_soap_transport_binding=>co_soap_sender.
+      cl_soap_util=>performance_add_http_steps( ).
+    ENDIF.
+
+* -4- create/fill message object
+    srt_util_perf_start 'Create_Message'.                   "#EC NOTEXT
+    TRY.
+        CREATE OBJECT m_msg_part TYPE cl_message_part_http
+          EXPORTING
+            entity = m_entity.
+      CATCH cx_soap_not_supported INTO excnotsupported.
+        exctext = excnotsupported->get_text( ).
+        srt_throw_soap_core_text 5 tsoap_e_soap_not_supported exctext. "#EC NOTEXT
+    ENDTRY.
+    srt_util_perf_end.
+
+  ENDIF.
+
+* -5- init message and get method
+  IF if_soap_http_transport_binding~co_ping_state_on <> 'X'.
+    IF NOT if_soap_http_transport_binding~get_http_code_accepted( ) EQ tsoap_true.
+      IF NOT if_soap_http_transport_binding~get_ignore_response_body( ) EQ tsoap_true.
+        srt_util_perf_start 'Get_Method'.                   "#EC NOTEXT
+        CLEAR: m_method.
+        m_method = m_message->init_for_deserialize(
+        part = m_msg_part  ctx = m_ctx ).
+        srt_util_perf_end_1 'Method' m_method-name.         "#EC NOTEXT
+        IF cl_soap_util=>m_pload_trace_level IS NOT INITIAL AND
+        m_node_type = if_soap_transport_binding=>co_soap_receiver.
+          cl_soap_util=>trace_set_operation(
+          operation   = m_method
+          server_side = 'X'
+          ).
+        ENDIF.
+      ENDIF.
+
+* Receiver: Correct Sector No (4 -> 3) for special methods (Security & WS-RM)
+      IF m_node_type = if_soap_transport_binding=>co_soap_receiver.
+        IF m_method-namespace = co_wsrm_1_0          OR
+           m_method-namespace = co_wsrm_1_1          OR
+           m_method-namespace = co_security_abap_sp3 OR
+           m_method-namespace = co_security_ws_sc_13.
+          cl_soap_util=>set_sector_attributes( sector_no = if_soap_util_constants=>rm_receiver ).
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+* -6- return method
+  method = m_method.
+
+* -7- refresh response message in case of client call
+  "(CL_WS_PROXY_RUNTIME_OUTBOUND->WS_CALL_OUTBOUND) because the
+  "HTTP response object is still needed for MTOM and
+  "attachment processing:
+
+*  IF m_node_type EQ if_soap_transport_binding=>co_soap_sender.
+*    m_client->refresh_response( ).
+*
+** Close HTTP session (Exception HTTP_NO_MEMORY)
+*    IF m_session_state <> co_sesstate_on.
+*      m_client->close( ).
+*      CLEAR m_client.
+*    ENDIF.
+*  ENDIF.
+
+  srt_trc_lvl_full_stat_succ  'Message received'.           "#EC NOTEXT
+
+  srt_util_perf_end.
+
+ENDMETHOD. "-- IF_SOAP_TRANSPORT_BINDING~RECEIVE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->IF_SOAP_TRANSPORT_BINDING~SEND
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_soap_transport_binding~send.
+
+  srt_init_errorhandling 'IF_SOAP_TRANSPORT_BINDING~SEND'.  "#EC NOTEXT
+  srt_init_error_area.
+
+  initerrorhandling send.
+
+  DATA: srt_trc_dummy1  TYPE string.
+  DATA: excnotsupported TYPE REF TO cx_soap_not_supported.
+  DATA: exctext         TYPE string.
+  DATA: dummy           TYPE string.
+  DATA: emptybuf        TYPE xstring.
+  DATA: subrc           LIKE sy-subrc.
+  DATA: icferrorexc     TYPE string.
+  DATA: icferrormsg     TYPE string.
+  DATA: icferrortxt     TYPE string.
+  DATA: l_security_protocol TYPE REF TO if_soap_security_helper.
+  DATA: l_soapaction    TYPE string.
+  DATA: l_t100_text     TYPE string,                        "#EC NEEDED
+        l_http_class    TYPE tadir-obj_name,
+        l_t100_area     TYPE arbgb,
+        l_t100_msgno    TYPE msgnr,
+        ls_operation    TYPE qname,
+        lv_timeout      TYPE i.
+  DATA: lv_msg_id       TYPE guid_32,
+        lv_remote_ip_address TYPE if_soap_ral_adapter=>ty_ip_address.
+
+  srt_util_perf_start 'Transport_Binding_Send'.             "#EC NOTEXT
+  l_soapaction = m_soapaction.
+
+  CONCATENATE 'Try to send message' '( DEST =' m_dest ',PATH =' m_dest_path ',URL =' m_url
+              ',SOAP Action =' m_soapaction ')' INTO srt_trc_dummy1 SEPARATED BY space. "#EC NOTEXT
+
+  srt_trc_lvl_full_stat_succ  srt_trc_dummy1.               "#EC NOTEXT
+
+* -0- call super
+  CALL METHOD super->if_soap_transport_binding~send( ).
+
+* -00- create HTTP client
+
+* -1- checks
+  raiseoninitial m_message 1.                               "#EC NOTEXT
+
+* -1.5- SHORTCUT: send asynchronous messages via shortcut:
+  IF if_soap_http_transport_binding~get_local_call_for_processing( ) = tsoap_true.
+    IF m_ctx->if_soap_context~is_hibernation_enabled( ) = tsoap_true.
+      send_by_shortcut( ).
+      srt_util_perf_end_1 'SOAP_Action' l_soapaction.
+      RETURN.
+    ENDIF.
+  ENDIF.
+
+* Save WS Operation for Traces
+  IF cl_soap_util=>m_pload_trace_level IS NOT INITIAL AND
+     m_node_type = if_soap_transport_binding=>co_soap_sender.
+    ls_operation = m_ctx->get_called_operation_new( ).
+    cl_soap_util=>trace_set_operation( operation = ls_operation ).
+  ENDIF.
+
+* -2- determine entity
+  CASE m_node_type.
+
+    WHEN if_soap_transport_binding=>co_soap_receiver.
+      m_entity = m_response.
+
+    WHEN if_soap_transport_binding=>co_soap_sender.
+      IF m_client IS NOT BOUND.
+        IF m_dest IS NOT INITIAL.
+          create_client_by_destination( ).
+        ELSEIF m_url IS NOT INITIAL.
+          create_client_by_url( ).
+        ELSE.
+          create_client_by_config( ).
+        ENDIF.
+      ELSE.
+* the HTTP client object is reused, so some attributes related to HTTP-request
+* has to be reset because the HTTP client object does not reuse all values
+* automatically for client objects not based on sm59-destinations
+        IF m_used_config IS NOT INITIAL. "only for CREATE_BY_CONFIG
+          update_client_by_config( ).
+        ENDIF.
+      ENDIF.
+      m_entity = m_request.
+      cl_soap_util=>set_http_instance( http_client = m_client ).
+
+    WHEN OTHERS.
+      dummy = m_node_type.
+      raiseunknownvalueexception 2 m_node_type dummy.       "#EC NOTEXT
+
+  ENDCASE.
+
+  raiseoninitial m_entity 3.                                "#EC NOTEXT
+
+* -3- create message part
+  TRY.
+      CREATE OBJECT m_msg_part TYPE cl_message_part_http
+        EXPORTING
+          entity = m_entity.
+    CATCH cx_soap_not_supported INTO excnotsupported.
+      exctext = excnotsupported->get_text( ).
+      srt_throw_soap_core_text 4 tsoap_e_soap_not_supported exctext. "#EC NOTEXT
+  ENDTRY.
+
+
+* -4- clear send buffer
+* Note: the following seems to be the right way to
+*       do it, but it isn't  ;-(
+*       reason: refreshing the request entity should also
+*       clear important info like request URL, cookies,
+*       authorizations, ...
+*  IF IF_SOAP_TRANSPORT_BINDING=>CO_SOAP_SENDER EQ m_node_type.
+*    CALL METHOD m_client->refresh_request
+*      EXCEPTIONS others = 1.
+*    CALL METHOD m_client->refresh_response
+*      EXCEPTIONS others = 1.
+*  ENDIF.
+* Note: instead we clear the buffer as follows:
+  CLEAR: emptybuf.
+  CALL METHOD m_entity->set_data( data = emptybuf ).
+
+* -5a- set http headers for transmission
+  CALL METHOD set_http_headers( m_entity ).
+* -5b- set query parameters for transmission
+  CALL METHOD set_form_fields( m_entity ).
+
+* PING extension no soap envelope
+  IF if_soap_http_transport_binding~co_ping_state_on NE 'X'.
+* -6- serialize message
+    srt_basic_perf_begin if_soap_performance=>co_mp_serialize_msg.
+
+    srt_util_perf_start 'Serialize_Message'.                "#EC NOTEXT
+
+    CALL METHOD m_message->init_for_serialize(
+      part = m_msg_part ctx = m_ctx ).
+    TRY.
+        m_message->serialize( ).
+      CATCH cx_soap_not_supported INTO excnotsupported.
+        exctext = excnotsupported->get_text( ).
+        srt_throw_soap_core_text 5 tsoap_e_soap_not_supported exctext. "#EC NOTEXT
+    ENDTRY.
+
+    srt_util_perf_end.
+
+    srt_basic_perf_end if_soap_performance=>co_mp_serialize_msg.
+
+* -7- run WS Security filter if available
+    l_security_protocol = m_ctx->if_soap_context~get_security_protocol( ).
+    IF l_security_protocol IS BOUND.
+      CASE m_node_type.
+        WHEN if_soap_transport_binding=>co_soap_receiver.
+*        CALL METHOD l_security_protocol->post_filter( ).
+
+        WHEN if_soap_transport_binding=>co_soap_sender.
+*        CALL METHOD l_security_protocol->pre_filter( ).
+
+        WHEN OTHERS.
+          dummy = m_node_type.
+          raiseunknownvalueexception 6 m_node_type dummy.   "#EC NOTEXT
+      ENDCASE.
+    ENDIF.
+
+  ENDIF.
+
+* -8- trace payload
+  CASE m_node_type.
+    WHEN if_soap_transport_binding=>co_soap_receiver.
+      me->trace_response( ).
+    WHEN if_soap_transport_binding=>co_soap_sender.
+      me->trace_request( ).
+  ENDCASE.
+
+  lv_msg_id    = m_ctx->get_request_id( ).
+  lv_remote_ip_address = m_request->get_header_field( if_http_header_fields_sap=>remote_addr ).
+  cl_soap_ral_adapter_manager=>confirm( iv_msg_id            = lv_msg_id
+                                        iv_remote_ip_address = lv_remote_ip_address ). " Read Access Logging: IPv4 Address
+
+* -9- send
+  CASE m_node_type.
+
+    WHEN if_soap_transport_binding=>co_soap_receiver.
+      "-- nothing todo here
+
+    WHEN if_soap_transport_binding=>co_soap_sender.
+      "-- trigger request transmission
+      srt_basic_perf_begin if_soap_performance=>co_mp_icf_send.
+
+      IF cl_soap_util=>m_clogtrace_mode IS NOT INITIAL.
+        cl_soap_moni_collector=>mr_collector->set_ts_end_mark(  ).
+      ENDIF.
+
+      m_client->propertytype_send_sap_passport = if_http_client=>co_enabled.
+
+*    PING extension
+      IF if_soap_http_transport_binding~co_ping_state_on EQ 'X'.
+        m_client->request->set_method( 'HEAD' ). " set head method
+      ENDIF.
+
+*     if stateless communication close HTTP connection
+      IF me->m_session_state <> cl_soap_runtime=>co_sesstate_on.
+        m_client->request->set_header_field( name = if_http_header_fields=>connection value = 'close' ).
+      ENDIF.
+
+      srt_util_perf_start 'HTTP_Send'.                      "#EC NOTEXT
+
+      IF if_soap_http_transport_binding~co_ping_state_on = abap_true.
+*       in case of ping time out time is reduced 10 seconds
+        lv_timeout = 10.
+      ELSE.
+        lv_timeout = m_cons_max_timeout.
+      ENDIF.
+
+      CALL METHOD m_client->send
+        EXPORTING
+          timeout                    = lv_timeout
+        EXCEPTIONS
+          http_communication_failure = 1
+          http_invalid_state         = 2
+          http_processing_failed     = 3
+          http_invalid_timeout       = 4
+          OTHERS                     = 5.
+
+      subrc = sy-subrc.
+
+      srt_util_perf_end.
+
+* FUNC and PLOAD Trace Request if required (after SEND because of HTTP Header)
+      IF cl_soap_util=>m_func_trace_level  IS NOT INITIAL OR
+         cl_soap_util=>m_pload_trace_level IS NOT INITIAL.
+        cl_soap_util=>trace_payload(
+          EXPORTING
+            call_type         = if_soap_util_constants=>trace_type_request
+            http_client       = m_client
+          CHANGING
+            func_stack_level  = m_func_stack_level
+            pload_stack_level = m_pload_stack_level
+        ).
+      ENDIF.
+
+      IF cl_soap_util=>m_clogtrace_mode IS NOT INITIAL.
+        cl_soap_moni_collector=>mr_collector->set_ts_beg_mark(  ).
+      ENDIF.
+
+      srt_basic_perf_end if_soap_performance=>co_mp_icf_send.
+      "-- clear SOAPAction
+      CLEAR: m_soapaction.
+      m_enable_soapaction = tsoap_false.
+      "-- check return code from send
+      if 0 ne subrc.
+        handle_send_error_client( subrc ).
+      endif.
+    WHEN OTHERS.
+      dummy = m_node_type.
+      raiseunknownvalueexception 7 m_node_type dummy.       "#EC NOTEXT
+  ENDCASE.
+
+  srt_trc_lvl_full_stat_succ 'Message sent'.                "#EC NOTEXT
+
+  IF m_node_type = if_soap_transport_binding=>co_soap_sender.
+    srt_util_perf_end_1 'SOAP_Action' l_soapaction.
+  ELSE.
+    srt_util_perf_end.
+  ENDIF.
+
+ENDMETHOD. "-- IF_SOAP_TRANSPORT_BINDING~SEND
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_SOAP_HTTP_TPBND_ROOT->SEARCH_FAULT_TAG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] INPUT                          TYPE        STRING
+* | [--->] TAGNAME                        TYPE        STRING
+* | [<-()] FRAGMENT                       TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD search_fault_tag.
+
+  DATA: l_fragment_beg  TYPE i,
+        l_fragment_end  TYPE i,
+        l_fragment_len  TYPE i,
+        l_closing_tag   TYPE string.
+
+  DATA: ls_result       TYPE match_result,
+        lt_result       TYPE match_result_tab.
+
+  CLEAR fragment.
+
+  FIND tagname IN input IGNORING CASE
+    RESULTS lt_result.
+  READ TABLE lt_result INTO ls_result INDEX 1.
+  IF sy-subrc <> 0. EXIT. ENDIF.
+  l_fragment_beg = ls_result-offset.
+  SEARCH input FOR '>' STARTING AT l_fragment_beg.
+  IF sy-subrc = 0.
+    CONCATENATE '</' tagname+1 '>' INTO l_closing_tag.
+    IF input CS l_closing_tag.
+      l_fragment_end = sy-fdpos + strlen( tagname ) + 2.
+    ENDIF.
+  ENDIF.
+
+  IF l_fragment_end IS NOT INITIAL.
+    l_fragment_len = l_fragment_end - l_fragment_beg.
+    fragment = input+l_fragment_beg(l_fragment_len).
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->SEND_BY_SHORTCUT
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD send_by_shortcut.
+
+  DATA: dummy               TYPE string.
+  DATA: excnotsupported     TYPE REF TO cx_soap_not_supported.
+  DATA: exctext             TYPE string.
+  DATA: emptybuf            TYPE xstring.
+  DATA: l_security_protocol TYPE REF TO if_soap_security_helper.
+
+  DATA: l_soap_rt           TYPE REF TO cl_soap_runtime_root,
+        l_sequence          TYPE REF TO cl_soap_sequence,
+        l_message_id        TYPE srtmsgid.
+
+  srt_init_errorhandling 'SEND_BY_SHORTCUT'.
+  srt_init_error_area.
+
+  initerrorhandling send_by_shortcut.
+
+  cl_soap_util=>set_sector_attributes( shortcut = 'X' ).
+
+* -2- determine entity
+  CASE m_node_type.
+
+    WHEN if_soap_transport_binding=>co_soap_receiver.
+      "For shortcut processing, there is no response to send back:
+      "Any error will be caught as an exception on consumer side,
+      "and WS-RM specific info (like acknowledges) for successful
+      "messages is useless in the shortcut scenario
+      RETURN.
+
+    WHEN if_soap_transport_binding=>co_soap_sender.
+      "no HTTP client and entity to create
+
+    WHEN OTHERS.
+      dummy = m_node_type.
+      raiseunknownvalueexception 2 m_node_type dummy.       "#EC NOTEXT
+
+  ENDCASE.
+
+  IF cl_soap_rt_helper=>is_shortcut_lite( ) = tsoap_true.
+    "call provider runtime directly, no HTTP extension needed.
+    "create currently new instance for each call, to keep current paradigm
+    DATA: l_runtime_server TYPE REF TO cl_ws_local_call_rt_server,
+          l_ext_req_name   TYPE qname,
+          l_univalent      TYPE boolean.
+
+    CREATE OBJECT l_runtime_server.
+    l_runtime_server->set_client_context( m_ctx ).
+
+    "get external request qname
+    cl_soap_rt_helper=>get_simple_config_property(
+        EXPORTING config             = m_ctx->get_config( )
+                  property_name      = tsrtp_f_if_ext_req_namespace
+                  property_namespace = tsrtp_f_if
+        IMPORTING value              = l_ext_req_name-namespace
+                  univalent          = l_univalent ).
+    srt_assert_equal_value l_univalent tsoap_true tsoap_core_consumer.
+
+    cl_soap_rt_helper=>get_simple_config_property(
+        EXPORTING config             = m_ctx->get_config( )
+                  property_name      = tsrtp_f_if_ext_req_name
+                  property_namespace = tsrtp_f_if
+        IMPORTING value              = l_ext_req_name-name
+                  univalent          = l_univalent ).
+    srt_assert_equal_value l_univalent tsoap_true tsoap_core_consumer.
+
+    "get sequence
+    l_soap_rt  = m_ctx->get_runtime( ).
+    l_sequence = l_soap_rt->get_sequence( ).
+
+    "get_message ID:
+    l_message_id = m_ctx->m_mid_request.
+
+    "handle request
+    "--------------
+    srt_util_perf_start 'Handle_Request_Shortcut'.          "#EC NOTEXT
+    l_runtime_server->handle_request(
+          EXPORTING url_path         = m_dest_path
+                    ext_request_name = l_ext_req_name
+                    sequence         = l_sequence
+                    message_id       = l_message_id
+                    request_message  = m_ctx->get_request( ) ).
+
+* FUNC and PLOAD Trace if required
+    IF cl_soap_util=>m_func_trace_level  IS NOT INITIAL OR
+       cl_soap_util=>m_pload_trace_level IS NOT INITIAL.
+      cl_soap_util=>trace_payload(
+        EXPORTING
+          call_type         = if_soap_util_constants=>trace_type_call
+          request_message   = m_ctx->get_request( )
+        CHANGING
+          func_stack_level  = m_func_stack_level
+          pload_stack_level = m_pload_stack_level
+      ).
+    ENDIF.
+
+    srt_util_perf_end.
+
+    RETURN.
+  ENDIF.
+
+  srt_util_perf_start 'Send_By_Shortcut'.                   "#EC NOTEXT
+
+* create local call pseudo extension:
+  DATA: l_http_extension    TYPE REF TO cl_ws_local_call_http_ext.
+  DATA: l_transport_context TYPE REF TO if_ws_local_call_transport_ctx.
+
+    CREATE OBJECT l_http_extension.
+    srt_assert_ref_bound l_http_extension 1.
+
+* get transport context:
+  l_transport_context ?= l_http_extension->get_transport_context( ).
+  srt_assert_ref_bound l_transport_context 2.
+
+* -3- create message part
+  TRY.
+      CREATE OBJECT m_msg_part TYPE cl_ws_local_call_msg_part
+        EXPORTING
+          transport_context = l_transport_context.
+
+    CATCH cx_soap_not_supported INTO excnotsupported.
+      exctext = excnotsupported->get_text( ).
+      srt_throw_soap_core_text 4 tsoap_e_soap_not_supported exctext. "#EC NOTEXT
+  ENDTRY.
+
+* only used for asynchronous calls:
+  l_transport_context->set_blocking_flag( tsoap_false ).
+
+* -5- set http headers for transmission
+  CALL METHOD set_http_headers_for_shortcut( l_transport_context ).
+
+* -6- serialize message into the transport context via message part
+
+  srt_util_perf_start 'Serialize_Message'.                  "#EC NOTEXT
+
+  CALL METHOD m_message->init_for_serialize(
+    part = m_msg_part ctx = m_ctx ).
+  TRY.
+      m_message->serialize( ).
+    CATCH cx_soap_not_supported INTO excnotsupported.
+      exctext = excnotsupported->get_text( ).
+      srt_throw_soap_core_text 5 tsoap_e_soap_not_supported exctext. "#EC NOTEXT
+  ENDTRY.
+
+  srt_util_perf_end.
+
+* -7- run WS Security filter if available
+  l_security_protocol = m_ctx->if_soap_context~get_security_protocol( ).
+  IF l_security_protocol IS BOUND.
+    CASE m_node_type.
+      WHEN if_soap_transport_binding=>co_soap_receiver.
+*        CALL METHOD l_security_protocol->post_filter( ).
+
+      WHEN if_soap_transport_binding=>co_soap_sender.
+*        CALL METHOD l_security_protocol->pre_filter( ).
+
+      WHEN OTHERS.
+        dummy = m_node_type.
+        raiseunknownvalueexception 6 m_node_type dummy.     "#EC NOTEXT
+    ENDCASE.
+  ENDIF.
+
+*** TODO local call 2
+* -8- trace payload
+*  CASE m_node_type.
+*    WHEN if_soap_transport_binding=>co_soap_receiver.
+*      me->trace_response( ).
+*    WHEN if_soap_transport_binding=>co_soap_sender.
+*      me->trace_request( ).
+*  ENDCASE.
+
+
+  CASE m_node_type.
+
+    WHEN if_soap_transport_binding=>co_soap_receiver.
+      "no response for asynchronous messages.
+
+    WHEN if_soap_transport_binding=>co_soap_sender.
+
+* set sequence into transport context:
+      l_soap_rt = m_ctx->get_runtime( ).
+      l_sequence = l_soap_rt->get_sequence( ).
+      l_transport_context->set_sequence( l_sequence ).
+
+* set destination path
+      l_transport_context->set_dest_path( m_dest_path ).
+
+* FUNC and PLOAD Trace if required
+      IF cl_soap_util=>m_func_trace_level  IS NOT INITIAL OR
+         cl_soap_util=>m_pload_trace_level IS NOT INITIAL.
+        cl_soap_util=>trace_payload(
+          EXPORTING
+            call_type         = if_soap_util_constants=>trace_type_call
+            http_shortcut     = l_transport_context
+          CHANGING
+            func_stack_level  = m_func_stack_level
+            pload_stack_level = m_pload_stack_level
+        ).
+      ENDIF.
+
+* local call substitute for sending step: call pseudo extension
+      srt_util_perf_start 'Handle_Request_Shortcut'.        "#EC NOTEXT
+      l_http_extension->handle_local_request( ).
+      srt_util_perf_end.
+
+  ENDCASE.
+
+  srt_util_perf_end.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->SET_ERROR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ENTITY                         TYPE REF TO IF_HTTP_ENTITY
+* | [--->] VALUE                          TYPE        STRING
+* | [--->] USE_CASE                       TYPE        STRING(optional)
+* | [<---] ERRORTEXT                      TYPE        STRING
+* | [<---] ERRORCODE                      TYPE        TSOAP_CORE_ERRORS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_error.
+  initerrorhandling if_soap_transport_binding~init.
+  srt_init_errorhandling 'SET_ERROR'.                       "#EC NOTEXT
+
+  DATA: httpcode   TYPE i,
+        httpreason TYPE string,
+        body       TYPE string,
+        l_text     TYPE string,
+        l_code     TYPE string.
+
+  body = entity->get_cdata( ).
+
+  IF if_soap_http_transport_binding~co_soap_receiver EQ m_node_type.
+    CASE use_case.
+      WHEN tsrc_err_wr_cont_type.
+        errortext = tsrc_soap_11_http_reason_umt.
+        errorcode = tsoap_unsupported_media_type.
+*****set HTTP 415 status
+        srt_assert_ref_bound m_response 1.
+        CALL METHOD m_response->set_status
+          EXPORTING
+            code   = tsrc_soap_11_http_scode_415i
+            reason = tsrc_soap_11_http_reason_umt.
+****set flag that wrong content type is received
+        m_ctx->set_unsupp_cont_type( abap_true ).
+
+      WHEN tsrc_err_empty_http_body.
+        errorcode = tsoap_eempty_http.
+    ENDCASE.
+  ELSEIF if_soap_http_transport_binding~co_soap_sender EQ m_node_type.
+    CALL METHOD m_response->get_status
+      IMPORTING
+        code   = httpcode
+        reason = httpreason.
+*******if the received HTTP Code is 415, then to be triggered
+    IF httpcode = 415.
+      errortext = tsrc_soap_11_http_reason_umt.
+      errorcode = tsoap_unsupported_media_type.
+    ELSEIF httpcode = 500 AND value CS 'text/html'.         "#EC NOTEXT
+      errortext = httpreason.
+      errorcode = tsoap_ehttp_500.
+    ELSEIF body IS INITIAL AND value IS INITIAL.
+      errorcode = tsoap_eempty_http.
+      l_code = httpcode.
+      CONCATENATE 'HTTP Code' l_code ':' httpreason INTO l_text SEPARATED BY space. "#EC NOTEXT
+      errortext = l_text.
+    ELSE.
+      errorcode = tsoap_eunsupported_xstream.
+      l_code = httpcode.
+      CONCATENATE 'HTTP Code' l_code ':' httpreason INTO l_text SEPARATED BY space. "#EC NOTEXT
+      errortext = l_text.
+    ENDIF.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->SET_FORM_FIELDS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ENTITY                         TYPE REF TO IF_HTTP_ENTITY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_form_fields .
+
+  initerrorhandling set_form_fields.
+
+  CHECK m_form_fields IS NOT INITIAL AND m_node_type = if_soap_transport_binding=>co_soap_sender.
+
+  CALL METHOD m_entity->set_form_fields( m_form_fields ).
+
+ENDMETHOD. "-- SET_HTTP_HEADERS
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->SET_HTTP_HDR_CONTENT_TYPE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-->] ENTITY                         TYPE REF TO IF_HTTP_ENTITY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_http_hdr_content_type.
+  srt_init_errorhandling  'SET_HTTP_HDR_CONTENT_TYPE'.      "#EC NOTEXT
+  srt_init_error_area.
+  DATA: l_soap_vers_content_type TYPE string,
+        l_value TYPE string.
+
+  DATA: l_ser_part            TYPE REF TO if_message_part.
+  DATA: l_mime_type           TYPE string.
+  DATA: l_mime_subtype        TYPE string.
+  DATA: l_mime_parms          TYPE tsoap_properties.
+  DATA: l_location            TYPE i.
+  DATA: l_tpbnd               TYPE REF TO cl_soap11_http_tpbnd.
+  DATA: l_action              TYPE string.
+
+  "set Content-Type according to the SOAP Protocol version
+  CASE if_soap_transport_binding~uri.
+    WHEN tsrc_soap_11_http_tpbnd.
+      l_soap_vers_content_type = tsrc_soap_11_http_content_type.    "text/xml
+    WHEN tsrc_soap_12_http_tpbnd.
+      l_soap_vers_content_type = tsrc_soap_12_http_content_type.    "application/soap+xml
+  ENDCASE.
+
+
+  "   Binary XML HTTP Header
+  IF if_soap_http_transport_binding~get_bxml( ) EQ tsoap_true.
+*       for content-type: 'text/xml' or 'application/soap+xml'
+    CALL METHOD entity->set_header_field(
+      name = if_http_header_fields=>content_type
+      value = l_soap_vers_content_type ).
+***set encoding:  'application/x-sap-bxml'
+    CALL METHOD entity->set_header_field(
+      name = if_http_header_fields=>content_encoding
+      value = tsrc_soap_bx_http_content_type ).
+
+*       for ACCEPT: 'application/x_sap_bxml' , 'text/xml' or 'application/soap+xml'
+    CONCATENATE tsrc_soap_bx_http_content_type ' , ' l_soap_vers_content_type INTO l_value.
+    CALL METHOD entity->set_header_field(
+      name = if_http_header_fields=>accept
+      value = l_value ).
+
+*   MTOM HTTP Header
+  ELSEIF if_soap_http_transport_binding~get_mtom_enabled( ) = abap_true.
+    IF m_ctx->check_technical_op( ) <> abap_true.
+      " save orig MIME type before it's munged by add_multipart
+
+      TRY.
+          l_ser_part = m_msg_part->add_multipart( ).
+
+* in case of xop: set content type to application/xop+xml  (tsrc_soap_mtom_http_cont_type)
+* set_http_headers: here we do not know if mtom format was created
+* so we have to set content type now after serialization of message manually!
+          DATA: l_flag TYPE boolean.
+          DATA: l_mime_parm LIKE LINE OF l_mime_parms.
+          DATA: l_root_mime_parms TYPE tsoap_properties.
+          DATA: l_root_mime_type TYPE string.
+          DATA: l_root_mime_subtype TYPE string.
+
+
+          l_mime_parm-name = tsrc_cont_type_prop_type.
+          l_mime_parm-value = tsrc_soap_mtom_http_cont_type.
+          APPEND l_mime_parm TO l_root_mime_parms.
+
+*      l_mime_parm-name = 'start'.
+*      l_mime_parm-value = tsrc_soap_mtom_http_cont_type.
+*      APPEND l_mime_parm TO l_root_mime_parms.
+
+*** add start-info for the current SOAP Version Content-Type
+*****when MTOM and SOAP 1.2 then soapAction must be present into Content-Type
+*       like this way:
+*   Content-Type: Multipart/Related;boundary=MIME_boundary;         *
+*    type="application/xop+xml";                                    *
+*    start="<mymessage.xml@example.org>";                           *
+*    startinfo="application/soap+xml; action=\"ProcessData\""       *
+*****
+          l_mime_parm-name = tsrc_cont_type_prop_start_info.
+          l_mime_parm-value = l_soap_vers_content_type.
+          APPEND l_mime_parm TO l_root_mime_parms.
+
+          l_location = m_ctx->get_location( ).
+          IF l_soap_vers_content_type = tsrc_soap_12_http_content_type AND
+            l_location =  cl_soap_runtime=>co_location_client.
+            l_tpbnd ?= m_ctx->get_transport_binding( ).
+            l_action = l_tpbnd->if_soap_http_transport_binding~get_soap_action( ).
+            IF l_action CP '"*"'.
+              REPLACE ALL OCCURRENCES OF '"' IN l_action WITH ''.
+              CONDENSE l_action.
+            ENDIF.
+            l_mime_parm-name = tsrc_soap_http_tpbnd_action.
+            l_mime_parm-value = l_action.
+            APPEND l_mime_parm TO l_root_mime_parms.
+          ENDIF.
+
+          CALL METHOD m_msg_part->set_mime_type
+            EXPORTING
+              type      = l_root_mime_type
+              subtype   = l_root_mime_subtype
+              parameter = l_root_mime_parms.
+
+*          l_mime_type    = tsrc_mtom_xop_mime_type.
+*          l_mime_subtype = tsrc_mtom_xop_mime_subtype.
+*
+*****add the additional type=".." property in the content type header for soap 1.1 and soap 1.2 + MTOM
+*          l_mime_parm-name = tsrc_cont_type_prop_type.
+*          l_mime_parm-value = l_soap_vers_content_type.
+*          APPEND l_mime_parm TO l_mime_parms.
+*
+*          "'charset' - 'utf-8' set parameter if it not exist yet
+*          READ TABLE l_mime_parms TRANSPORTING NO FIELDS WITH KEY name = tsrc_cont_type_prop_charset.
+*          IF sy-subrc NE 0.
+*            l_mime_parm-name  = tsrc_cont_type_prop_charset.
+*            l_mime_parm-value = tsrc_cont_type_value_utf8.
+*            APPEND l_mime_parm TO l_mime_parms.
+*          ENDIF.
+*
+*          CALL METHOD l_ser_part->set_mime_type
+*            EXPORTING
+*              type      = l_mime_type
+*              subtype   = l_mime_subtype
+*              parameter = l_mime_parms.
+
+        CATCH cx_soap_not_supported.
+      ENDTRY.
+
+    ELSE.
+      "     for content_type: 'text/xml ; charset=utf-8'
+      "or 'application/soap+xml; charset=utf-8
+      CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_value.
+      CALL METHOD entity->set_header_field(
+        name = if_http_header_fields=>content_type
+        value = l_value ).
+
+    ENDIF.
+*       for ACCEPT
+**set text/xml; application/xop+xml or
+* application/xop+xml; application/soap+xml
+    CONCATENATE tsrc_soap_mtom_http_cont_type ' ,' l_soap_vers_content_type INTO l_value.
+    CALL METHOD entity->set_header_field(
+      name = if_http_header_fields=>accept
+      value = l_value ).
+*   Normal XML
+  ELSE.
+*     for content_type: 'text/xml ; charset=utf-8'
+*or 'application/soap+xml; charset=utf-8
+    CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_value.
+    CALL METHOD entity->set_header_field(
+      name = if_http_header_fields=>content_type
+      value = l_value ).
+*     for Accept: 'text/xml' or 'application/soap+xml'
+    CALL METHOD entity->set_header_field(
+      name = if_http_header_fields=>accept
+      value = l_soap_vers_content_type ).
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->SET_HTTP_HEADERS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ENTITY                         TYPE REF TO IF_HTTP_ENTITY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_http_headers .
+
+  srt_init_errorhandling 'set_http_headers'.
+  initerrorhandling set_http_headers.
+  srt_init_error_area.
+
+  DATA: l_value                  TYPE string,
+        dummy                    TYPE string,
+        l_soap_vers_content_type TYPE string.
+
+* -0- checks
+  srt_assert_ref_bound entity 1.
+  srt_assert_not_initial if_soap_transport_binding~uri 2.
+
+***set Content-Type according to the SOAP Protocol version
+  CASE if_soap_transport_binding~uri.
+    WHEN tsrc_soap_11_http_tpbnd.
+      l_soap_vers_content_type = tsrc_soap_11_http_content_type.    "text/xml
+    WHEN tsrc_soap_12_http_tpbnd.
+      l_soap_vers_content_type = tsrc_soap_12_http_content_type.    "application/soap+xml
+  ENDCASE.
+
+* -1- headers specific for client/server side
+* -1a- server side
+  IF if_soap_transport_binding~co_soap_receiver EQ m_node_type.
+
+*   Binary XML HTTP Header
+*     In 7.20 and 7.02, SOAP 1.2 was implemented. Indication for Binary XML was
+*     shifted then from content-type to content-encoding, to allow for SOAP version
+*     determination via standard content-types (text/xml resp. application/soap+xml).
+*     Later, problems with application-defined content-encoding occurred. (The kernel
+*     zipped on provider side, but did not unzip on consumer side due to duplicate
+*     encoding entries.) So we shift back to the original behavior, with the HTTP
+*     header field "Accept" as a trigger fopr the partner to send binary XML.
+
+    IF m_response IS BOUND.
+*   Binary XML HTTP Header
+      IF if_soap_http_transport_binding~get_bxml( ) EQ tsoap_true.
+*       for content-type: 'text/xml' or 'application/soap+xml'
+        CALL METHOD m_response->set_header_field(
+          name = if_http_header_fields=>content_type
+          value = l_soap_vers_content_type ).
+
+*       for ACCEPT: 'application/x_sap_bxml' , 'text/xml' or 'application/soap+xml'
+        CONCATENATE tsrc_soap_bx_http_content_type ' , ' l_soap_vers_content_type INTO l_value.
+        CALL METHOD m_response->set_header_field(
+          name = if_http_header_fields=>accept
+          value = l_value ).
+
+*   MTOM HTTP Header
+      ELSEIF if_soap_http_transport_binding~get_mtom_enabled( ) EQ tsoap_true.
+****set text/xml or application/soap+xml;
+        CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_value.
+        CALL METHOD m_response->set_header_field(
+          name = if_http_header_fields=>content_type
+          value = l_value ).
+
+*       for ACCEPT
+**set text/xml; application/xop+xml or
+* application/xop+xml; application/soap+xml
+        CONCATENATE tsrc_soap_mtom_http_cont_type ' ,' l_soap_vers_content_type INTO l_value.
+        CALL METHOD m_response->set_header_field(
+          name = if_http_header_fields=>accept
+          value = l_value ).
+*   Normal XML
+      ELSE.
+*     for content_type: 'text/xml ; charset=utf-8'
+*or 'application/soap+xml; charset=utf-8
+        CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_value.
+        CALL METHOD m_response->set_header_field(
+          name = if_http_header_fields=>content_type
+          value = l_value ).
+*     for Accept: 'text/xml' or 'application/soap+xml'
+        CALL METHOD m_response->set_header_field(
+          name = if_http_header_fields=>accept
+          value = l_soap_vers_content_type ).
+      ENDIF.
+
+*     Test CASE
+      CLEAR l_value.
+      l_value = cl_soap_test_case=>render( ).
+      IF NOT l_value IS INITIAL.
+        CALL METHOD m_response->set_header_field(
+          name = if_soap_http_transport_binding~co_http_hdr_test_case
+          value = l_value ).
+      ENDIF.
+
+    ENDIF.
+* -1b- client side
+  ELSEIF if_soap_transport_binding~co_soap_sender EQ m_node_type.
+    data: l_fiv TYPE i,
+          l_security_helper TYPE REF TO if_soap_security_helper.
+    "if Older release than 7.20 and 7.02 disable MTOM only if we have Security On
+    m_ctx->config_object->get_config_meta_info( IMPORTING fiv = l_fiv ).
+    l_security_helper = m_ctx->get_security_protocol( ).
+    IF l_fiv = 1 AND m_ctx->get_mtom_enabled( ) = tsoap_true. " If the Provider is older release than 7.20 and 7.02
+      IF l_security_helper IS BOUND.
+        IF l_security_helper->is_security_enabled( ) = tsoap_true.
+          m_ctx->set_mtom_accepted( tsoap_false ).
+          m_ctx->set_mtom_enabled( tsoap_false ).
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    IF m_request IS BOUND.
+*   -1b1- HTTP version
+      IF tsoap_true EQ m_enable_http11.
+        l_value = tsrc_soap_11_http_version_11.
+      ELSEIF tsoap_false EQ m_enable_http11.
+        l_value = tsrc_soap_11_http_version_10.
+      ELSE.
+        srt_throw_soap_core_usage 2.
+      ENDIF.
+      CALL METHOD m_request->set_header_field(
+        name = if_http_header_fields_sap=>server_protocol
+        value = l_value ).
+
+*   -1b2- path
+      "-- Note: SM59 destinations may contain only path prefixes;
+      "--       such incomplete target information can be adjusted
+      "--       via set_destination_url_path() which is configured
+      "--       into the IF_HTTP_REQUEST instance here:
+      IF NOT m_dest IS INITIAL
+      AND NOT m_dest_path IS INITIAL.
+
+*        CALL METHOD m_request->set_header_field(
+*          name = if_http_header_fields_sap=>path
+*          value = m_dest_path ).
+*        CALL METHOD m_request->set_header_field(
+*          name = if_http_header_fields_sap=>request_uri
+*          value = m_dest_path ).
+
+        CALL METHOD cl_http_utility=>if_http_utility~set_request_uri
+          EXPORTING
+            request = m_request
+            uri     = m_dest_path.
+
+        "-- Note: this duplicated call will be eliminated when the
+        "--       ICF/ICM development has adjusted its APIs
+      ENDIF.
+
+*   -1b3- Logon Language
+      l_value = me->if_soap_http_transport_binding~get_logon_language( ).
+      IF NOT l_value IS INITIAL AND l_value NE tsrtp_f_bdg_url_language_none.
+        m_request->set_header_field( name = tsrc_logon_language value = l_value ).
+      ENDIF.
+*     2006-11-27 until now, this setting has no no effect since the ICF layer ignores this header and
+*     transfers the current language
+      l_value = me->if_soap_http_transport_binding~get_sap_logon_language( ).
+      IF NOT l_value IS INITIAL.
+        m_request->delete_header_field( 'sap-language' ).   "#EC NOTEXT
+        m_request->set_header_field( name = 'sap-language' value = l_value ). "#EC NOTEXT
+      ENDIF.
+
+*   -1b4- SOAPAction
+      l_value = m_ctx->if_soap_context~get_wsa_context( ).
+
+*         LastMessage needs identical SOAP-Action and Header-Avtion (@DRWE-14.12)
+      IF l_value NS cl_soap_wsrm_helper=>wsrm_co_last_message.
+        l_value = m_soapaction.
+      ENDIF.
+      m_soapaction = l_value.
+      IF ( l_soap_vers_content_type = tsrc_soap_12_http_content_type AND
+        if_soap_http_transport_binding~get_mtom_enabled( ) = abap_true ) OR ( m_enable_soapaction <> abap_true AND m_soapaction IS INITIAL ).
+        CALL METHOD m_request->delete_header_field( tsrc_soap_11_http_action ).
+      ELSE.
+        CALL METHOD m_request->set_header_field(
+          name = tsrc_soap_11_http_action
+          value = l_value ).
+      ENDIF.
+      DATA: lv_switch TYPE abap_bool.
+*   -1b5- Accept
+*   BinaryXML
+      CLEAR l_value.
+      IF if_soap_http_transport_binding~get_bxml( ) EQ tsoap_true.
+*       for ACCEPT: 'application/x-sap-bxml' , 'text/xml' or 'application/soap+xml'
+        CONCATENATE tsrc_soap_bx_http_content_type ' ,' l_soap_vers_content_type INTO l_value.
+        CALL METHOD m_request->set_header_field(
+          name = if_http_header_fields=>accept
+          value = l_value ).
+
+        CALL METHOD m_request->set_header_field(
+          name = if_http_header_fields=>content_type
+          value = l_soap_vers_content_type ).
+
+*   MTOM
+      ELSEIF if_soap_http_transport_binding~get_mtom_enabled( ) EQ tsoap_true.
+**     for content_type
+        CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_value.
+        CALL METHOD m_request->set_header_field(
+          name = if_http_header_fields=>content_type
+          value = l_value ).
+
+*       for ACCEPT:  'application/xop+xml' , 'text/xml' or 'application/soap+xml'
+        CONCATENATE tsrc_soap_mtom_http_cont_type ' ,' l_soap_vers_content_type INTO l_value.
+        CALL METHOD m_request->set_header_field(
+          name = if_http_header_fields=>accept
+          value = l_value ).
+
+*   Normal XML
+      ELSE.
+*     for content_type: 'text/xml ; charset=utf-8' or 'application/soap+xml ; charset=utf-8'
+        CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_value.
+        CALL METHOD m_request->set_header_field(
+          name = if_http_header_fields=>content_type
+          value = l_value ).
+*     for Accept: 'text/xml' or 'application/soap+xml'
+        CALL METHOD m_request->set_header_field(
+          name = if_http_header_fields=>accept
+          value = l_soap_vers_content_type ).
+      ENDIF.
+*     Test CASE
+      CLEAR l_value.
+      l_value = cl_soap_test_case=>render( ).
+      IF NOT l_value IS INITIAL.
+        CALL METHOD m_request->set_header_field(
+          name = if_soap_http_transport_binding~co_http_hdr_test_case
+          value = l_value ).
+      ENDIF.
+
+***********************
+****** Metering********
+***********************
+      DATA: l_rt_prot         TYPE REF TO if_soap_runtime_protocol.
+
+      l_rt_prot = m_ctx->get_runtime_protocol( ).
+      if l_rt_prot is bound.
+        l_rt_prot->set_metering_http_hdr( CHANGING request = m_request ).
+      endif.
+****END METERING
+
+      "-- others to be done
+    ENDIF.
+* -1c- tertium non datur
+  ELSE.
+    srt_throw_soap_core_usage 3.
+  ENDIF.
+
+* -2- common headers
+
+* -3- special headers of the SOAP 6.40 Runtime
+  DATA: aguid TYPE sysuuid_c.
+  DATA: srtid TYPE string.
+  DATA: trace_level(3) TYPE n.
+
+  aguid = cl_soap_util=>create_uuid_c32( ).
+
+  CONCATENATE
+*   SY-SYSID SY-SAPRL SY-HOST SY-OPSYS SY-MANDT SY-UNAME
+    sy-datum sy-uzeit cl_soap_runtime=>co_srt_version aguid
+    INTO srtid SEPARATED BY '/'.
+
+* Send Trace Info for SOAP Sender if active
+  IF m_node_type = if_soap_transport_binding~co_soap_sender.
+    trace_level = cl_soap_util=>pack_trace_settings( ).
+    IF trace_level IS NOT INITIAL.
+      CONCATENATE srtid trace_level cl_soap_util=>m_appl_id
+        INTO srtid SEPARATED BY '/'.
+    ENDIF.
+  ENDIF.
+
+  CALL METHOD entity->set_header_field(
+    name = tsrc_soap_11_http_srtid
+    value = srtid ).
+
+ENDMETHOD. "-- SET_HTTP_HEADERS
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->SET_HTTP_HEADERS_FOR_SHORTCUT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] TRANSPORT_CONTEXT              TYPE REF TO IF_WS_LOCAL_CALL_TRANSPORT_CTX
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_http_headers_for_shortcut.
+
+  DATA: ct                       TYPE string.
+  DATA: value                    TYPE string.
+  DATA: l_http_header            TYPE ihttpnvp.
+  DATA: l_http_headers           TYPE tihttpnvp.
+  DATA: l_soap_vers_content_type TYPE string.
+
+  srt_init_errorhandling 'SET_HTTP_HEADERS_LOCAL'.
+  srt_init_error_area.
+*  srt_init_error 'CL_WS_LOCAL_CALL_SOAP11_TPBND' 'SET_HTTP_HEADERS_LOCAL'. "obsolete
+
+**** determine content type according the SOAP Version
+  CASE if_soap_transport_binding~uri.
+    WHEN tsrc_soap_11_http_tpbnd.
+      l_soap_vers_content_type = tsrc_soap_11_http_content_type.
+    WHEN tsrc_soap_12_http_tpbnd.
+      l_soap_vers_content_type = tsrc_soap_12_http_content_type.
+  ENDCASE.
+* -1- headers specific for client/server side
+* -1a- server side
+  IF if_soap_transport_binding~co_soap_receiver EQ m_node_type.
+    "-- to be done, e.g. status code...
+
+* -1b- client side
+  ELSEIF if_soap_transport_binding~co_soap_sender EQ m_node_type.
+
+*   -1b1- HTTP version
+    IF tsoap_true EQ m_enable_http11.
+      value = tsrc_soap_11_http_version_11.
+    ELSEIF tsoap_false EQ m_enable_http11.
+      value = tsrc_soap_11_http_version_10.
+    ELSE.
+      srt_throw_soap_core_usage 2.
+    ENDIF.
+
+    l_http_header-name = if_http_header_fields_sap=>server_protocol.
+    l_http_header-value = value.
+    APPEND l_http_header TO l_http_headers.
+
+*   -1b2- path
+    "-- Note: SM59 destinations may contain only path prefixes;
+    "--       such incomplete target information can be adjusted
+    "--       via set_destination_url_path() which is configured
+    "--       into the IF_HTTP_REQUEST instance here:
+    IF NOT m_dest IS INITIAL
+    AND NOT m_dest_path IS INITIAL.
+
+      l_http_header-name = if_http_header_fields_sap=>path.
+      l_http_header-value = m_dest_path.
+      APPEND l_http_header TO l_http_headers.
+
+      l_http_header-name = if_http_header_fields_sap=>request_uri.
+      l_http_header-value = m_dest_path.
+      APPEND l_http_header TO l_http_headers.
+
+      "-- Note: this duplicated call will be eliminated when the
+      "--       ICF/ICM development has adjusted its APIs
+    ENDIF.
+
+*   -1b3- SOAPAction
+    IF tsoap_true EQ m_enable_soapaction.
+      IF NOT m_soapaction IS INITIAL.
+        value = m_soapaction.
+        l_http_header-name = tsrc_soap_11_http_action.
+        l_http_header-value = value.
+        APPEND l_http_header TO l_http_headers.
+      ELSE.
+        DELETE l_http_headers WHERE name = tsrc_soap_11_http_action.
+      ENDIF.
+    ENDIF.
+
+    DATA: lv_switch TYPE abap_bool.
+*   -1b4- Accept
+    IF if_soap_http_transport_binding~get_bxml( ) EQ abap_true.
+      DATA: l_value TYPE string.
+      CONCATENATE tsrc_soap_bx_http_content_type ' ;' l_soap_vers_content_type INTO l_value.
+      l_http_header-name = if_http_header_fields=>accept.
+      l_http_header-value = l_value.
+      APPEND l_http_header TO l_http_headers.
+    ELSE.
+      l_http_header-name = if_http_header_fields=>accept.
+      l_http_header-value = l_soap_vers_content_type.
+      APPEND l_http_header TO l_http_headers.
+    ENDIF.
+
+*   parent Event ID must be transmitted to provider side
+    DATA: l_parent_event_msg_id TYPE sxmsguid.
+
+    l_parent_event_msg_id = m_ctx->get_parent_event_id( ).
+    IF NOT l_parent_event_msg_id IS INITIAL.
+      l_http_header-name = if_soap_eventing=>co_http_hdr_parent_id.
+      l_http_header-value = l_parent_event_msg_id.
+      APPEND l_http_header TO l_http_headers.
+    ENDIF.
+
+    "-- others to be done
+
+* -1c- tertium non datur
+  ELSE.
+    srt_throw_soap_core_usage 3.
+  ENDIF.
+
+* -2- common headers
+  "-- ...to be done...
+
+* -3- special headers of the SOAP 6.40 Runtime
+  DATA: aguid TYPE sysuuid_c.
+  DATA: srtid TYPE string.
+
+  aguid = cl_soap_util=>create_uuid_c32( ).
+
+  CONCATENATE
+*   SY-SYSID SY-SAPRL SY-HOST SY-OPSYS SY-MANDT SY-UNAME
+    sy-datum sy-uzeit cl_soap_runtime=>co_srt_version aguid
+    INTO srtid SEPARATED BY '/'.
+  l_http_header-name = tsrc_soap_11_http_srtid.
+  l_http_header-value = srtid.
+  APPEND l_http_header TO l_http_headers.
+
+* -1- sender/receiver-specific
+
+* -2- general
+  IF if_soap_http_transport_binding~get_bxml( ) EQ abap_true.
+    l_http_header-name = if_http_header_fields=>content_encoding.
+    l_http_header-value = tsrc_soap_bx_http_content_type.
+    APPEND l_http_header TO l_http_headers.
+  ENDIF.
+
+  l_http_header-name = if_http_header_fields=>content_type.
+  CONCATENATE l_soap_vers_content_type tsrc_soap_11_http_charsetutf8 INTO l_http_header-value.
+  APPEND l_http_header TO l_http_headers.
+
+  transport_context->set_http_headers( l_http_headers ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->SET_RESP_HTTP_CODE_TO_202
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method SET_RESP_HTTP_CODE_TO_202.
+
+  m_response->set_status(
+    CODE   = TSRC_SOAP_11_HTTP_SCODE_202I
+    REASON = TSRC_SOAP_11_HTTP_SREASON_ACC ).
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->SET_SOAP_VERSION_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] TPBND_URI                      TYPE        ANYURI
+* | [--->] SOAP_VERSION                   TYPE        ANYURI
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_soap_version_data.
+***set tpbnd_uri and soap namespace according to the soap version
+**both fields must set according one and the same SOAP Procotol version
+
+  me->if_soap_transport_binding~uri = tpbnd_uri.
+  me->m_soap_msgversion = soap_version.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_SOAP_HTTP_TPBND_ROOT->SET_SOAP_VERS_BY_CONT_TYPE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] VALUE                          TYPE        STRING
+* | [--->] IS_LOCAL_CALL                  TYPE        BOOLEAN (default =ABAP_FALSE)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD set_soap_vers_by_cont_type.
+  DATA: l_value                TYPE string,
+        l_unsupported_cnt_type TYPE boolean,
+        l_http_tpbnd_type      TYPE string,
+        l_err_log              TYPE string,
+        l_soap_msg_version     TYPE string,
+        l_errstr               TYPE string,
+        l_errcode              TYPE tsoap_core_errors,
+        l_t100_text            TYPE string,                 "#EC NEEDED
+        l_short_text           TYPE string,
+        l_t100_area            TYPE arbgb,
+        l_t100_msgno           TYPE msgnr.
+
+  initerrorhandling set_soap_vers_by_cont_type.
+  srt_init_errorhandling 'SET_SOAP_VERS_BY_CONT_TYPE'.      "#EC NOTEXT
+
+****************************
+* Check for relevant Content-Type:
+*SOAP 1.1 : 'text/xml; charset="utf-8"'
+*SOAP 1.2: 'application/soap+xml; charset="utf-8"
+*MTOM+ SOAP1.1: Multipart/Related;boundary=MIME_boundary; type="application/xop+xml"; start-info="text/xml"
+*MTOM+SOAP1.2: *MTOM+ SOAP1.1: Multipart/Related;boundary=MIME_boundary; type="application/xop+xml"; start-info="application/soap+xml"
+*BXML+SP1.1 text/xml; charset=utf-8 and Content-Encoding: application/x-sap-bxml
+*BXML+SP1.2 application/soap+xml; charset=utf-8 and Content-Encoding: application/x-sap-bxml
+
+  l_value = value.
+  IF l_value CS tsrc_soap_11_http_content_type
+    AND NOT l_value CS tsrc_soap_12_http_content_type.
+    l_http_tpbnd_type = tsoap_co_tb_soap_11.
+    l_soap_msg_version = tsoap_co_msg_soap_11.
+  ELSEIF l_value CS tsrc_soap_12_http_content_type
+    AND NOT l_value CS tsrc_soap_11_http_content_type.
+    l_http_tpbnd_type = tsoap_co_tb_soap_12.
+    l_soap_msg_version = tsoap_co_msg_soap_12.
+
+    "---ERROR HANDLING--
+    " In case of REMOTE Scenario (not SHORTCUT) set default error page for SOAP 1.2 Protocol Version
+    "if unexpected dump on the provider side happens the processing is terminated and
+    " an Error Page corresponding for SOAP 1.2 must be returned from ICF;
+    IF m_server IS NOT INITIAL.
+      DATA: lv_error_page TYPE icf_response_page.
+      DATA: lv_response_page_type TYPE icf_page_type.
+      lv_response_page_type   = m_server->co_page_error_type.
+
+      lv_error_page-header = '0018FE864EEE1DEDBE87A9C6DF800A36'.
+      lv_error_page-body   = '0018FE864EEE1DEDBE87980687156A36'.
+      CALL METHOD m_server->set_page
+        EXPORTING
+          response_page_type   = lv_response_page_type
+          response_option      = m_server->co_response_page_option
+          response_option_page = lv_error_page
+        EXCEPTIONS
+          invalid_parameter    = 1.
+    ENDIF.
+
+  ELSE.
+    l_unsupported_cnt_type = abap_true.
+  ENDIF.
+
+**** check for the old runtime (only SOAP 1.1 is supported):
+*MTOM: application/xop+xml
+*BXML: application/x-sap-bxml
+  IF ( l_value CS tsrc_soap_bx_http_content_type OR l_value CS tsrc_soap_mtom_http_cont_type )
+    AND l_unsupported_cnt_type EQ abap_true.
+    CLEAR l_unsupported_cnt_type.
+    l_http_tpbnd_type = tsoap_co_tb_soap_11.
+    l_soap_msg_version = tsoap_co_msg_soap_11.
+  ENDIF.
+*
+  IF l_unsupported_cnt_type EQ abap_true.
+    IF is_local_call EQ abap_true.
+      l_err_log = l_value.
+      srt_raise_soap_core_text 3 tsoap_unsupported_type l_err_log.
+    ELSE.
+      CONCATENATE 'Unsupported Content Type is received: "' l_value
+          '"' INTO l_err_log SEPARATED BY space.            "#EC NOTEXT
+      CALL METHOD me->set_error
+        EXPORTING
+          entity    = m_request
+          value     = l_value
+          use_case  = tsrc_err_wr_cont_type
+        IMPORTING
+          errortext = l_errstr
+          errorcode = l_errcode.
+    ENDIF.
+
+    l_t100_area  = 'SRT_CORE'.                              "#EC NOTEXT
+    l_t100_msgno = 126.
+    MESSAGE e126(srt_core) INTO l_t100_text.
+    l_short_text = tsrc_soap_wr_cnt_type.
+    srt_util_set_error_location.
+    cl_soap_util=>log_write(
+      EXPORTING
+        main_entry    =  abap_true
+        error_info    =  l_err_log
+        short_text    =  l_short_text
+        t100_area     =  l_t100_area
+        t100_msgno    =  l_t100_msgno
+        soap_context  =  m_ctx
+        http_client   = m_client
+        http_prot     = m_url_prot
+        http_host     = m_url_host
+        http_port     = m_url_port
+        http_uri      = m_url_path
+        proxy_host    = m_proxy_host
+        proxy_port    = m_proxy_port
+        proxy_user    = m_proxy_user
+    ).
+    srt_raise_soap_core_text 3 l_errcode l_errstr.
+  ENDIF.
+
+  me->if_soap_transport_binding~uri = l_http_tpbnd_type.
+  me->m_soap_msgversion = l_soap_msg_version.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_SOAP_HTTP_TPBND_ROOT->SWITCH_CURRENT_SOAP_VERSION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] SWITCH_DIRECTION               TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method SWITCH_CURRENT_SOAP_VERSION.
+  "TODO
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->TRACE_PAYLOAD
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ENTITY                         TYPE REF TO IF_HTTP_ENTITY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD trace_payload.
+  srt_init_errorhandling  'TRACE_PAYLOAD'.                  "#EC NOTEXT
+
+*  srt_set_class_method 'TRACE_PAYLOAD'.                     "#EC NOTEXT "obsolete
+*  srt_init_error 'CL_SOAP11_HTTP_TPBND' 'trace_payload'.    "#EC NOTEXT "obsolete
+*  srt_trace_prepare 'SOAP Binding'.                         "#EC NOTEXT "obsolete
+
+
+  DATA: icfbuffer TYPE xstring.
+
+* -0- checks/init
+  srt_assert_ref_bound entity 1.
+
+  CLEAR: icfbuffer.
+
+* -1- get buffer and write to trace
+  icfbuffer = entity->get_data( ).
+
+*  cl_srt_test_utilities=>persist_call_runtime( req_xstring = icfbuffer m_ctx = M_ctx ).
+  "-- SRT_ASSERT_NOT_INITIAL icfBuffer 2.
+  IF NOT icfbuffer IS INITIAL.
+*    srt_trace_write_blob cl_soap_runtime=>co_tracelevel_payload icfbuffer.  "obsolete
+  ELSE.
+    srt_trc_lvl_payload 'ICF buffer is empty'.   "#EC NOTEXT
+*    srt_trace_add_text_lvl_payload 'ICF buffer is empty'.   "#EC NOTEXT "obsolete
+  ENDIF.
+
+ENDMETHOD. "-- TRACE_PAYLOAD
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->TRACE_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD trace_request .
+
+  DATA:
+    l_length         TYPE i,
+    l_clength(20)    TYPE c,
+    l_http_entity    TYPE REF TO if_http_entity,
+    lt_hdrfields     TYPE tihttpnvp,
+    icfbuffer        TYPE xstring,
+    l_req_str        TYPE string.
+
+  FIELD-SYMBOLS: <fs_hdrfld> TYPE ihttpnvp.
+
+
+* Do nothing if Classic Logging/Tracing is disabled
+  IF cl_soap_util=>m_clogtrace_mode IS INITIAL. EXIT. ENDIF.
+
+
+  srt_init_errorhandling  'TRACE_REQUEST'.                  "#EC NOTEXT
+
+*  srt_set_class_method 'TRACE_REQUEST'.                     "#EC NOTEXT "obsolete
+*  srt_init_error 'CL_SOAP_HTTP_TPBND_ROOT'                                "obsolete
+*    'IF_SOAP_TRANSPORT_BINDING~trace_request'.              "#EC NOTEXT   "obsolete
+*  srt_trace_prepare 'SOAP Binding'.                         "#EC NOTEXT "obsolete
+
+* -1- check
+  srt_assert_ref_bound m_ctx 1.
+  srt_assert_ref_bound m_request 1.
+
+* -2- trace context
+  m_ctx->do_trace( cl_soap_runtime=>co_tracelevel_payload ).
+
+* -3- trace payload
+*  IF m_trace_request EQ 'X'.
+  srt_trc_lvl_payload 'Trace request'.                      "#EC NOTEXT
+*  srt_trace_add_text_lvl_payload 'Trace request'.           "#EC NOTEXT "obsolete
+  CALL METHOD trace_payload( m_request ).
+*  ENDIF.
+
+  IF ( cl_soap_moni_collector=>mr_collector->m_trc_lvl = cl_soap_runtime=>co_tracelevel_payload OR
+       cl_soap_moni_collector=>mr_collector->m_trc_lvl = cl_soap_runtime=>co_tracelevel_full ).
+
+*  get soap envelop
+    icfbuffer = m_request->get_data( ).
+    IF NOT icfbuffer IS INITIAL.
+      CALL METHOD cl_soap_moni_collector=>mr_collector->set_soap_envelope
+        EXPORTING
+          i_env_req = icfbuffer.
+    ENDIF.
+
+    CALL METHOD m_request->get_header_fields
+      CHANGING
+        fields = lt_hdrfields.
+
+*    LOOP AT lt_hdrfields ASSIGNING <fs_hdrfld>.
+*      CONCATENATE l_req_str <fs_hdrfld>-name co_separator_equal
+*     <fs_hdrfld>-value co_separator_hash INTO l_req_str.
+*    ENDLOOP.
+*
+*    IF NOT l_req_str IS INITIAL.
+*      CALL METHOD cl_soap_moni_collector=>mr_collector->set_payload_header
+*        EXPORTING
+*          i_http_req = l_req_str.
+*    ENDIF.
+
+* solution for 7.0
+    DATA l_line TYPE ihttpnvp.
+    l_line-name  = 'REQUEST'.
+    l_line-value = 'DUMMY'.
+    INSERT l_line INTO lt_hdrfields INDEX 1.
+
+    IF NOT lt_hdrfields IS INITIAL.
+      CALL METHOD cl_soap_moni_collector=>mr_collector->set_payload_header
+        EXPORTING
+          i_http_req = lt_hdrfields.
+    ENDIF.
+
+  ENDIF.
+
+  l_http_entity ?= m_request.
+  CALL METHOD l_http_entity->get_data_length
+    IMPORTING
+      data_length = l_length.
+  WRITE l_length TO l_clength LEFT-JUSTIFIED NO-GROUPING.
+  srt_mon_add_header tsrtm_moni_hdr_req_size l_clength.     "#EC NOTEXT
+
+ENDMETHOD. "-- IF_SOAP_TRANSPORT_BINDING~TRACE_REQUEST
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->TRACE_RESPONSE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD trace_response .
+
+  DATA:
+  l_length         TYPE i,
+  l_clength(20)    TYPE c,
+  l_http_entity    TYPE REF TO if_http_entity,
+  lt_hdrfields     TYPE tihttpnvp,
+  icfbuffer        TYPE xstring,
+  l_resp_str       TYPE string.
+
+  FIELD-SYMBOLS: <fs_hdrfld> TYPE ihttpnvp.
+
+
+* Do nothing if Classic Logging/Tracing is disabled
+  IF cl_soap_util=>m_clogtrace_mode IS INITIAL. EXIT. ENDIF.
+
+
+  srt_init_errorhandling  'TRACE_RESPONSE'.                 "#EC NOTEXT
+
+*  srt_set_class_method 'TRACE_RESPONSE'.                    "#EC NOTEXT "obsolete
+*  srt_init_error 'CL_SOAP11_HTTP_TPBND'                                 "obsolete
+*    'IF_SOAP_TRANSPORT_BINDING~trace_response'.             "#EC NOTEXT "obsolete
+*  srt_trace_prepare 'SOAP Binding'.                         "#EC NOTEXT "obsolete
+
+* -1- checks
+  srt_assert_ref_bound m_ctx 1.
+  srt_assert_ref_bound m_response 1.
+
+* -2- trace context
+  m_ctx->do_trace( cl_soap_runtime=>co_tracelevel_payload ).
+
+* -3- trace payload
+*  IF m_trace_response EQ 'X'.
+  srt_trc_lvl_payload 'Trace response'.                     "#EC NOTEXT
+*  srt_trace_add_text_lvl_payload 'Trace response'.          "#EC NOTEXT "obsolete
+  CALL METHOD trace_payload( m_response ).
+*  ENDIF.
+
+  IF ( cl_soap_moni_collector=>mr_collector->m_trc_lvl = cl_soap_runtime=>co_tracelevel_payload OR
+       cl_soap_moni_collector=>mr_collector->m_trc_lvl = cl_soap_runtime=>co_tracelevel_full ).
+
+*  get soap envelop
+    icfbuffer = m_response->get_data( ).
+    IF NOT icfbuffer IS INITIAL.
+      CALL METHOD cl_soap_moni_collector=>mr_collector->set_soap_envelope
+        EXPORTING
+          i_env_resp = icfbuffer.
+    ENDIF.
+
+    CALL METHOD m_response->get_header_fields
+      CHANGING
+        fields = lt_hdrfields.
+
+*    LOOP AT lt_hdrfields ASSIGNING <fs_hdrfld>.
+*      CONCATENATE l_resp_str <fs_hdrfld>-name co_separator_equal
+*      <fs_hdrfld>-value co_separator_hash INTO l_resp_str.
+*    ENDLOOP.
+*
+*    IF NOT l_resp_str IS INITIAL.
+*      cl_soap_moni_collector=>mr_collector->set_payload_header( i_http_resp = l_resp_str ).
+*    ENDIF.
+
+* solution for 7.0
+    DATA l_line TYPE ihttpnvp.
+    l_line-name  = 'RESPONSE'.
+    l_line-value = 'DUMMY'.
+    INSERT l_line INTO lt_hdrfields INDEX 1.
+
+    IF NOT lt_hdrfields IS INITIAL.
+      cl_soap_moni_collector=>mr_collector->set_payload_header( i_http_resp = lt_hdrfields ).
+    ENDIF.
+
+  ENDIF.
+
+  l_http_entity ?= m_response.
+  CALL METHOD l_http_entity->get_data_length
+    IMPORTING
+      data_length = l_length.
+  WRITE l_length TO l_clength LEFT-JUSTIFIED NO-GROUPING.
+  srt_mon_add_header tsrtm_moni_hdr_resp_size l_clength.    "#EC NOTEXT
+
+ENDMETHOD. "-- IF_SOAP_TRANSPORT_BINDING~TRACE_RESPONSE
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_SOAP_HTTP_TPBND_ROOT->UPDATE_CLIENT_BY_CONFIG
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method UPDATE_CLIENT_BY_CONFIG.
+
+  DATA: l_uname TYPE string.
+  DATA: l_pwd TYPE string.
+  DATA: l_sso_ticket TYPE boolean.
+  DATA: l_sso_sysid  TYPE sysysid.
+  DATA: l_sso_client TYPE symandt.
+  DATA: l_config TYPE REF TO if_srt_wsp_rt_config.
+
+  srt_util_perf_start 'Update_HTTP_Client_By_Config'.       "#EC NOTEXT
+
+* Some HTTP client-related data has to be set for each SEND
+* because attributes related to HTTP request (authentication and
+* compress settings) are not available after REFRESH_REQUEST for
+* HTTP client objects created by URL
+
+*  call WSSE API to get the security-related
+*  settings to be provided to the HTTP-client-object
+  IF m_tpbnd_reloaded IS NOT INITIAL.
+    l_config = m_tpbnd_reloaded.
+  ELSE.
+    l_config = m_ctx->get_config( ).
+  ENDIF.
+  CALL FUNCTION 'WSSE_FEATURE_TO_HTTP_CLIENT'
+    EXPORTING
+      config         = l_config
+    IMPORTING
+      user           = l_uname
+      password       = l_pwd
+      use_ass_ticket = l_sso_ticket
+      client         = l_sso_client
+      system_id      = l_sso_sysid.
+
+
+* Functional Trace if required
+  IF cl_soap_util=>m_func_trace_level IS NOT INITIAL.
+    cl_soap_util=>trace_call(
+      EXPORTING
+        pname_01 = 'RemoteUser'
+        pdata_01 = l_uname
+    ).
+  ENDIF.
+
+* update compression settings to the HTTP client object
+  IF m_compress_request EQ tsrtp_f_bdg_compress_true.
+    CALL METHOD m_client->set_compression
+      EXPORTING
+        options                  = if_http_client=>co_compress_in_all_cases
+      EXCEPTIONS
+        compression_not_possible = 1.                       "#EC *
+* ignore this exception to have the same behaviour as for clients created
+* via sm59-destination: for this clients the method set_compression is
+* called within the method SEND without exception handling!
+  ENDIF.
+
+* provide logon information
+  IF l_uname IS NOT INITIAL AND
+     l_pwd IS NOT INITIAL.
+* basic authentification
+    m_client->authenticate(
+       EXPORTING password = l_pwd
+                 proxy_authentication = space
+                 username = l_uname    ).
+    IF cl_soap_util=>get_logon_popup( ) = abap_false.
+      m_client->propertytype_logon_popup = if_http_client=>co_disabled.
+    ENDIF.
+  ENDIF.
+
+  IF l_sso_ticket IS NOT INITIAL.
+* send assertion ticket
+    IF l_sso_sysid IS NOT INITIAL.
+      m_client->send_sap_assertion_ticket(
+                  client    = l_sso_client
+                  system_id = l_sso_sysid ).
+    ELSE.
+      m_client->send_sap_logon_ticket( ).
+    ENDIF.
+  ENDIF.
+
+* provide proxy logon data, if configurated
+  IF m_proxy_user IS NOT INITIAL AND
+     m_proxy_pwd IS NOT INITIAL.
+    m_client->authenticate(
+      EXPORTING password = m_proxy_pwd
+              proxy_authentication = abap_true
+              username = m_proxy_user   ).
+    IF cl_soap_util=>get_logon_popup( ) = abap_false.
+      m_client->propertytype_logon_popup = if_http_client=>co_disabled.
+    ENDIF.
+  ENDIF.
+
+
+  srt_util_perf_end.
+
+endmethod.
+ENDCLASS.
