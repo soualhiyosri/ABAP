@@ -1,0 +1,86 @@
+class CL_CSI_PROFILE_AWS definition
+  public
+  inheriting from CL_CSI_PROFILE
+  final
+  create private
+
+  global friends CL_CSI_PROFILE .
+
+public section.
+
+  interface IF_CSI_NODE_C load .
+  constants GC_INSTANCE_FINAL_STATUS type CSI_INSTANCE_STATE value IF_CSI_NODE_C=>GC_STATUS_TERMINATED. "#EC NOTEXT
+  constants GC_ID_COMPONENT type NAME_KOMP value 'INSTANCE_NAME'. "#EC NOTEXT
+protected section.
+
+  methods _GET_INSTANCE_FINAL_STATUS
+    redefinition .
+  methods _GET_PROFILE_PARAMETER
+    redefinition .
+  methods _GET_INSTANCE_ID_COMPONENT
+    redefinition .
+private section.
+*"* private components of class CL_CSI_PROFILE_AWS
+*"* do not include other source files here!!!
+ENDCLASS.
+
+
+
+CLASS CL_CSI_PROFILE_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROFILE_AWS->_GET_INSTANCE_FINAL_STATUS
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_STATUS                      TYPE        CSI_INSTANCE_STATE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method _GET_INSTANCE_FINAL_STATUS.
+  rv_status = gc_instance_final_status.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROFILE_AWS->_GET_INSTANCE_ID_COMPONENT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_ID_COMPONENT                TYPE        NAME_KOMP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method _GET_INSTANCE_ID_COMPONENT.
+  rv_id_component = gc_id_component.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROFILE_AWS->_GET_PROFILE_PARAMETER
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RT_PARAMETER                   TYPE        CSIT_PROVIDER_PARAMETER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _get_profile_parameter.
+  DATA:
+  ls_param TYPE csis_provider_parameter.
+
+  CONSTANTS:
+    lc_section TYPE csi_param_section VALUE 'CSI_AWS'.      "#EC NOTEXT
+
+  DEFINE add_param.
+    ls_param-sect = lc_section.
+    ls_param-name = &1.
+    ls_param-switch = &2.
+    ls_param-s_val = &3.
+    ls_param-i_val = &4.
+    ls_param-f_val = &5.
+    insert ls_param into table rt_parameter.
+    free ls_param.
+  END-OF-DEFINITION.
+
+  DATA:
+    lo_account TYPE REF TO cl_csi_provider_account.
+  lo_account = get_account( ).
+
+  DATA:
+    lv_s TYPE char255.
+  lv_s = lo_account->get_keyname( ).
+
+  add_param 'AWSAccessKey' if_csi_parameter_c=>gc_param_string lv_s 0 0. "#EC NOTEXT
+  " some more parameters could be added here for debuggin purposes.
+ENDMETHOD.
+ENDCLASS.
