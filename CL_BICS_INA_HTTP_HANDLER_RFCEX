@@ -1,0 +1,193 @@
+class CL_BICS_INA_HTTP_HANDLER_RFCEX definition
+  public
+  inheriting from CL_BICS_INA_HTTP_HANDLER
+  final
+  create public .
+
+public section.
+
+  methods IF_HTTP_EXTENSION~HANDLE_REQUEST
+    redefinition .
+  methods IF_OAUTH2_CONSUMER~PROVIDE_TADIR_KEY_FOR_REQUEST
+    redefinition .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS CL_BICS_INA_HTTP_HANDLER_RFCEX IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_BICS_INA_HTTP_HANDLER_RFCEX->IF_HTTP_EXTENSION~HANDLE_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] SERVER                         TYPE REF TO IF_HTTP_SERVER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD if_http_extension~handle_request.
+  DATA:
+    l_rx_error            TYPE REF TO cx_root,
+    l_rx_http_error       TYPE REF TO cx_bics_ina_http,
+    l_request             TYPE string,
+    l_request_x           TYPE xstring,
+    l_response_x          TYPE xstring,
+    l_catt_prefix         TYPE rstt_traceid,
+    l_catt                TYPE abap_bool,
+    l_t_trace_users       TYPE rstt_t_user,
+    l_trace               TYPE rs_bool,
+    l_bpc_pak_active      TYPE abap_bool,
+    l_s_trace             TYPE rstt_trace,
+    l_value               TYPE string,
+    l_t_header_fields     TYPE tihttpnvp,
+    l_t_form_fields       TYPE tihttpnvp,
+    l_t_cookies           TYPE tihttpcki,
+    l_s_server_properties TYPE cl_bics_ina_request=>tn_s_server_properties,
+    l_descr               TYPE string,
+    l_rsttcnv             TYPE c,
+    l_rsttini             TYPE c.
+
+  TRY.
+      handle_csrf( server ).
+
+    CATCH cx_bics_ina_http INTO l_rx_http_error.
+      server->response->set_header_field(
+          EXPORTING
+            ##NO_TEXT name  = 'content-type'
+            ##NO_TEXT value = 'application/json' ).
+      IF l_rx_http_error IS BOUND.
+        server->response->set_status(
+            EXPORTING
+                code   = 400
+                ##NO_TEXT reason = 'error' ).
+
+        l_response_x = cl_abap_codepage=>convert_to( l_rx_http_error->get_text( ) ).
+      ENDIF.
+
+      server->response->set_data( data = l_response_x ).
+      RETURN.
+  ENDTRY.
+
+***  cl_bics_ina_provider_analytics=>check_bpc_pak_active(
+***    IMPORTING
+***      e_active       = l_bpc_pak_active
+***    CHANGING
+***      c_json_response = l_response_x ).
+***  IF l_bpc_pak_active <> abap_true.
+***    server->response->set_header_field(
+***        EXPORTING
+***          ##NO_TEXT name  = 'content-type'
+***          ##NO_TEXT value = 'application/json' ).
+***    server->response->set_data( data = l_response_x ).
+***    RETURN.
+***  ENDIF.
+
+  " Stateful server
+  server->set_session_stateful( ).
+
+  " Get JSON request
+  " HTTP-POST
+  l_request_x = server->request->get_data( ).
+  " HTTP-GET
+  IF l_request_x IS INITIAL.
+    ##NO_TEXT l_request = server->request->get_form_field( 'Request' ).
+    l_request_x = cl_abap_codepage=>convert_to( l_request ).
+  ENDIF.
+
+  " RSTT trace
+  l_catt = abap_false.
+  l_trace = server->request->get_form_field( 'Trace' ).     "#EC NOTEXT
+  l_descr = server->request->get_form_field( 'tdescr' ).    "#EC NOTEXT
+  l_rsttini = server->request->get_form_field( 'rsttini' ). "#EC NOTEXT
+  l_rsttcnv = server->request->get_form_field( 'rsttcnv' ). "#EC NOTEXT
+
+  CASE l_trace.
+    WHEN 'X' OR 'x'.
+    WHEN 'C' OR 'c'.
+      "we create and record a CATT trace at once; optional a prefix can be set
+      l_catt_prefix = server->request->get_form_field( 'cattprefix' ). "#EC NOTEXT
+      l_catt = abap_true.
+    WHEN OTHERS.
+  ENDCASE.
+
+  "  do we have to init the traceref?
+  IF NOT l_rsttini IS INITIAL.
+    cl_rstt_trace=>init_traceref( ).
+  ENDIF.
+  "   do we have a registrated user for CATT trace?
+  l_t_trace_users = cl_rstt_user=>get_active_users(
+      i_tarea     = l_s_trace-tarea ).
+  READ TABLE l_t_trace_users WITH KEY tarea = cl_rstt_tarea=>n_c_tarea-bw_bex
+                                      tuser = sy-uname
+                                      active = 'X'
+                                      checkflag = 'X' TRANSPORTING NO FIELDS.
+  IF sy-subrc EQ 0.
+    l_catt = abap_true.
+  ENDIF.  "user is registrated for test generation
+
+  cl_rstt_trace=>set_skip_usercheck( l_trace ).
+
+  " Get Request information
+  server->request->get_header_fields( CHANGING fields  = l_t_header_fields ).
+  server->request->get_form_fields(   CHANGING fields  = l_t_form_fields   ).
+  server->request->get_cookies(       CHANGING cookies = l_t_cookies       ).
+  l_s_server_properties-authentication_method    = server->authentication_method.
+  l_s_server_properties-ssl_active               = server->ssl_active.
+  l_s_server_properties-session_id               = server->session_id.
+  l_s_server_properties-session_timeout          = server->session_timeout.
+  l_s_server_properties-stateful                 = server->stateful.
+  l_s_server_properties-transactional            = server->transactional.
+  l_s_server_properties-version                  = server->version.
+  l_s_server_properties-external_session_id      = server->external_session_id.
+  l_s_server_properties-service_compression_flag = server->service_compression_flag.
+
+  cl_bics_ina_controller=>set_request_header_info(
+    EXPORTING
+      i_t_header_fields     = l_t_header_fields
+      i_t_cookies           = l_t_cookies
+      i_s_server_properties = l_s_server_properties ).
+
+  " Execute back-end process
+  TRY.
+      l_response_x = cl_bics_ina_rfc_execute=>execute( i_json_request  = l_request_x
+                                                       i_catt = l_catt
+                                                       i_descr = l_descr ).
+    CATCH cx_root INTO l_rx_error.
+      server->response->set_status(
+          EXPORTING
+              code   = 400
+              ##NO_TEXT reason = 'error' ).
+  ENDTRY.
+
+  IF NOT l_trace IS INITIAL.
+    l_value = cl_rstt_trace=>n_r_traceref->n_s_trace_header-traceid.
+    server->response->set_header_field(
+        EXPORTING
+          ##NO_TEXT name  = cl_bics_ina_provider_analytics=>n_c_rstt_traceid
+          ##NO_TEXT value = l_value ).
+  ENDIF.
+
+  " Write back-end result into server response
+  server->response->set_header_field(
+      EXPORTING
+        ##NO_TEXT name  = 'content-type'
+        ##NO_TEXT value = 'application/json' ).
+  server->response->set_data( data = l_response_x ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_BICS_INA_HTTP_HANDLER_RFCEX->IF_OAUTH2_CONSUMER~PROVIDE_TADIR_KEY_FOR_REQUEST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_HTTP_REQUEST                 TYPE REF TO IF_HTTP_REQUEST
+* | [<---] E_TADIR_KEY                    TYPE        T_TADIR_KEY
+* | [!CX!] CX_OAUTH2_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  method IF_OAUTH2_CONSUMER~PROVIDE_TADIR_KEY_FOR_REQUEST.
+
+    e_tadir_key-pgmid    = 'R3TR'.
+    e_tadir_key-object   = 'IWSG'.
+    e_tadir_key-obj_name = 'SAP_BW_INA_EXECUTEBICS_HTTP'.
+
+  endmethod.
+ENDCLASS.
