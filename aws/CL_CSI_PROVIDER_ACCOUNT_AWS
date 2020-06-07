@@ -1,0 +1,368 @@
+class CL_CSI_PROVIDER_ACCOUNT_AWS definition
+  public
+  inheriting from CL_CSI_PROVIDER_ACCOUNT
+  create public .
+
+public section.
+  type-pools CSITY .
+
+  class-methods CLASS_CONSTRUCTOR .
+  methods GET_SIGNATURE
+    importing
+      !IV_STRINGTOSIGN type STRING
+      !IV_URLENCODE type ABAP_BOOL default ABAP_FALSE
+      !IO_KEY_ACCESS type ref to CL_CSI_PROVIDER_ACCOUNT_AWS_KA
+      !IV_VERSION type INT4 default 2
+      !IV_REGION type STRING optional
+      !IV_SERVICE type STRING optional
+      !IV_TIMESTAMP type TIMESTAMP optional
+    returning
+      value(RV_BASE64SIGNATURE) type HASH512_BASE_64 .
+  PROTECTED SECTION.
+
+    METHODS in_delete_secret_key
+      REDEFINITION .
+    METHODS in_set_secret_key
+      REDEFINITION .
+    METHODS in_get_signed_string
+      REDEFINITION .
+private section.
+
+  class-data SO_DATA type ref to IF_CSI_DATASTORE .
+  class-data ST_KEYNRS type CSIT_PROVIDER_ACCOUNT_KEYS .
+
+  methods GET_AWS_KEY
+    returning
+      value(RV_KEY) type CSI_CHAR200 .
+  methods SET_HMAC_KEY
+    importing
+      !IV_ALG type HASHALG default 'SHA1'
+      !IV_SECRET_KEY type STRING
+      !IV_KEYNR type CSI_PROVIDER_ACCOUNT_KEYNR
+    returning
+      value(RV_KEYNR) type CSI_PROVIDER_ACCOUNT_KEYNR
+    raising
+      CX_CSI_PROVIDER .
+  methods DEL_HMAC_KEY
+    importing
+      !IV_KEYNR type CSI_PROVIDER_ACCOUNT_KEYNR .
+  methods _GET_SIGNATURE
+    importing
+      !IV_STRINGTOSIGN type STRING
+      !IV_URLENCODE type ABAP_BOOL default ABAP_FALSE
+      !IV_VERSION type INT4 default 2
+      !IV_REGION type STRING optional
+      !IV_SERVICE type STRING optional
+      !IV_TIMESTAMP type TIMESTAMP optional
+    returning
+      value(RV_BASE64SIGNATURE) type HASH512_BASE_64 .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_PROVIDER_ACCOUNT_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_CSI_PROVIDER_ACCOUNT_AWS=>CLASS_CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD class_constructor.
+    so_data = cl_csi_datastorage=>factory( ).
+  ENDMETHOD.                    "class_constructor
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_PROVIDER_ACCOUNT_AWS->DEL_HMAC_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_KEYNR                       TYPE        CSI_PROVIDER_ACCOUNT_KEYNR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD del_hmac_key.
+    CALL FUNCTION 'DELETE_HMAC_KEY'
+      EXPORTING
+        client_independent = abap_true
+        record_number      = iv_keynr
+      EXCEPTIONS
+        OTHERS             = 0.
+
+  ENDMETHOD.                    "del_hmac_key
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_PROVIDER_ACCOUNT_AWS->GET_AWS_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_KEY                         TYPE        CSI_CHAR200
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_aws_key.
+    rv_key = get_keyname( ).
+  ENDMETHOD.                    "get_aws_key
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_ACCOUNT_AWS->GET_SIGNATURE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STRINGTOSIGN                TYPE        STRING
+* | [--->] IV_URLENCODE                   TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [--->] IO_KEY_ACCESS                  TYPE REF TO CL_CSI_PROVIDER_ACCOUNT_AWS_KA
+* | [--->] IV_VERSION                     TYPE        INT4 (default =2)
+* | [--->] IV_REGION                      TYPE        STRING(optional)
+* | [--->] IV_SERVICE                     TYPE        STRING(optional)
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP(optional)
+* | [<-()] RV_BASE64SIGNATURE             TYPE        HASH512_BASE_64
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_signature.
+    csity_test_key_access_ne io_key_access.
+    rv_base64signature = _get_signature( iv_stringtosign = iv_stringtosign iv_urlencode = iv_urlencode iv_version = iv_version iv_region = iv_region iv_service = iv_service iv_timestamp = iv_timestamp   ).
+  ENDMETHOD.                    "get_signature
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_ACCOUNT_AWS->IN_DELETE_SECRET_KEY
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD in_delete_secret_key.
+    del_hmac_key( get_keynr( ) ).
+  ENDMETHOD.                    "IN_DELETE_SECRET_KEY
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_ACCOUNT_AWS->IN_GET_SIGNED_STRING
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STRING_TO_SIGN              TYPE        CSI_STRING
+* | [<-()] RV_SIGNED_STRING               TYPE        CSI_STRING
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD in_get_signed_string.
+* 1) let's check the string that should be signed for an allowed operation
+    CONSTANTS lc_soapid TYPE string VALUE 'AMAZONS3'. " SOAP Auth-Infos start with this ID
+    DATA:
+      lv_operation TYPE string,
+      lv_idlen TYPE i,
+      lv_off TYPE i,
+      lx_provider TYPE REF TO cx_csi_provider.
+    lv_idlen = strlen( lc_soapid ).
+
+    lv_operation = to_upper( iv_string_to_sign ).
+    lv_off = strlen( lv_operation ).
+    IF ( lv_off > lv_idlen AND lv_operation(lv_idlen) = lc_soapid ).
+      " SOAP
+      lv_operation = lv_operation+lv_idlen.
+      FREE lv_off.
+      FIND REGEX '[0-9]' IN lv_operation MATCH OFFSET lv_off.
+      IF ( lv_off > 0 ).
+        lv_operation = lv_operation(lv_off).
+        CASE lv_operation.
+          WHEN 'LISTALLMYBUCKETS' OR 'PUTOBJECT'. " allowed operations.
+            " all good
+          WHEN OTHERS.
+            CREATE OBJECT lx_provider
+              EXPORTING
+                textid     = cx_csi_provider=>sign_operation_not_allowed
+                text_token = lv_operation.
+        ENDCASE.
+      ELSE.
+        CREATE OBJECT lx_provider
+          EXPORTING
+            textid     = cx_csi_provider=>sign_operation_not_allowed
+            text_token = lv_operation.
+      ENDIF.
+
+    ELSE.
+      " either a get call or something is wrong
+      DATA: lt_parts TYPE STANDARD TABLE OF string.
+      " split into "REST" parts -> AWS REST operations have a string that is splitted by \n
+      SPLIT lv_operation AT |\n| INTO TABLE lt_parts.
+      lv_off = lines( lt_parts ).
+      IF ( lv_off <= 1 ).
+        CREATE OBJECT lx_provider
+          EXPORTING
+            textid     = cx_csi_provider=>sign_operation_not_allowed
+            text_token = lv_operation.
+      ELSE.
+        READ TABLE lt_parts INDEX 1 INTO lv_operation.
+        CASE lv_operation.
+          WHEN 'GET' OR 'PUT'. " allowed operations - further checks "could" be applied to restrict allowed operations
+            " all good
+          WHEN OTHERS.
+            CREATE OBJECT lx_provider
+              EXPORTING
+                textid     = cx_csi_provider=>sign_operation_not_allowed
+                text_token = lv_operation.
+        ENDCASE.
+      ENDIF.
+    ENDIF.
+* 2) if the string is "bad", raise the exception
+    IF ( lx_provider IS BOUND ).
+      RAISE EXCEPTION lx_provider.
+    ENDIF.
+* 3) if the string is "good", get the signature for it
+    rv_signed_string = _get_signature( iv_string_to_sign ).
+  ENDMETHOD.                    "in_get_signed_string
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_ACCOUNT_AWS->IN_SET_SECRET_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_ADMIN_PROVIDER_ACCOUNT      TYPE REF TO IF_CSI_ADMIN_PROVIDER_ACCOUNT
+* | [<-()] RV_KEYNR                       TYPE        CSI_PROVIDER_ACCOUNT_KEYNR
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD in_set_secret_key.
+    DATA:
+      lx_csi_provider TYPE REF TO cx_csi_provider,
+      lo_admin TYPE REF TO cl_csi_admin_account_aws.
+    TRY.
+        lo_admin ?= io_admin_provider_account.
+      CATCH cx_root.  " if the cast fails, we do not have OUR own object
+        CREATE OBJECT lx_csi_provider
+          EXPORTING
+            textid        = cx_csi_provider=>admin_wrong_type
+            provider_name = get_provider_name( )
+            account_name  = gv_name.
+    ENDTRY.
+
+    DATA:
+      lv_key TYPE csi_provider_account_keynr VALUE '00',
+      lv_lines TYPE i.
+    IF ( get_keynr( ) IS INITIAL ).
+      DATA: lv_provider_name TYPE csi_provider_name.
+      lv_provider_name = get_provider_name( ).
+      IF ( st_keynrs IS INITIAL ). "keep it static so that db can be commit several set_secret_keys at once
+        st_keynrs = so_data->get_provider_account_keynrs( lv_provider_name ).
+      ENDIF.
+      IF ( lines( st_keynrs ) > 0 ).
+        DATA lv_oldkey TYPE csi_provider_account_keynr VALUE '00'.
+        FIELD-SYMBOLS <ls_keynr> TYPE csi_provider_account_keynr.
+        LOOP AT st_keynrs ASSIGNING <ls_keynr>.
+          IF ( <ls_keynr> - lv_oldkey > 2 ).
+            lv_key = lv_oldkey + 1.
+            EXIT.
+          ENDIF.
+          lv_oldkey = <ls_keynr>.
+        ENDLOOP.
+        lv_lines = lines( st_keynrs ).
+        IF ( lv_key = 0 AND lv_lines < 100 AND lv_lines > 0 ).
+          lv_key = lv_oldkey + 1.
+        ENDIF.
+        INSERT lv_key INTO TABLE st_keynrs.
+      ENDIF.
+    ELSE.
+      lv_key = get_keynr( ).
+    ENDIF.
+    DATA:
+      lv_secret_key TYPE string.
+    lv_secret_key = io_admin_provider_account->get_secret_key( ).
+    rv_keynr = set_hmac_key( iv_secret_key = lv_secret_key  iv_keynr = lv_key ).
+  ENDMETHOD.                    "in_set_secret_key
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_PROVIDER_ACCOUNT_AWS->SET_HMAC_KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_ALG                         TYPE        HASHALG (default ='SHA1')
+* | [--->] IV_SECRET_KEY                  TYPE        STRING
+* | [--->] IV_KEYNR                       TYPE        CSI_PROVIDER_ACCOUNT_KEYNR
+* | [<-()] RV_KEYNR                       TYPE        CSI_PROVIDER_ACCOUNT_KEYNR
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD set_hmac_key.
+    CALL FUNCTION 'SET_HMAC_KEY'
+      EXPORTING
+        alg                = iv_alg
+*       KEYXSTR            =
+*       KEYXLEN            =
+        keycstr            = iv_secret_key
+        client_independent = abap_true
+        record_number      = iv_keynr
+      EXCEPTIONS
+        OTHERS             = 1.
+    IF sy-subrc <> 0.
+      DATA lv_msg TYPE string.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 INTO lv_msg.
+      RAISE EXCEPTION TYPE cx_csi_provider
+        EXPORTING
+          textid        = cx_csi_provider=>error_set_key
+          provider_name = get_provider_name( )
+          text_token    = lv_msg.
+    ENDIF.
+    set_keynr( iv_keynr ).
+    rv_keynr = iv_keynr.
+  ENDMETHOD.                    "ACCOUNT_SET_HMAC_KEY
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_CSI_PROVIDER_ACCOUNT_AWS->_GET_SIGNATURE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STRINGTOSIGN                TYPE        STRING
+* | [--->] IV_URLENCODE                   TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [--->] IV_VERSION                     TYPE        INT4 (default =2)
+* | [--->] IV_REGION                      TYPE        STRING(optional)
+* | [--->] IV_SERVICE                     TYPE        STRING(optional)
+* | [--->] IV_TIMESTAMP                   TYPE        TIMESTAMP(optional)
+* | [<-()] RV_BASE64SIGNATURE             TYPE        HASH512_BASE_64
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD _get_signature.
+    DATA lv_keynr TYPE csi_provider_account_keynr.
+    lv_keynr = get_keynr( ).
+    IF ( iv_version = 2 ).
+      CALL FUNCTION 'CALCULATE_HMAC_FOR_CHAR'
+      EXPORTING
+        alg                = 'SHA1'
+        data               = iv_stringtosign
+        client_independent = abap_true
+        record_number      = lv_keynr
+        key_must_exist     = abap_true
+      IMPORTING
+        hmacbase64         = rv_base64signature
+      EXCEPTIONS
+        OTHERS             = 1.
+    IF ( sy-subrc <> 0 ).
+      rv_base64signature = ''.
+      RETURN.
+      ENDIF.
+    ELSE.
+      DATA:
+        lv_xkey    TYPE xstring,
+        lv_xkeylen TYPE i,
+        lv_hmac    TYPE string.
+      CALL FUNCTION 'GET_HMAC_KEY'
+        EXPORTING
+          client_independent = abap_true
+          record_number      = lv_keynr
+        IMPORTING
+          keyxstr            = lv_xkey
+          keyxlen            = lv_xkeylen
+        EXCEPTIONS
+          OTHERS             = 1.
+      IF sy-subrc <> 0.
+        rv_base64signature = ''.
+        RETURN.
+      ENDIF.
+      TRY.
+          FIELD-SYMBOLS:
+            <lv_line> TYPE string.
+          DATA:
+            lv_xsig TYPE xstring,
+            lv_date TYPE sydate.
+          CONVERT TIME STAMP iv_timestamp TIME ZONE '' INTO DATE lv_date.
+          lv_xsig = cl_csi_provider_aws_helper=>get_signing_key( EXPORTING iv_aws_sec_xkey_hashed = lv_xkey iv_aws_service = iv_service iv_aws_region = iv_region iv_date = lv_date ).
+          TRY.
+              DATA lv_sts TYPE string.
+              lv_sts = iv_stringtosign.
+              cl_abap_hmac=>calculate_hmac_for_char( EXPORTING if_algorithm = 'SHA256' if_key = lv_xsig if_data = lv_sts IMPORTING ef_hmacstring = lv_hmac ).
+          ENDTRY.
+
+          rv_base64signature = to_lower( lv_hmac ). "base64 can hold 88, while we have max 64
+        CATCH cx_root.
+          rv_base64signature = ''.
+          RETURN.
+      ENDTRY.
+
+    ENDIF.
+    IF ( iv_urlencode = abap_true ).
+      DATA lv_s TYPE string.
+      lv_s = rv_base64signature.
+      rv_base64signature =  cl_abap_dyn_prg=>escape_xss_url( val = lv_s ).
+    ENDIF.
+  ENDMETHOD.                    "get_signature
+ENDCLASS.
