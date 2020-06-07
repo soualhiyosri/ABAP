@@ -1,0 +1,131 @@
+*&---------------------------------------------------------------------*
+*& Report ZCONSUME_API_12
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZCONSUME_API_12.
+PARAMETERS  : lv_gl_id type string ,
+              lv_res type CHAR30,
+              lv_per type string,
+              lv_meth type  string .
+
+data lv_query  type FRN_FI_DP_QUERY .
+data lt_ret_series type  FRN_FI_DP_SERIES_TT .
+data ls_ret_series like LINE OF lt_ret_series .
+data lt_ret_messages TYPE  FRN_FI_DP_RET_MESSAGE_TT.
+data lt_filter type FRN_FI_DP_QUERY_TT .
+data ls_METHOD like line of lt_filter.
+data ls_GUID like line of lt_filter.
+data ls_metric like  LINE OF lt_filter.
+
+
+TYPES: BEGIN OF ls_result,
+        lv_metric type string ,
+        lv_sys type string  ,
+        lv_systype type string  ,
+        lv_method type string  ,
+        lv_category  type string ,
+        lv_value  type string ,
+       END OF ls_result.
+
+    data ls_data type ls_result .
+    data lt_data type STANDARD TABLE OF ls_result .
+
+data lo_dp_sysmon type ref to if_frn_fi_dp.
+
+
+
+LS_GUID-K = 'GUID'.
+APPEND  lv_gl_id to LS_GUID-V.
+ls_metric-K = 'METRIC_NAMES'.
+APPEND  'DIALOG_RESPONSE_TIME' to ls_metric-V.
+LS_METHOD-K = 'METHOD'.
+append lv_meth  to LS_METHOD-V  .
+
+APPEND LS_METHOD to lt_filter .
+APPEND LS_GUID to lt_filter .
+APPEND ls_metric to lt_filter .
+
+LV_QUERY-DATA_PROVIDER = 'DP_SYSMON'.
+LV_QUERY-FILTER = LT_FILTER .
+
+CREATE OBJECT  lo_dp_sysmon type CL_FRN_FI_DP_SYSMON .
+TRY.
+CALL METHOD lo_dp_sysmon->GET_SERIES
+  EXPORTING
+    IV_QUERY        = lv_query
+*    IV_START_TIME   =
+*    IV_END_TIME     =
+    IV_RESOLUTION   = lv_res
+*    IT_PARAMS       =
+*    IV_TIMEZONE     =
+    IV_PERIOD       = lv_per
+  CHANGING
+    CT_RET_SERIES   = lt_ret_series
+    CT_RET_MESSAGES = lt_ret_messages
+    .
+ CATCH CX_FRUN_DP_EXCEPTION .
+ENDTRY.
+
+LOOP AT lt_ret_series into ls_ret_series .
+  LS_DATA-LV_METHOD = ls_ret_series-Method.
+  ls_data-LV_METRIC = ls_ret_series-Name.
+  LOOP AT ls_ret_series-attributes into data(ls_attribute).
+    IF ls_attribute-K = 'CONTEXT_NAME'.
+      ls_data-LV_SYS = LS_ATTRIBUTE-V.
+    ENDIF.
+
+    IF ls_attribute-K = 'CONTEXT_TYPE'.
+      ls_data-LV_SYSTYPE = LS_ATTRIBUTE-V.
+    ENDIF.
+  ENDLOOP.
+
+  LOOP AT ls_ret_series-points into data(ls_point)  .
+      ls_data-LV_CATEGORY = ls_point-X.
+       ls_data-LV_VALUE =  ls_point-Y.
+       append ls_data to lt_data .
+  ENDLOOP.
+ENDLOOP.
+
+
+DATA: it_fieldcat  TYPE slis_t_fieldcat_alv,
+      wa_fieldcat  TYPE slis_fieldcat_alv.
+
+
+*Build field catalog
+  wa_fieldcat-fieldname  = 'lv_metric'.    " Fieldname in the data table
+  wa_fieldcat-seltext_m  = 'Metric Name'.   " Column description in the output
+  APPEND wa_fieldcat TO it_fieldcat.
+
+  wa_fieldcat-fieldname  = 'lv_method'.
+  wa_fieldcat-seltext_m  = 'Method'.
+  APPEND wa_fieldcat TO it_fieldcat.
+
+  wa_fieldcat-fieldname  = 'lv_sys'.
+  wa_fieldcat-seltext_m  = 'Context Name'.
+  APPEND wa_fieldcat TO it_fieldcat.
+
+  wa_fieldcat-fieldname  = 'lv_systype'.
+  wa_fieldcat-seltext_m  = 'Context Type'.
+  APPEND wa_fieldcat TO it_fieldcat.
+
+   wa_fieldcat-fieldname  = 'lv_category'.
+  wa_fieldcat-seltext_m  = 'Catgory'.
+  APPEND wa_fieldcat TO it_fieldcat.
+
+   wa_fieldcat-fieldname  = 'lv_value'.
+  wa_fieldcat-seltext_m  = 'Value'.
+  APPEND wa_fieldcat TO it_fieldcat.
+
+
+*Pass data and field catalog to ALV function module to display ALV list
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      it_fieldcat   = it_fieldcat
+    TABLES
+      t_outtab      = lt_data
+    EXCEPTIONS
+      program_error = 1
+      OTHERS        = 2.
+
+INCLUDE nsume_api_12_f01.
