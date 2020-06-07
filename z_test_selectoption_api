@@ -1,0 +1,114 @@
+*&---------------------------------------------------------------------*
+*& Report Z_TEST_SELECTOPTION_API
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_test_selectoption_api.
+
+DATA  : lo_datamanager TYPE REF TO if_sysmon_data_mgr,
+        et_entityset   TYPE sys_t_technical_systems,
+        lt_filters     TYPE /iwbep/t_mgw_select_option,
+        lt_res         TYPE frn_fi_dp_select_option_tt,
+        ls_res         LIKE LINE OF lt_res,
+        lt_options     TYPE frn_fi_dp_pair_tt,
+        ls_options     LIKE LINE OF lt_options.
+
+
+
+lo_datamanager = cl_sysmon_data_mgr_factory=>get_data_mgr( ).
+
+lo_datamanager->get_technical_systems(
+  EXPORTING
+    it_filter_select_options =     lt_filters
+  IMPORTING
+    et_technical_systems     =     et_entityset
+).
+
+
+LOOP AT et_entityset INTO DATA(ls_sys) .
+  DATA(guid) = cl_lmdb_guid_util=>convert_guid_c32_to_c36( ls_sys-context_id  ).
+  ls_options-k = guid .
+  CONCATENATE ls_sys-extended_sid '~' ls_sys-system_type INTO ls_options-v.
+  APPEND ls_options TO lt_options .
+ENDLOOP.
+
+
+ls_res-field_key = 'SID'.
+ls_res-field_name = 'Extended SID'.
+ls_res-options =  lt_options  .
+APPEND ls_res  TO lt_res  .
+
+
+
+CLEAR lt_options .
+SELECT  * FROM v_acmetricdir INTO TABLE  @DATA(lt_metrics).
+
+SORT lt_metrics BY name.
+
+DELETE ADJACENT DUPLICATES FROM lt_metrics COMPARING name.
+
+LOOP AT lt_metrics INTO DATA(ls_metric) .
+  ls_options-k =  ls_metric-name.
+  ls_options-v =  ls_metric-short_text.
+  APPEND  ls_options TO lt_options .
+
+ENDLOOP.
+
+
+ls_res-field_key = 'Metrics'.
+ls_res-field_name = 'Metrics'.
+ls_res-options =  lt_options  .
+APPEND ls_res  TO lt_res  .
+
+
+CLEAR lt_options .
+ls_options-k =  'AVG'.
+ls_options-v =  'AVG'.
+APPEND  ls_options TO lt_options .
+
+ls_options-k =  'MAX'.
+ls_options-v =  'MAX'.
+APPEND  ls_options TO lt_options .
+
+ls_options-k =  'MIN'.
+ls_options-v =  'MIN'.
+APPEND  ls_options TO lt_options .
+
+ls_options-k =  'SUM'.
+ls_options-v =  'SUM'.
+APPEND  ls_options TO lt_options .
+
+ls_options-k =  'COUNT'.
+ls_options-v =  'COUNT'.
+APPEND  ls_options TO lt_options .
+
+
+
+ls_res-field_key = 'Methods'.
+ls_res-field_name = 'Methods'.
+ls_res-options =  lt_options  .
+APPEND ls_res  TO lt_res  .
+
+
+CLEAR lt_options .
+
+ls_options-k =  'HOST'.
+ls_options-v =  'HOST'.
+APPEND  ls_options TO lt_options .
+
+ls_options-k =  'INSTANCE'.
+ls_options-v =  'INSTANCE'.
+APPEND  ls_options TO lt_options .
+
+
+
+ls_res-field_key = 'Drilldown'.
+ls_res-field_name = 'Drilldown'.
+ls_res-options =  lt_options  .
+APPEND ls_res  TO lt_res  .
+
+
+
+
+
+WRITE '' .
