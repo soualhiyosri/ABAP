@@ -1,0 +1,1652 @@
+*&---------------------------------------------------------------------*
+*& Report Z_ALLREP
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_ALLREP.
+type-pools: vrm.
+
+constants: c_ui_elem_name_id_intf type vrm_id value 'ID_INTF'.
+constants: c_ui_elem_name_id_filt type vrm_id value 'ID_FILT'.
+constants: c_ui_elem_name_id_time type vrm_id value 'ID_TIME'.
+constants: c_ui_elem_name_granu type vrm_id value 'AGGGRANU'.
+constants: c_ui_elem_name_outconv1 type vrm_id value 'ID_OC1'.
+constants: c_ui_elem_name_outconv2 type vrm_id value 'ID_OC2'.
+
+types: begin of ty_f4_list,
+         key  type text80,
+         info type text128,
+       end of ty_f4_list,
+       tt_f4_list type standard table of ty_f4_list with non-unique key key.
+types: begin of ty_filter_range,
+         sign(1)   type c,
+         option(2) type c,
+         low       type text128,
+         high      type text128,
+       end of ty_filter_range,
+       tt_filter_range type standard table of ty_filter_range with non-unique default key.
+data: gv_prev_idif_d type c value 'X',
+      gv_prev_idif_i type c,
+      gv_prev_idif_n type c.
+data: gv_prev_idfi_d type c value 'X',
+      gv_prev_idfi_i type c,
+      gv_prev_idfi_n type c.
+data: gv_prev_ocid_d type c value 'X',
+      gv_prev_ocid_i type c,
+      gv_prev_ocid_n type c.
+data: _filval1      type text128,
+      _filval2      type text128,
+      _filval3      type text128,
+      _filval4      type text128,
+      _filval5      type text128,
+      ls_filter_sel type ty_filter_range.
+data: gt_all_reader_id    type cl_mai_reporting_factory=>tt_id,
+      gt_all_filter_id    type cl_mai_reporting_factory=>tt_id,
+      gt_all_timedim_id   type cl_mai_reporting_factory=>tt_id,
+      gt_all_converter_id type cl_mai_reporting_factory=>tt_id.
+data: lr_table_type type ref to cl_abap_tabledescr,
+      lr_struc_type type ref to cl_abap_structdescr,
+      lr_typ        type ref to cl_abap_typedescr,
+      lr_datatyp    type ref to cl_abap_datadescr.
+
+*" reader interface selection
+selection-screen begin of block b1 with frame title ft1.
+parameters: id_intf type char40 as listbox visible length 60 user-command idif default cl_mai_reporting_factory=>co_id_reporting_generic.
+selection-screen begin of line.
+parameters idif_d type c radiobutton group idif user-command idif_chg default 'X'.
+selection-screen comment (20) idif_1 for field idif_d.
+parameters idif_i type c radiobutton group idif.
+selection-screen comment (20) idif_2 for field idif_i.
+parameters idif_n type c radiobutton group idif.
+selection-screen comment (20) idif_3 for field idif_n.
+selection-screen end of line.
+selection-screen end of block b1.
+
+
+*" filter selection
+selection-screen begin of block b2 with frame title ft2.
+parameters: id_filt type char40 as listbox visible length 60 user-command filt.
+selection-screen begin of line.
+parameters idfi_d type c radiobutton group idfi user-command idfi_chg default 'X'.
+selection-screen comment (20) idfi_1 for field idfi_d.
+parameters idfi_i type c radiobutton group idfi.
+selection-screen comment (20) idfi_2 for field idfi_i.
+parameters idfi_n type c radiobutton group idfi.
+selection-screen comment (20) idfi_3 for field idfi_n.
+selection-screen end of line.
+selection-screen skip.
+selection-screen begin of line.
+selection-screen comment (15) txt1fld for field field1.
+parameters field1 type char30.
+selection-screen comment (10) txt1val for field filval1.
+select-options filval1 for _filval1.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) txt2fld for field field2.
+parameters field2 type char30.
+selection-screen comment (10) txt2val for field filval2.
+select-options filval2 for _filval2.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) txt3fld for field field3.
+parameters field3 type char30.
+selection-screen comment (10) txt3val for field filval3.
+select-options filval3 for _filval3.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) txt4fld for field field4.
+parameters field4 type char30.
+selection-screen comment (10) txt4val for field filval4.
+select-options filval4 for _filval4.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) txt5fld for field field5.
+parameters field5 type char30.
+selection-screen comment (10) txt5val for field filval5.
+select-options filval5 for _filval5.
+selection-screen end of line.
+selection-screen end of block b2.
+
+
+*" time selection
+selection-screen begin of block b3 with frame title ft3.
+parameters: id_time type char40 as listbox visible length 60 user-command zeit default cl_mai_reporting_factory=>co_id_timedim_default.
+selection-screen skip.
+parameters: dat_from type d default sy-datum,
+            tim_from type t default '000000',
+            dat_to   type d default sy-datum,
+            tim_to   type t default '235959',
+            timzon   type timezone default sy-zonlo.
+parameters: agggranu type char10 as listbox visible length 30 default if_mai_reporting_time_dim=>co_granu_hour.
+selection-screen end of block b3.
+
+
+*" output structure
+selection-screen begin of block b4 with frame title ft4.
+parameters: outtabty type char100.
+selection-screen skip.
+selection-screen comment /1(79) txtofi.
+selection-screen begin of line.
+  selection-screen comment (15) outfi1t for field outfi1.
+  parameters outfi1 type char30.
+  selection-screen comment (15) outty1t for field outty1.
+  parameters outty1 type char40.
+  parameters outky1 type char1 as CHECKBOX.
+  selection-screen comment (10) outky1t for field outky1.
+selection-screen end of line.
+selection-screen begin of line.
+  selection-screen comment (15) outfi2t for field outfi2.
+  parameters outfi2 type char30.
+  selection-screen comment (15) outty2t for field outty2.
+  parameters outty2 type char40.
+  parameters outky2 type char1 as CHECKBOX.
+  selection-screen comment (10) outky2t for field outky2.
+selection-screen end of line.
+selection-screen begin of line.
+  selection-screen comment (15) outfi3t for field outfi3.
+  parameters outfi3 type char30.
+  selection-screen comment (15) outty3t for field outty3.
+  parameters outty3 type char40.
+  parameters outky3 type char1 as CHECKBOX.
+  selection-screen comment (10) outky3t for field outky3.
+selection-screen end of line.
+selection-screen begin of line.
+  selection-screen comment (15) outfi4t for field outfi4.
+  parameters outfi4 type char30.
+  selection-screen comment (15) outty4t for field outty4.
+  parameters outty4 type char40.
+  parameters outky4 type char1 as CHECKBOX.
+  selection-screen comment (10) outky4t for field outky4.
+selection-screen end of line.
+
+selection-screen end of block b4.
+
+
+*" output conversion 1
+selection-screen begin of block b5 with frame title ft5.
+parameters: id_oc1 type char40 as listbox visible length 60 user-command outcon1 default 'NONE'.
+selection-screen skip.
+selection-screen comment /1(79) oc_src.
+selection-screen begin of line.
+selection-screen comment (15) oc1sal1t for field oc1s_al1.
+parameters oc1s_al1 type char30.
+selection-screen comment (15) oc1sfn1t for field oc1s_fn1.
+parameters oc1s_fn1 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc1sal2t for field oc1s_al2.
+parameters oc1s_al2 type char30.
+selection-screen comment (15) oc1sfn2t for field oc1s_fn2.
+parameters oc1s_fn2 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc1sal3t for field oc1s_al3.
+parameters oc1s_al3 type char30.
+selection-screen comment (15) oc1sfn3t for field oc1s_fn3.
+parameters oc1s_fn3 type char30.
+selection-screen end of line.
+
+selection-screen skip.
+selection-screen comment /1(79) oc_trg.
+selection-screen begin of line.
+selection-screen comment (15) oc1tal1t for field oc1t_al1.
+parameters oc1t_al1 type char30.
+selection-screen comment (15) oc1tfn1t for field oc1t_fn1.
+parameters oc1t_fn1 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc1tal2t for field oc1t_al2.
+parameters oc1t_al2 type char30.
+selection-screen comment (15) oc1tfn2t for field oc1t_fn2.
+parameters oc1t_fn2 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc1tal3t for field oc1t_al3.
+parameters oc1t_al3 type char30.
+selection-screen comment (15) oc1tfn3t for field oc1t_fn3.
+parameters oc1t_fn3 type char30.
+selection-screen end of line.
+selection-screen end of block b5.
+
+
+*" output conversion 2
+selection-screen begin of block b6 with frame title ft6.
+parameters: id_oc2 type char40 as listbox visible length 60 user-command outcon2 default 'NONE'.
+selection-screen skip.
+selection-screen comment /1(79) oc2_src.
+selection-screen begin of line.
+selection-screen comment (15) oc2sal1t for field oc2s_al1.
+parameters oc2s_al1 type char30.
+selection-screen comment (15) oc2sfn1t for field oc2s_fn1.
+parameters oc2s_fn1 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc2sal2t for field oc2s_al2.
+parameters oc2s_al2 type char30.
+selection-screen comment (15) oc2sfn2t for field oc2s_fn2.
+parameters oc2s_fn2 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc2sal3t for field oc2s_al3.
+parameters oc2s_al3 type char30.
+selection-screen comment (15) oc2sfn3t for field oc2s_fn3.
+parameters oc2s_fn3 type char30.
+selection-screen end of line.
+
+selection-screen skip.
+selection-screen comment /1(79) oc2_trg.
+selection-screen begin of line.
+selection-screen comment (15) oc2tal1t for field oc2t_al1.
+parameters oc2t_al1 type char30.
+selection-screen comment (15) oc2tfn1t for field oc2t_fn1.
+parameters oc2t_fn1 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc2tal2t for field oc2t_al2.
+parameters oc2t_al2 type char30.
+selection-screen comment (15) oc2tfn2t for field oc2t_fn2.
+parameters oc2t_fn2 type char30.
+selection-screen end of line.
+selection-screen begin of line.
+selection-screen comment (15) oc2tal3t for field oc2t_al3.
+parameters oc2t_al3 type char30.
+selection-screen comment (15) oc2tfn3t for field oc2t_fn3.
+parameters oc2t_fn3 type char30.
+selection-screen end of line.
+selection-screen end of block b6.
+
+selection-screen comment /1(79) oc_do.
+selection-screen begin of line.
+parameters ocid_d type c radiobutton group ocid user-command ocid_chg default 'X'.
+selection-screen comment (20) ocid_1 for field ocid_d.
+parameters ocid_i type c radiobutton group ocid.
+selection-screen comment (20) ocid_2 for field ocid_i.
+parameters ocid_n type c radiobutton group ocid.
+selection-screen comment (20) ocid_3 for field ocid_n.
+selection-screen end of line.
+
+selection-screen begin of block b7 with frame title ft7.
+  parameters: pp_aggr type abap_bool as CHECKBOX.
+selection-screen end of block b7.
+
+
+initialization.
+*" set texts
+  ft1 = 'Reader interface'(000).
+  idif_1 = idfi_1 = ocid_1 = 'Description text'(001).
+  idif_2 = idfi_2 = ocid_2 = 'Technical ID'(002).
+  idif_3 = 'Interface name'(003).
+
+  ft2 = 'Filter'(004).
+  txt1fld = txt2fld = txt3fld = txt4fld = txt5fld = 'Field name'(005).
+  txt1val = txt2val = txt3val = txt4val = txt5val = 'Value'(006).
+  idfi_3 = ocid_3 = 'Class name'(026).
+
+  ft3 = 'Time settings'(007).
+
+  ft4 = 'Output structure'(016).
+  txtofi = 'Additional fields'(023).
+  outfi1t = outfi2t = outfi3t = outfi4t = 'Field name'(024).
+  outty1t = outty2t = outty3t = outty4t = 'Data type'(025).
+  outky1t = outky2t = outky3t = outky4t = 'Is key'(029).
+
+  ft5 = ft6 = 'Output conversion'(017).
+  oc_src = oc2_src = 'Source field mapping'(019).
+  oc_trg = oc2_trg = 'Target field mapping'(020).
+  oc1sal1t = oc1sal2t = oc1sal3t = oc1tal1t = oc1tal2t = oc1tal3t =
+  oc2sal1t = oc2sal2t = oc2sal3t = oc2tal1t = oc2tal2t = oc2tal3t = 'Alias'(021).
+  oc1sfn1t = oc1sfn2t = oc1sfn3t = oc1tfn1t = oc1tfn2t = oc1tfn3t =
+  oc2sfn1t = oc2sfn2t = oc2sfn3t = oc2tfn1t = oc2tfn2t = oc2tfn3t = 'Field name'(022).
+
+  ft7 = 'Postprocessing'(030).
+
+  oc_do = 'General output conversion settings'(027).
+
+  "watchdog
+  data gx_auth_error type ref to cx_alrt_authorization.
+  data gv_text type string.
+  try.
+      cl_alrt_authorization=>check_support_tool_auth( ).
+    catch cx_alrt_authorization into gx_auth_error.
+      gv_text = gx_auth_error->get_text( ).
+      message gv_text type 'S' display like 'E'.
+      leave program.
+  endtry.
+
+
+  data: lt_listbox_values type vrm_values,
+        ls_listbox_value  like line of lt_listbox_values,
+        lo_interface      type ref to cl_oo_interface,
+        lo_class          type ref to cl_oo_class,
+        lv_interface_name type seoclsname,
+        lo_filter_prep    type ref to if_mai_reporting_filter,
+        lt_filter_fields  type if_mai_reporting_filter=>tty_fieldnames,
+        lo_tabletype      type ref to cl_abap_tabledescr.
+  field-symbols: <id>          type cl_mai_reporting_factory=>ty_id,
+                 <filterfield> like line of lt_filter_fields.
+
+  "" fill the listbox for reader interface selection
+  clear lt_listbox_values[].
+  gt_all_reader_id = cl_mai_reporting_factory=>get_all_reader_id( ).
+  loop at gt_all_reader_id assigning <id>.
+    try.
+        lv_interface_name = <id>-interface_name.
+        lo_interface ?= cl_oo_interface=>get_instance( clsname = lv_interface_name ).
+        ls_listbox_value-key = <id>-id.
+        ls_listbox_value-text = lo_interface->interface-descript.
+        if ls_listbox_value-text = ''.
+          ls_listbox_value-text = lv_interface_name.
+        endif.
+        append ls_listbox_value to lt_listbox_values.
+      catch cx_class_not_existent.
+        continue.
+    endtry.
+  endloop.
+  call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_id_intf values = lt_listbox_values.
+
+  "" fill the listbox for filter
+  gt_all_filter_id = cl_mai_reporting_factory=>get_all_filter_id( ).
+  clear lt_listbox_values[].
+  loop at gt_all_filter_id assigning <id>.
+    ls_listbox_value-key = <id>-id.
+    ls_listbox_value-text = <id>-class_name.
+    try.
+        lv_interface_name = <id>-class_name.
+        lo_class ?= cl_oo_class=>get_instance( clsname = lv_interface_name ).
+        ls_listbox_value-text = lo_class->class-descript.
+      catch cx_class_not_existent.
+    endtry.
+    append ls_listbox_value to lt_listbox_values.
+  endloop.
+  call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_id_filt values = lt_listbox_values.
+
+  "" fill the listbox for time dimension
+  clear lt_listbox_values[].
+  gt_all_timedim_id = cl_mai_reporting_factory=>get_all_timedim_id( ).
+  loop at gt_all_timedim_id assigning <id>.
+    ls_listbox_value-key = <id>-id.
+    ls_listbox_value-text = <id>-class_name.
+    append ls_listbox_value to lt_listbox_values.
+  endloop.
+  call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_id_time values = lt_listbox_values.
+
+  "" fill the listbox for granularity selection
+  clear lt_listbox_values[].
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_minutes.
+  ls_listbox_value-text = 'Minutes'(008).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_5_minutes.
+  ls_listbox_value-text = '5-Minutes'(009).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_15_minutes.
+  ls_listbox_value-text = '15-Minutes'(010).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_hour.
+  ls_listbox_value-text = 'Hours'(011).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_day.
+  ls_listbox_value-text = 'Days'(012).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_week.
+  ls_listbox_value-text = 'Weeks'(013).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_month.
+  ls_listbox_value-text = 'Months'(014).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_none.
+  ls_listbox_value-text = 'No time slots'(015).
+  append ls_listbox_value to lt_listbox_values.
+  ls_listbox_value-key = if_mai_reporting_time_dim=>co_granu_raw.
+  ls_listbox_value-text = 'Raw data'(028).
+  append ls_listbox_value to lt_listbox_values.
+  call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_granu values = lt_listbox_values.
+
+  "" set default output type
+  read table gt_all_reader_id with key id = id_intf assigning <id>.
+  if sy-subrc = 0.
+    lv_interface_name = <id>-interface_name.
+    cl_mai_reporting_factory=>get_reader_interface_types(
+      exporting  iv_interface_name = lv_interface_name
+      importing  eo_tabtype        = lo_tabletype  ).
+    if lo_tabletype is bound.
+      outtabty = lo_tabletype->absolute_name.
+    else.
+      clear outtabty.
+    endif.
+  else.
+    clear outtabty.
+  endif.
+
+  "" fill the listbox for output conversions
+  clear lt_listbox_values[].
+  gt_all_converter_id = cl_mai_reporting_factory=>get_all_converter_id( ).
+  loop at gt_all_converter_id assigning <id>.
+    ls_listbox_value-key = <id>-id.
+    try.
+        lv_interface_name = <id>-class_name.
+        lo_class ?= cl_oo_class=>get_instance( clsname = lv_interface_name ).
+      catch cx_class_not_existent.
+        continue.
+    endtry.
+    ls_listbox_value-text = lo_class->class-descript.
+    if ls_listbox_value-text = ''.
+      ls_listbox_value-text = <id>-class_name.
+    endif.
+    append ls_listbox_value to lt_listbox_values.
+  endloop.
+  ls_listbox_value-key = 'NONE'.
+  ls_listbox_value-text = 'Nothing'(018).
+  append ls_listbox_value to lt_listbox_values.
+  call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_outconv1 values = lt_listbox_values.
+  call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_outconv2 values = lt_listbox_values.
+
+
+
+
+
+
+
+at selection-screen.
+  if gv_prev_idif_d <> idif_d or gv_prev_idif_i <> idif_i or gv_prev_idif_n <> idif_n.
+    "" change reader selection listbox texts
+    clear lt_listbox_values[].
+    loop at gt_all_reader_id assigning <id>.
+      try.
+          lv_interface_name = <id>-interface_name.
+          lo_interface ?= cl_oo_interface=>get_instance( clsname = lv_interface_name ).
+          ls_listbox_value-key = <id>-id.
+          case 'X'.
+            when idif_d. ls_listbox_value-text = lo_interface->interface-descript.
+            when idif_n. ls_listbox_value-text = <id>-interface_name.
+            when others. ls_listbox_value-text = <id>-id.
+          endcase.
+          if ls_listbox_value-text = ''.
+            ls_listbox_value-text = <id>-id.
+          endif.
+          append ls_listbox_value to lt_listbox_values.
+        catch cx_class_not_existent.
+          continue.
+      endtry.
+    endloop.
+    call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_id_intf values = lt_listbox_values.
+    gv_prev_idif_d = idif_d.
+    gv_prev_idif_i = idif_i.
+    gv_prev_idif_n = idif_n.
+  endif.
+
+  if gv_prev_idfi_d <> idfi_d or gv_prev_idfi_i <> idfi_i or gv_prev_idfi_n <> idfi_n.
+    "" change filter selection listbox texts
+    clear lt_listbox_values[].
+    loop at gt_all_filter_id assigning <id>.
+      try.
+          lv_interface_name = <id>-class_name.
+          lo_class ?= cl_oo_class=>get_instance( clsname = lv_interface_name ).
+          ls_listbox_value-key = <id>-id.
+          case 'X'.
+            when idfi_d. ls_listbox_value-text = lo_class->class-descript.
+            when idfi_n. ls_listbox_value-text = <id>-class_name.
+            when others. ls_listbox_value-text = <id>-id.
+          endcase.
+          if ls_listbox_value-text = ''.
+            ls_listbox_value-text = <id>-id.
+          endif.
+          append ls_listbox_value to lt_listbox_values.
+        catch cx_class_not_existent.
+          continue.
+      endtry.
+    endloop.
+    call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_id_filt values = lt_listbox_values.
+    gv_prev_idfi_d = idfi_d.
+    gv_prev_idfi_i = idfi_i.
+    gv_prev_idfi_n = idfi_n.
+  endif.
+
+  if gv_prev_ocid_d <> ocid_d or gv_prev_ocid_i <> ocid_i or gv_prev_ocid_n <> ocid_n.
+    "" change filter selection listbox texts
+    clear lt_listbox_values[].
+    loop at gt_all_converter_id assigning <id>.
+      try.
+          lv_interface_name = <id>-class_name.
+          lo_class ?= cl_oo_class=>get_instance( clsname = lv_interface_name ).
+          ls_listbox_value-key = <id>-id.
+          case 'X'.
+            when ocid_d. ls_listbox_value-text = lo_class->class-descript.
+            when ocid_n. ls_listbox_value-text = <id>-class_name.
+            when others. ls_listbox_value-text = <id>-id.
+          endcase.
+          if ls_listbox_value-text = ''.
+            ls_listbox_value-text = <id>-id.
+          endif.
+          append ls_listbox_value to lt_listbox_values.
+        catch cx_class_not_existent.
+          continue.
+      endtry.
+    endloop.
+    ls_listbox_value-key = 'NONE'.
+    if ocid_d = 'X'.
+      ls_listbox_value-text = 'Nothing'(018).
+    else.
+      ls_listbox_value-text = ls_listbox_value-key.
+    endif.
+    append ls_listbox_value to lt_listbox_values.
+    call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_outconv1 values = lt_listbox_values.
+    call function 'VRM_SET_VALUES' exporting id = c_ui_elem_name_outconv2 values = lt_listbox_values.
+    gv_prev_ocid_d = ocid_d.
+    gv_prev_ocid_i = ocid_i.
+    gv_prev_ocid_n = ocid_n.
+  endif.
+
+
+  if sy-ucomm = 'FILT'.
+    read table gt_all_filter_id with key id = id_filt assigning <id>.
+    if sy-subrc = 0.
+      clear lt_filter_fields[].
+      create object lo_filter_prep type (<id>-class_name).
+      lt_filter_fields = lo_filter_prep->get_supported_fieldnames( ).
+      read table lt_filter_fields index 1 assigning <filterfield>.
+      if sy-subrc = 0.
+        field1 = <filterfield>-fieldname.
+      else.
+        field1 = ''.
+      endif.
+      read table lt_filter_fields index 2 assigning <filterfield>.
+      if sy-subrc = 0.
+        field2 = <filterfield>-fieldname.
+      else.
+        field2 = ''.
+      endif.
+      read table lt_filter_fields index 3 assigning <filterfield>.
+      if sy-subrc = 0.
+        field3 = <filterfield>-fieldname.
+      else.
+        field3 = ''.
+      endif.
+      read table lt_filter_fields index 4 assigning <filterfield>.
+      if sy-subrc = 0.
+        field4 = <filterfield>-fieldname.
+      else.
+        field4 = ''.
+      endif.
+      read table lt_filter_fields index 5 assigning <filterfield>.
+      if sy-subrc = 0.
+        field5 = <filterfield>-fieldname.
+      else.
+        field5 = ''.
+      endif.
+    endif.
+  endif.
+
+  if sy-ucomm = 'IDIF'.
+    read table gt_all_reader_id with key id = id_intf assigning <id>.
+    if sy-subrc = 0.
+      lv_interface_name = <id>-interface_name.
+      cl_mai_reporting_factory=>get_reader_interface_types(
+        exporting  iv_interface_name = lv_interface_name
+        importing  eo_tabtype        = lo_tabletype  ).
+      if lo_tabletype is bound.
+        outtabty = lo_tabletype->absolute_name.
+      else.
+        clear outtabty.
+      endif.
+    else.
+      clear outtabty.
+    endif.
+  endif.
+
+  if sy-ucomm = 'OUTCON1'.
+    "read table gt_all_converter_id with key id = id_oc1 ASSIGNING <id>.
+    "if sy-subrc = 0.
+    perform get_outconv_aliases using id_oc1
+                                      oc1s_al1 oc1s_al2 oc1s_al3   oc1s_fn1 oc1s_fn2 oc1s_fn3
+                                      oc1t_al1 oc1t_al2 oc1t_al3   oc1t_fn1 oc1t_fn2 oc1t_fn3.
+    "endif.
+  endif.
+  if sy-ucomm = 'OUTCON2'.
+    "read table gt_all_converter_id with key id = id_oc1 ASSIGNING <id>.
+    "if sy-subrc = 0.
+    perform get_outconv_aliases using id_oc2
+                                      oc2s_al1 oc2s_al2 oc2s_al3   oc2s_fn1 oc2s_fn2 oc2s_fn3
+                                      oc2t_al1 oc2t_al2 oc2t_al3   oc2t_fn1 oc2t_fn2 oc2t_fn3.
+    "endif.
+  endif.
+
+
+
+
+
+
+
+at selection-screen on value-request for filval1-low.
+  "" use an already entered value as pattern for the value help
+  perform get_f4_filtervalues using 'FILVAL1-LOW' 'FIELD1' filval1[].
+
+at selection-screen on value-request for filval2-low.
+  perform get_f4_filtervalues using 'FILVAL2-LOW' 'FIELD2' filval2[].
+
+at selection-screen on value-request for filval3-low.
+  perform get_f4_filtervalues using 'FILVAL3-LOW' 'FIELD3' filval3[].
+
+at selection-screen on value-request for filval4-low.
+  perform get_f4_filtervalues using 'FILVAL4-LOW' 'FIELD4' filval4[].
+
+at selection-screen on value-request for filval5-low.
+  perform get_f4_filtervalues using 'FILVAL5-LOW' 'FIELD5' filval5[].
+
+
+
+at selection-screen on value-request for oc1s_fn1.   "output conversion 1, source field 1
+  perform get_f4_out_fieldname using oc1s_fn1.
+
+at selection-screen on value-request for oc1s_fn2.   "output conversion 1, source field 2
+  perform get_f4_out_fieldname using oc1s_fn2.
+
+at selection-screen on value-request for oc1s_fn3.   "output conversion 1, source field 3
+  perform get_f4_out_fieldname using oc1s_fn3.
+
+at selection-screen on value-request for oc1t_fn1.   "output conversion 1, target field 1
+  perform get_f4_out_fieldname using oc1t_fn1.
+
+at selection-screen on value-request for oc1t_fn2.   "output conversion 1, target field 2
+  perform get_f4_out_fieldname using oc1t_fn2.
+
+at selection-screen on value-request for oc1t_fn3.   "output conversion 1, target field 3
+  perform get_f4_out_fieldname using oc1t_fn3.
+
+
+
+at selection-screen on value-request for oc2s_fn1.   "output conversion 2, source field 1
+  perform get_f4_out_fieldname using oc2s_fn1.
+
+at selection-screen on value-request for oc2s_fn2.   "output conversion 2, source field 2
+  perform get_f4_out_fieldname using oc2s_fn2.
+
+at selection-screen on value-request for oc2s_fn3.   "output conversion 2, source field 3
+  perform get_f4_out_fieldname using oc2s_fn3.
+
+at selection-screen on value-request for oc2t_fn1.   "output conversion 2, target field 1
+  perform get_f4_out_fieldname using oc2t_fn1.
+
+at selection-screen on value-request for oc2t_fn2.   "output conversion 2, target field 2
+  perform get_f4_out_fieldname using oc2t_fn2.
+
+at selection-screen on value-request for oc2t_fn3.   "output conversion 2, target field 3
+  perform get_f4_out_fieldname using oc2t_fn3.
+
+
+
+at selection-screen output.
+
+
+
+start-of-selection.
+  data: lo_reader            type ref to cl_mai_reporting_base,   "usually this should refer to an interface, but here we need to be super-generic
+        lo_filter            type ref to if_mai_reporting_filter,
+        lo_time              type ref to if_mai_reporting_time_dim,
+        lt_filter            type if_mai_reporting_filter=>tty_filter,
+        ls_filter            like line of lt_filter,
+        ls_reader_info       like line of gt_all_reader_id,
+        ls_filter_info       like line of gt_all_filter_id,
+        ls_time_info         like line of gt_all_timedim_id,
+        ls_converter_info    like line of gt_all_converter_id,
+        lv_timestamp_from    type timestamp,
+        lv_timestamp_to      type timestamp,
+        lv_errortext         type text128,
+        lx_error             type ref to cx_root,
+        lx_rep_api_exception type ref to cx_mai_reporting.
+  data: lr_table type ref to data.
+  field-symbols: <tab> type standard table.
+
+*" create output table
+  clear: lr_typ, lr_table_type, lr_struc_type.
+  cl_abap_tabledescr=>describe_by_name( exporting p_name = outtabty receiving p_descr_ref = lr_typ exceptions type_not_found = 1 others = 2 ).
+  if sy-subrc <> 0.
+    lv_errortext = 'Invalid result table type: ' && outtabty.    "#EC NOTEXT
+    message lv_errortext type 'E'.
+    exit.
+  endif.
+
+  try.
+      lr_table_type ?= lr_typ.
+      lr_struc_type ?= lr_table_type->get_table_line_type( ).
+    catch cx_root into lx_error.
+      message lx_error type 'E'.
+      exit.
+  endtry.
+
+  if outfi1 = '' and outfi2 = '' and outfi3 = '' and outfi4 = ''.
+    create data lr_table type handle lr_table_type.
+  else.
+    data: lt_struc_comptab type abap_component_tab,
+          lt_struc_keytab  type abap_keydescr_tab,
+          lr_new_struc     type ref to cl_abap_structdescr,
+          lr_new_tab       type ref to cl_abap_tabledescr.
+    lt_struc_comptab = lr_struc_type->get_components( ).
+    lt_struc_keytab = lr_table_type->key.
+    perform add_field_to_comptab using lt_struc_comptab lt_struc_keytab outfi1 outty1 outky1.
+    perform add_field_to_comptab using lt_struc_comptab lt_struc_keytab outfi2 outty2 outky2.
+    perform add_field_to_comptab using lt_struc_comptab lt_struc_keytab outfi3 outty3 outky3.
+    perform add_field_to_comptab using lt_struc_comptab lt_struc_keytab outfi4 outty4 outky4.
+    try.
+        lr_new_struc = cl_abap_structdescr=>create( p_components  = lt_struc_comptab  ).
+        lr_datatyp ?= lr_new_struc.
+        lr_new_tab = cl_abap_tabledescr=>create(
+                     p_line_type          = lr_datatyp
+*                 p_table_kind         = TABLEKIND_STD
+*                 p_unique             = ABAP_FALSE
+                     p_key                = lt_struc_keytab
+*                 p_key_kind           = KEYDEFKIND_DEFAULT
+                 ).
+        create data lr_table type handle lr_new_tab.
+      catch cx_sy_struct_creation cx_sy_table_creation.    "
+        message 'Creation of output table failed' type 'E'.    "#EC NOTEXT
+        exit.
+    endtry.
+  endif.
+  assign lr_table->* to <tab>.
+
+
+  read table gt_all_reader_id with key id = id_intf into ls_reader_info.
+  if sy-subrc <> 0.
+    message 'No reader selected' type 'E'.    "#EC NOTEXT
+    exit.
+  endif.
+
+*" create reader instance
+  lo_reader ?= cl_mai_reporting_factory=>create_reader_by_id( iv_id = ls_reader_info-id ).
+  if lo_reader is not bound.
+    message 'Invalid reader selected' type 'E'.    "#EC NOTEXT
+    exit.
+  endif.
+
+
+
+  try.
+
+*" create and attach filter
+      clear lt_filter[].
+      ls_filter-sign = 'I'. ls_filter-option = 'EQ'.
+
+      if field1 <> '' and filval1-low <> ''.
+        ls_filter-fieldname = field1.
+        loop at filval1 into ls_filter_sel.
+          move-corresponding ls_filter_sel to ls_filter.
+          append ls_filter to lt_filter.
+        endloop.
+      endif.
+      if field2 <> '' and filval2-low <> ''.
+        ls_filter-fieldname = field2.
+        loop at filval2 into ls_filter_sel.
+          move-corresponding ls_filter_sel to ls_filter.
+          append ls_filter to lt_filter.
+        endloop.
+      endif.
+      if field3 <> '' and filval3-low <> ''.
+        ls_filter-fieldname = field3.
+        loop at filval3 into ls_filter_sel.
+          move-corresponding ls_filter_sel to ls_filter.
+          append ls_filter to lt_filter.
+        endloop.
+      endif.
+      if field4 <> '' and filval4-low <> ''.
+        ls_filter-fieldname = field4.
+        loop at filval4 into ls_filter_sel.
+          move-corresponding ls_filter_sel to ls_filter.
+          append ls_filter to lt_filter.
+        endloop.
+      endif.
+      if field5 <> '' and filval5-low <> ''.
+        ls_filter-fieldname = field5.
+        loop at filval5 into ls_filter_sel.
+          move-corresponding ls_filter_sel to ls_filter.
+          append ls_filter to lt_filter.
+        endloop.
+      endif.
+
+      read table gt_all_filter_id with key id = id_filt into ls_filter_info.
+      if sy-subrc <> 0 or ls_filter_info-id = ''.
+        message 'No valid filter' type 'E'.    "#EC NOTEXT
+        exit.
+      endif.
+      lo_filter = cl_mai_reporting_factory=>create_simple_filter( iv_filter_id = ls_filter_info-id it_filter = lt_filter ).
+      cl_mai_reporting_factory=>attach_filter(
+          io_reader = lo_reader
+          io_filter = lo_filter ).
+
+
+*" create and attach time settings
+      read table gt_all_timedim_id with key id = id_time into ls_time_info.
+      if sy-subrc <> 0 or ls_time_info-id = ''.
+        message 'No valid time dimension' type 'E'.   "#EC NOTEXT
+        exit.
+      endif.
+      lo_time =  cl_mai_reporting_factory=>create_time_dimension( iv_timedim_id = ls_time_info-id ).
+      lo_time->set_slot_granularity( iv_granu = agggranu ).
+      lo_time->set_result_timezone( iv_timezone = timzon ).
+      convert date dat_from time tim_from into time stamp lv_timestamp_from time zone timzon.
+      convert date dat_to   time tim_to   into time stamp lv_timestamp_to   time zone timzon.
+      lo_time->set_time_interval( iv_start = lv_timestamp_from
+                                  iv_end   = lv_timestamp_to  ).
+      cl_mai_reporting_factory=>attach_time_dimension(
+          io_reader = lo_reader
+          io_time   = lo_time ).
+
+
+
+*" create and attach output converter 1
+      data: lt_outconv_src_mapping type cl_mai_rep_output_conversion=>tty_field_mapping,
+            lt_outconv_trg_mapping type cl_mai_rep_output_conversion=>tty_field_mapping,
+            ls_outconv_mapping     type cl_mai_rep_output_conversion=>ty_field_mapping,
+            lo_converter_1         type ref to cl_mai_rep_output_conversion.
+      if id_oc1 <> '' and id_oc1 <> 'NONE'.
+        read table gt_all_converter_id with key id = id_oc1 into ls_converter_info.
+        if sy-subrc = 0.
+          clear: lt_outconv_src_mapping[], lt_outconv_trg_mapping[].
+          if oc1s_al1 <> '' and oc1s_fn1 <> ''.
+            ls_outconv_mapping-alias = oc1s_al1.
+            ls_outconv_mapping-fieldname = oc1s_fn1.
+            append ls_outconv_mapping to lt_outconv_src_mapping.
+          endif.
+          if oc1s_al2 <> '' and oc1s_fn2 <> ''.
+            ls_outconv_mapping-alias = oc1s_al2.
+            ls_outconv_mapping-fieldname = oc1s_fn2.
+            append ls_outconv_mapping to lt_outconv_src_mapping.
+          endif.
+          if oc1s_al3 <> '' and oc1s_fn3 <> ''.
+            ls_outconv_mapping-alias = oc1s_al3.
+            ls_outconv_mapping-fieldname = oc1s_fn3.
+            append ls_outconv_mapping to lt_outconv_src_mapping.
+          endif.
+
+          if oc1t_al1 <> '' and oc1t_fn1 <> ''.
+            ls_outconv_mapping-alias = oc1t_al1.
+            ls_outconv_mapping-fieldname = oc1t_fn1.
+            append ls_outconv_mapping to lt_outconv_trg_mapping.
+          endif.
+          if oc1t_al2 <> '' and oc1t_fn2 <> ''.
+            ls_outconv_mapping-alias = oc1t_al2.
+            ls_outconv_mapping-fieldname = oc1t_fn2.
+            append ls_outconv_mapping to lt_outconv_trg_mapping.
+          endif.
+          if oc1t_al3 <> '' and oc1t_fn3 <> ''.
+            ls_outconv_mapping-alias = oc1t_al3.
+            ls_outconv_mapping-fieldname = oc1t_fn3.
+            append ls_outconv_mapping to lt_outconv_trg_mapping.
+          endif.
+        endif.
+        lo_converter_1 = cl_mai_reporting_factory=>create_output_converter(
+                           iv_converter_id         = ls_converter_info-id
+                           it_source_field_mapping = lt_outconv_src_mapping
+                           it_target_field_mapping = lt_outconv_trg_mapping ).
+        cl_mai_reporting_factory=>add_output_conversion( exporting
+                        io_reader    = lo_reader
+                        io_converter = lo_converter_1  ).
+      endif.
+
+
+*" create and attach output converter 2
+      data: lo_converter_2 type ref to cl_mai_rep_output_conversion.
+      if id_oc2 <> '' and id_oc2 <> 'NONE'.
+        read table gt_all_converter_id with key id = id_oc2 into ls_converter_info.
+        if sy-subrc = 0.
+          clear: lt_outconv_src_mapping[], lt_outconv_trg_mapping[].
+          if oc2s_al1 <> '' and oc2s_fn1 <> ''.
+            ls_outconv_mapping-alias = oc2s_al1.
+            ls_outconv_mapping-fieldname = oc2s_fn1.
+            append ls_outconv_mapping to lt_outconv_src_mapping.
+          endif.
+          if oc2s_al2 <> '' and oc2s_fn2 <> ''.
+            ls_outconv_mapping-alias = oc2s_al2.
+            ls_outconv_mapping-fieldname = oc2s_fn2.
+            append ls_outconv_mapping to lt_outconv_src_mapping.
+          endif.
+          if oc2s_al3 <> '' and oc2s_fn3 <> ''.
+            ls_outconv_mapping-alias = oc2s_al3.
+            ls_outconv_mapping-fieldname = oc2s_fn3.
+            append ls_outconv_mapping to lt_outconv_src_mapping.
+          endif.
+
+          if oc2t_al1 <> '' and oc2t_fn1 <> ''.
+            ls_outconv_mapping-alias = oc2t_al1.
+            ls_outconv_mapping-fieldname = oc2t_fn1.
+            append ls_outconv_mapping to lt_outconv_trg_mapping.
+          endif.
+          if oc2t_al2 <> '' and oc2t_fn2 <> ''.
+            ls_outconv_mapping-alias = oc2t_al2.
+            ls_outconv_mapping-fieldname = oc2t_fn2.
+            append ls_outconv_mapping to lt_outconv_trg_mapping.
+          endif.
+          if oc2t_al3 <> '' and oc2t_fn3 <> ''.
+            ls_outconv_mapping-alias = oc2t_al3.
+            ls_outconv_mapping-fieldname = oc2t_fn3.
+            append ls_outconv_mapping to lt_outconv_trg_mapping.
+          endif.
+        endif.
+        lo_converter_2 = cl_mai_reporting_factory=>create_output_converter(
+                           iv_converter_id         = ls_converter_info-id
+                           it_source_field_mapping = lt_outconv_src_mapping
+                           it_target_field_mapping = lt_outconv_trg_mapping ).
+        cl_mai_reporting_factory=>add_output_conversion( exporting
+                        io_reader    = lo_reader
+                        io_converter = lo_converter_2  ).
+      endif.
+
+
+*" postprocessing
+      lo_reader->set_compression(
+        EXPORTING iv_compression_enabled = pp_aggr
+*                 it_compression_rules   =
+      ).
+
+
+*" finally read the data
+  data start_timestamp type timestampl.
+  data end_timestamp   type timestampl.
+
+  "performance measurement
+  get TIME STAMP FIELD start_timestamp.
+
+      lo_reader->get_data( importing et_data = <tab> ).
+  "performance measurement
+  get TIME STAMP FIELD end_timestamp.
+
+    catch cx_mai_reporting into lx_rep_api_exception.
+      message lx_rep_api_exception type 'E'.
+  endtry.
+
+*" show result
+  data: lv_rec_count          type i,
+        lv_rec_count_text(40) type c.
+  describe table <tab> lines lv_rec_count.
+  lv_rec_count_text = lv_rec_count. condense lv_rec_count_text.
+  lv_rec_count_text = |{ lv_rec_count_text } records read ({ cl_abap_tstmp=>subtract( tstmp1 = end_timestamp
+                                                             tstmp2 = start_timestamp )
+                                                            }s)|.
+
+  message lv_rec_count_text type 'S'.
+
+  perform show_table using <tab>.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+form get_f4_values using value(fieldname) type char30   "in
+                         value(oldvalue) type dynfieldvalue   "in
+                         f4_list type tt_f4_list.       "out
+  data: ls_f4_value like line of f4_list.
+  clear f4_list[].
+  case fieldname.
+    when cl_mai_reporting_filter=>co_fieldname_context_id.
+      data: lv_context_guid type ac_guid,
+            lv_context_name type ac_context_name,
+            lv_context_type type ac_context_type,
+            lv_active       type ac_flag,
+            lv_type_sel     type char10.
+      if oldvalue = ''.
+        oldvalue = '%'.
+      endif.
+      replace all occurrences of '*' in oldvalue with '%'.
+      if strlen( oldvalue ) > 10.
+        lv_type_sel = '=========='.
+      else.
+        lv_type_sel = oldvalue.
+      endif.
+      select context_id context_name context_type active
+             from accontextdir   "#EC CI_GENBUFF.
+             up to 20000 rows
+             into (lv_context_guid, lv_context_name, lv_context_type, lv_active)
+             where context_id like oldvalue or context_name like oldvalue or context_type like lv_type_sel. "#EC CI_BYPASS
+        ls_f4_value-key = lv_context_guid.
+        ls_f4_value-info = lv_context_name && ` (` && lv_context_type && ',' && lv_active && `)`.
+        append ls_f4_value to f4_list.
+      endselect.
+
+    when cl_mai_reporting_filter=>co_fieldname_type_id.
+      data: lv_metric_guid    type ac_guid,
+            lv_metric_version type char10, "ac_version,
+            lv_variant        type ac_variant,
+            lv_metric_name    type ac_text_255.
+      if oldvalue = ''.
+        oldvalue = '%'.
+      endif.
+      replace all occurrences of '*' in oldvalue with '%'.
+      select distinct event_type_id tech_scenario name
+             from acmetricdir "#EC CI_GENBUFF.
+             up to 20000 rows
+             into (lv_metric_guid, lv_metric_version, lv_metric_name)
+             where event_type_id like oldvalue or name like oldvalue. "#EC CI_BYPASS
+        ls_f4_value-key = lv_metric_guid.
+        ls_f4_value-info = lv_metric_name && ` (` && lv_metric_version && `)`.
+        append ls_f4_value to f4_list.
+      endselect.
+
+    when cl_mai_rep_filter_tname=>co_fieldname_system_name.
+      if oldvalue = ''.
+        oldvalue = '%'.
+      endif.
+      replace all occurrences of '*' in oldvalue with '%'.
+      select context_id context_name context_type active
+             from accontextdir    "#EC CI_GENBUFF.
+             up to 20000 rows
+             into (lv_context_guid, lv_context_name, lv_context_type, lv_active)
+             where context_name like oldvalue and context_type = 'T_SYSTEM'. "#EC CI_BYPASS
+        ls_f4_value-key = lv_context_name.
+        ls_f4_value-info = lv_context_guid && ` (` && lv_context_type && ',' && lv_active && `)`.
+        append ls_f4_value to f4_list.
+      endselect.
+
+    when cl_mai_rep_filter_tname=>co_fieldname_metric_name.
+      if oldvalue = ''.
+        oldvalue = '%'.
+      endif.
+      replace all occurrences of '*' in oldvalue with '%'.
+      select distinct event_type_id ac_variant name
+             from acmetricdir
+             up to 20000 rows
+             into (lv_metric_guid, lv_variant, lv_metric_name) "#EC CI_GENBUFF
+             where name like oldvalue.  "#EC CI_BYPASS
+        ls_f4_value-key = lv_metric_name.
+        ls_f4_value-info = lv_metric_guid && ` (` && lv_variant && `)`.
+        append ls_f4_value to f4_list.
+      endselect.
+
+    when cl_mai_rep_filter_tname=>co_fieldname_node_name.
+      data: lv_path  type mai_d_udm_text,
+            lt_txt   type standard table of mai_d_udm_text with non-unique default key,
+            lv_name  type mai_d_udm_text,
+            lv_value type mai_d_udm_text.
+      field-symbols: <t> like line of lt_txt.
+      if oldvalue = ''.
+        oldvalue = '%'.
+      endif.
+      replace all occurrences of '*' in oldvalue with '%'.
+      select distinct metric_path from mai_udm_paths up to 20000 rows into lv_path
+             where metric_path like oldvalue and metric_path like '%NODE_NAME%'. "#EC CI_NOFIELD
+        split lv_path at '|' into table lt_txt.
+        loop at lt_txt assigning <t>.
+          split <t> at '=' into lv_name lv_value.
+          condense: lv_name, lv_value.
+          if lv_name = cl_mai_rep_filter_tname=>co_fieldname_node_name.
+            ls_f4_value-key = lv_value.
+            ls_f4_value-info = lv_name && ` = ` && lv_value.
+            append ls_f4_value to f4_list.
+          endif.
+        endloop.
+      endselect.
+
+    when cl_mai_rep_filter_tname=>co_fieldname_path_elem.
+      data: lv_phash type hash160.
+      if oldvalue = ''.
+        oldvalue = '%'.
+      endif.
+      replace all occurrences of '*' in oldvalue with '%'.
+      select distinct hash_metric_path metric_path from mai_udm_paths up to 20000 rows into (lv_phash, lv_path)
+             where metric_path like oldvalue. "#EC CI_NOFIELD
+        split lv_path at '|' into table lt_txt.
+        loop at lt_txt assigning <t>.
+          condense <t>.
+          if <t> <> ''.
+            ls_f4_value-key = <t>.
+            ls_f4_value-info = lv_phash.
+            append ls_f4_value to f4_list.
+          endif.
+        endloop.
+      endselect.
+
+    when others.
+      ls_f4_value-key = 'KEY_1'. ls_f4_value-info = 'Info 1'. append ls_f4_value to f4_list.    "#EC NOTEXT
+      ls_f4_value-key = 'KEY_2'. ls_f4_value-info = 'Info 2'. append ls_f4_value to f4_list.    "#EC NOTEXT
+
+  endcase.
+  sort f4_list.
+  delete adjacent duplicates from f4_list.
+endform.
+
+
+
+form get_outconv_aliases using value(oc_id) type char40
+                               src_alias1 type char30
+                               src_alias2 type char30
+                               src_alias3 type char30
+                               src_field1 type char30
+                               src_field2 type char30
+                               src_field3 type char30
+                               trg_alias1 type char30
+                               trg_alias2 type char30
+                               trg_alias3 type char30
+                               trg_field1 type char30
+                               trg_field2 type char30
+                               trg_field3 type char30.
+  data: lo_conv    type ref to cl_mai_rep_output_conversion,
+        lt_aliases type cl_mai_rep_output_conversion=>tty_alias,
+        lv_idx     type i.
+  field-symbols: <oc>  like line of gt_all_converter_id,
+                 <ali> like line of lt_aliases.
+  clear: src_alias1, src_alias2, src_alias3,
+         trg_alias1, trg_alias2, trg_alias3,
+         src_field1, src_field2, src_field3,
+         trg_field1, trg_field2, trg_field3.
+  case oc_id.
+    when cl_mai_reporting_factory=>co_id_converter_clear.
+      trg_alias1 = cl_mai_rep_outconv_clear=>co_alias_field_to_clear.
+    when cl_mai_reporting_factory=>co_id_converter_concat.
+      src_alias1 = cl_mai_rep_outconv_concat=>co_alias_source_field_1.
+      src_alias2 = cl_mai_rep_outconv_concat=>co_alias_source_field_2.
+      trg_alias1 = cl_mai_rep_outconv_concat=>co_alias_target_field.
+    when cl_mai_reporting_factory=>co_id_converter_copy.
+      src_alias1 = cl_mai_rep_outconv_copy=>co_alias_source_field.
+      trg_alias1 = cl_mai_rep_outconv_copy=>co_alias_target_field.
+    when cl_mai_reporting_factory=>co_id_converter_guid.
+      src_alias1 = cl_mai_rep_outconv_guid=>co_alias_source_context_id.
+      src_alias2 = cl_mai_rep_outconv_guid=>co_alias_source_metric_id.
+      trg_alias1 = cl_mai_rep_outconv_guid=>co_alias_target_system_id.
+      trg_alias2 = cl_mai_rep_outconv_guid=>co_alias_target_instance_name.
+      trg_alias3 = cl_mai_rep_outconv_guid=>co_alias_target_metric_name.
+    when cl_mai_reporting_factory=>co_id_converter_mpath.
+      src_alias1 = cl_mai_rep_outconv_mpath=>co_alias_source_path_hash.
+      trg_alias1 = cl_mai_rep_outconv_mpath=>co_alias_target_param_value.
+      "special parameter which is needed for this converter
+      src_alias3 = '[PATH PARAM_NAME]'.
+    when others.
+      read table gt_all_converter_id with key  id = oc_id assigning <oc>.
+      if sy-subrc = 0.
+        create object lo_conv type (<oc>-class_name).
+        lt_aliases = lo_conv->get_aliases( ).
+        lv_idx = 1.
+        loop at lt_aliases assigning <ali> where atype = 'S'.
+          case lv_idx.
+            when 1. src_alias1 = <ali>-alias.
+            when 2. src_alias2 = <ali>-alias.
+            when 3. src_alias3 = <ali>-alias.
+          endcase.
+          add 1  to lv_idx.
+        endloop.
+        lv_idx = 1.
+        loop at lt_aliases assigning <ali> where atype = 'T'.
+          case lv_idx.
+            when 1. trg_alias1 = <ali>-alias.
+            when 2. trg_alias2 = <ali>-alias.
+            when 3. trg_alias3 = <ali>-alias.
+          endcase.
+          add 1 to lv_idx.
+        endloop.
+      endif.
+  endcase.
+endform.
+
+
+form add_field_to_comptab using comptab type abap_component_tab
+                                keytab  type abap_keydescr_tab
+                                fieldname type char30
+                                fieldtype type char40
+                                is_key type char1.
+  data: ls_struc_component like line of comptab,
+        lr_typ             type ref to cl_abap_typedescr,
+        ls_key             like line of keytab.
+  if fieldname <> '' and fieldtype <> ''.
+    cl_abap_datadescr=>describe_by_name(
+      exporting
+        p_name         = fieldtype
+      receiving
+        p_descr_ref    =  lr_typ
+      exceptions
+        type_not_found = 1
+        others         = 2
+    ).
+    if sy-subrc = 0.
+      ls_struc_component-name = fieldname.
+      ls_struc_component-type ?= lr_typ.
+      append ls_struc_component to comptab.
+      if is_key = 'X'.
+        ls_key-name = fieldname.
+        append ls_key to keytab.
+      endif.
+    endif.
+  endif.
+endform.
+
+
+
+form get_f4_filtervalues using value(dynp_field_name) type dynfnam
+                               value(filter_field) type dynfnam
+                               filtervalues type tt_filter_range.
+  data: lt_dynpfields type standard table of dynpread,
+        ls_dynpfields like line of lt_dynpfields,
+        lt_f4_return  type standard table of ddshretval with non-unique default key,
+        ls_f4_return  like line of lt_f4_return,
+        lt_f4_values  type tt_f4_list,
+        ls_f4_values  like line of lt_f4_values,
+        ls_filter_sel type ty_filter_range,
+        lv_field      type char30.
+  clear lt_dynpfields[].
+  ls_dynpfields-fieldname = dynp_field_name. append ls_dynpfields to lt_dynpfields.
+  ls_dynpfields-fieldname = filter_field. append ls_dynpfields to lt_dynpfields.
+  call function 'DYNP_VALUES_READ'
+    exporting
+      dyname     = sy-repid
+      dynumb     = sy-dynnr
+    tables
+      dynpfields = lt_dynpfields
+    exceptions
+      others     = 1.
+  if sy-subrc <> 0.
+    clear lt_dynpfields[].
+  endif.
+  read table lt_dynpfields with key fieldname = filter_field into ls_dynpfields.
+  lv_field = ls_dynpfields-fieldvalue.
+  read table lt_dynpfields with key fieldname = dynp_field_name into ls_dynpfields.
+  perform get_f4_values using lv_field ls_dynpfields-fieldvalue lt_f4_values.
+  call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+    exporting
+      retfield        = 'KEY'
+      value_org       = 'S'
+      multiple_choice = 'X'
+    tables
+      value_tab       = lt_f4_values
+      return_tab      = lt_f4_return
+    exceptions
+      parameter_error = 1
+      no_values_found = 2
+      others          = 3.
+  if sy-subrc = 0 and lt_f4_return[] is not initial.
+    refresh filtervalues[].
+    ls_filter_sel-sign = 'I'. ls_filter_sel-option = 'EQ'. ls_filter_sel-high = ''.
+    loop at lt_f4_return into ls_f4_return.
+      ls_filter_sel-low = ls_f4_return-fieldval.
+      append ls_filter_sel to filtervalues.
+    endloop.
+    clear lt_dynpfields[].
+    read table filtervalues index 1 into ls_filter_sel.
+    ls_dynpfields-fieldname = dynp_field_name.
+    ls_dynpfields-fieldvalue = ls_filter_sel-low.
+    append ls_dynpfields to lt_dynpfields.
+    call function 'DYNP_VALUES_UPDATE'
+      exporting
+        dyname     = sy-repid
+        dynumb     = sy-dynnr
+      tables
+        dynpfields = lt_dynpfields
+      exceptions
+        others     = 1.
+  endif.
+endform.
+
+
+form get_f4_out_fieldname using fieldname type char30.
+  data: lt_dynpfields type standard table of dynpread,
+        ls_dynpfields like line of lt_dynpfields,
+        lr_table_type type ref to cl_abap_tabledescr,
+        lr_struc_type type ref to cl_abap_structdescr,
+        lr_typ        type ref to cl_abap_typedescr,
+        lt_f4_return  type standard table of ddshretval with non-unique default key,
+        ls_f4_return  like line of lt_f4_return,
+        lt_f4_values  type tt_f4_list,
+        ls_f4_values  like line of lt_f4_values.
+  field-symbols: <comp> type abap_compdescr.
+
+  clear lt_dynpfields[].
+  ls_dynpfields-fieldname = 'OUTTABTY'. append ls_dynpfields to lt_dynpfields.
+  ls_dynpfields-fieldname = 'OUTFI1'. append ls_dynpfields to lt_dynpfields.
+  ls_dynpfields-fieldname = 'OUTFI2'. append ls_dynpfields to lt_dynpfields.
+  ls_dynpfields-fieldname = 'OUTFI3'. append ls_dynpfields to lt_dynpfields.
+  ls_dynpfields-fieldname = 'OUTFI4'. append ls_dynpfields to lt_dynpfields.
+  call function 'DYNP_VALUES_READ'   " using this function will return the value even when the user didn't press enter
+    exporting
+      dyname     = sy-repid
+      dynumb     = sy-dynnr
+    tables
+      dynpfields = lt_dynpfields
+    exceptions
+      others     = 1.
+  if sy-subrc <> 0.
+    clear lt_dynpfields[].
+  endif.
+  read table lt_dynpfields with key fieldname = 'OUTTABTY' into ls_dynpfields.
+  if sy-subrc = 0.
+    cl_abap_tabledescr=>describe_by_name( exporting p_name = ls_dynpfields-fieldvalue receiving p_descr_ref = lr_typ exceptions type_not_found = 1 others = 2 ).
+    if sy-subrc = 0.
+      try.
+          lr_table_type ?= lr_typ.
+          lr_struc_type ?= lr_table_type->get_table_line_type( ).
+          loop at lr_struc_type->components assigning <comp>.
+            ls_f4_values-key = <comp>-name.
+            ls_f4_values-info = <comp>-length.
+            condense ls_f4_values-info.
+            ls_f4_values-info = <comp>-name && ` (` && <comp>-type_kind && ls_f4_values-info && ')'.
+            append ls_f4_values to lt_f4_values.
+          endloop.
+        catch cx_root .
+      endtry.
+    endif.
+  endif.
+
+  read table lt_dynpfields with key fieldname = 'OUTFI1' into ls_dynpfields.
+  if sy-subrc = 0 and ls_dynpfields-fieldvalue <> ''.
+    ls_f4_values-key = ls_dynpfields-fieldvalue.
+    ls_f4_values-info = ls_dynpfields-fieldvalue.
+    append ls_f4_values to lt_f4_values.
+  endif.
+  read table lt_dynpfields with key fieldname = 'OUTFI2' into ls_dynpfields.
+  if sy-subrc = 0 and ls_dynpfields-fieldvalue <> ''.
+    ls_f4_values-key = ls_dynpfields-fieldvalue.
+    ls_f4_values-info = ls_dynpfields-fieldvalue.
+    append ls_f4_values to lt_f4_values.
+  endif.
+  read table lt_dynpfields with key fieldname = 'OUTFI3' into ls_dynpfields.
+  if sy-subrc = 0 and ls_dynpfields-fieldvalue <> ''.
+    ls_f4_values-key = ls_dynpfields-fieldvalue.
+    ls_f4_values-info = ls_dynpfields-fieldvalue.
+    append ls_f4_values to lt_f4_values.
+  endif.
+  read table lt_dynpfields with key fieldname = 'OUTFI4' into ls_dynpfields.
+  if sy-subrc = 0 and ls_dynpfields-fieldvalue <> ''.
+    ls_f4_values-key = ls_dynpfields-fieldvalue.
+    ls_f4_values-info = ls_dynpfields-fieldvalue.
+    append ls_f4_values to lt_f4_values.
+  endif.
+
+  call function 'F4IF_INT_TABLE_VALUE_REQUEST'
+    exporting
+      retfield        = 'KEY'
+      value_org       = 'S'
+      multiple_choice = ' '
+    tables
+      value_tab       = lt_f4_values
+      return_tab      = lt_f4_return
+    exceptions
+      parameter_error = 1
+      no_values_found = 2
+      others          = 3.
+  if sy-subrc = 0 and lt_f4_return[] is not initial.
+    read table lt_f4_return index 1 into ls_f4_return.
+    if sy-subrc = 0.
+      fieldname = ls_f4_return-fieldval.
+    endif.
+  endif.
+endform.
+
+
+*form add_to_outstruc using structyp type REF TO cl_abap_structdescr
+*                           fieldname type char30.
+*if fieldname <> ''.
+*  read table lr_struc_type->components with key name = fieldname TRANSPORTING NO FIELDS.
+*  if sy-subrc <> 0.
+*    if outfi1 = ''.
+*      outfi1 = fieldname.
+*    elseif outfi2 = ''.
+*      outfi2 = fieldname.
+*    elseif outfi2 = ''.
+*      outfi3 = fieldname.
+*    elseif outfi2 = ''.
+*      outfi4 = fieldname.
+*    endif.
+*  endif.
+*endif.
+*ENDFORM.
+
+
+form show_table using tab type standard table.
+  data: layo     type slis_layout_alv,
+        fieldcat type slis_t_fieldcat_alv.
+
+  perform generic_fieldcat  using fieldcat tab[].
+  perform mayo changing layo.
+
+  call function 'REUSE_ALV_GRID_DISPLAY'
+    exporting
+*     I_INTERFACE_CHECK       = ' '
+      i_bypassing_buffer      = ''
+      i_buffer_active         = 'X'
+      i_callback_program      = sy-repid
+*     I_CALLBACK_PF_STATUS_SET       = ' '
+      i_callback_user_command = 'F01_ALV_EVENT_USER_COMMAND'
+*     i_structure_name        =
+      is_layout               = layo
+      it_fieldcat             = fieldcat
+*     IT_EXCLUDING            =
+*     IT_SPECIAL_GROUPS       =
+*     IT_SORT                 =
+*     IT_FILTER               =
+*     IS_SEL_HIDE             =
+*     I_DEFAULT               = 'X'
+*     I_SAVE                  = ' '
+*     IS_VARIANT              =
+*     it_events               = lt_events
+*     IT_EVENT_EXIT           =
+*     IS_PRINT                =
+*     IS_REPREP_ID            =
+*     I_SCREEN_START_COLUMN   = 0
+*     I_SCREEN_START_LINE     = 0
+*     I_SCREEN_END_COLUMN     = 0
+*     I_SCREEN_END_LINE       = 0
+*     IR_SALV_LIST_ADAPTER    =
+*     IT_EXCEPT_QINFO         =
+*     I_SUPPRESS_EMPTY_DATA   = ABAP_FALSE
+* IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER =
+*     ES_EXIT_CAUSED_BY_USER  =
+    tables
+      t_outtab                = tab
+    exceptions
+      program_error           = 1
+      others                  = 2.
+  if sy-subrc <> 0.
+
+  endif.
+endform.
+
+
+
+
+form generic_fieldcat  using fieldcat type slis_t_fieldcat_alv
+                             tab type any table.
+  data: wa like line of fieldcat.
+  data: tabtyp   type ref to cl_abap_tabledescr,
+        structyp type ref to cl_abap_structdescr,
+        comp_tab type cl_abap_structdescr=>component_table,
+        elemtyp  type ref to cl_abap_elemdescr.
+  field-symbols: <comp> like line of comp_tab.
+
+  clear fieldcat[].
+
+  tabtyp ?= cl_abap_tabledescr=>describe_by_data( tab[] ).
+  structyp ?= tabtyp->get_table_line_type( ).
+  comp_tab = structyp->get_components( ).
+
+  wa-col_pos = 0.
+  loop at comp_tab assigning <comp>.
+    try.
+        elemtyp ?= <comp>-type.
+      catch cx_root.
+        continue.
+    endtry.
+
+    wa-fieldname = <comp>-name.
+    wa-key = ''.
+    wa-icon = space.
+    wa-seltext_l = <comp>-name.
+    wa-seltext_m = <comp>-name.
+    wa-seltext_s = <comp>-name.
+
+    case elemtyp->type_kind.
+      when 'C'.
+        wa-datatype = 'CHAR'.   "'NUMC'  SPACE
+        wa-inttype = 'C'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = 'X'.
+      when 'I'.
+        wa-datatype = ''.   "'NUMC'  SPACE
+        wa-inttype = 'I'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = ''.
+      when 'b'.
+        wa-datatype = ''.   "'NUMC'  SPACE
+        wa-inttype = 'b'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = ''.
+      when 'N'.
+        wa-datatype = 'NUMC'.   "'NUMC'  SPACE
+        wa-inttype = 'N'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = ''.
+      when 'g'.
+        wa-datatype = 'CHAR'.   "'NUMC'  SPACE
+        wa-inttype = 'g'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = 'X'.
+      when 'D'.
+        wa-datatype = ''.   "'NUMC'  SPACE
+        wa-inttype = 'D'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = ''.
+      when 'T'.
+        wa-datatype = ''.   "'NUMC'  SPACE
+        wa-inttype = 'T'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = ''.
+      when 'P'.
+        wa-datatype = ''.   "'NUMC'  SPACE
+        wa-inttype = 'P'.      "N I g=string
+        wa-intlen = elemtyp->output_length.                  "bei I = 10
+        wa-lowercase = ''.
+      when others.
+        continue.
+    endcase.
+
+    wa-no_out = ''.
+
+    append wa to fieldcat.
+    wa-col_pos = wa-col_pos + 1.
+
+  endloop.
+endform.
+
+
+
+
+
+form mayo changing cs_layout type slis_layout_alv.
+
+*... Display options
+  cs_layout-colwidth_optimize      = 'X'.
+*  cs_layout-no_colhead             = space.
+*  cs_layout-no_hotspot             = space.
+*  cs_layout-zebra                  = space.
+*  cs_layout-no_vline               = space.
+*  cs_layout-cell_merge             = space.
+*  cs_layout-no_min_linesize        = space.
+*  cs_layout-min_linesize           = space.
+*  cs_layout-max_linesize           = space.
+*  cs_layout-window_titlebar        = space.
+*  cs_layout-no_uline_hs            = space.
+**... Exceptions
+  cs_layout-lights_fieldname       = ''.    "'LIGHTS'.
+*  cs_layout-lights_tabname         = space.
+*  cs_layout-lights_rollname        = space.
+*  cs_layout-lights_condense        = space.
+**... Sums
+*  cs_layout-no_sumchoice           = space.
+*  cs_layout-no_totalline           = space.
+*  cs_layout-totals_before_items    = space.
+*  cs_layout-totals_only            = space.
+*  cs_layout-totals_text            = space.
+*  cs_layout-no_subchoice           = space.
+*  cs_layout-no_subtotals           = space.
+*  cs_layout-subtotals_text         = space.
+*  cs_layout-numc_sum               = space.
+*  cs_layout-no_unit_splitting      = space.
+**... Interaction
+*  cs_layout-box_fieldname          = 'BOX'.
+*  cs_layout-box_tabname            = space.
+*  cs_layout-box_rollname           = space.
+*  cs_layout-expand_fieldname       = space.
+  cs_layout-hotspot_fieldname      = 'ACTIVATE'.
+*  cs_layout-f2code                 = space.
+*  cs_layout-key_hotspot            = space.
+*  cs_layout-flexible_key           = space.
+*  cs_layout-reprep                 = space.
+*  cs_layout-group_buttons          = space.
+*  cs_layout-no_keyfix              = space.
+*  cs_layout-get_selinfos           = 'X'.
+*  cs_layout-group_change_edit      = 'X'.
+*  cs_layout-no_scrolling           = space.
+*  cs_layout-expand_all             = space.
+**... Detailed screen
+*  cs_layout-detail_popup           = space.
+*  cs_layout-detail_initial_lines   = space.
+*  cs_layout-detail_titlebar        = space.
+**... PF-status
+*  cs_layout-def_status             = space.
+**... Display variants
+*  cs_layout-header_text            = space.
+*  cs_layout-item_text              = space.
+*  cs_layout-default_item           = space.
+**... colour
+*  cs_layout-info_fieldname         = space.
+*  cs_layout-coltab_fieldname       = space.
+**... others
+*  cs_layout-list_append            = space.
+
+endform.                               " F01_ALV_SET_LAYOUT
+
+
+
+*&---------------------------------------------------------------------*
+*&      Form  f01_alv_event_user_command
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+form f01_alv_event_user_command using r_ucomm     like sy-ucomm
+                                      rs_selfield type slis_selfield.
+
+  if rs_selfield-tabindex > 0.
+*  case rs_selfield-fieldname.
+*
+*  endcase.
+  endif.
+endform.                    " f01_alv_set_events_exit
+
+
+
+*&---------------------------------------------------------------------*
+*&      Form  f01_alv_set_events
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+form f01_alv_set_events changing ct_events     type slis_t_event.
+  field-symbols: <ls_event> type slis_alv_event.
+
+  data: l_event  type lvc_fname.
+
+  call function 'REUSE_ALV_EVENTS_GET'
+    exporting
+      i_list_type     = 4
+    importing
+      et_events       = ct_events
+    exceptions
+      list_type_wrong = 1
+      others          = 2.
+  if sy-subrc <> 0.
+    message id sy-msgid type sy-msgty number sy-msgno
+            with sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  else.
+    read table ct_events assigning <ls_event>
+               with key name = 'USER_COMMAND'.
+    if sy-subrc eq 0.
+      concatenate 'F01_ALV_EVENT_'
+                  <ls_event>-name
+                  into <ls_event>-form.
+    endif.
+
+  endif.
+
+endform.                    " f01_alv_set_events
