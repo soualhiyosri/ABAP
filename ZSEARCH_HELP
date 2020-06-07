@@ -1,0 +1,29 @@
+REPORT ZSEARCH_HELP.
+
+
+PARAMETERS p_carrid TYPE string
+           MATCHCODE OBJECT demo_f4_de2.
+
+*
+*DATA: return_tab type STANDARD TABLE OF DDSHRETVAL.
+*
+*PARAMETERS p_test(10) type c.
+*
+*************************************************
+**AT SELECTION-SCREEN
+*AT SELECTION-SCREEN on VALUE-REQUEST FOR p_test.
+*
+*  CALL FUNCTION 'F4IF_FIELD_VALUE_REQUEST'
+*    EXPORTING
+*      TABNAME           = 'SCARR'    "mandatory - dictionary table type
+*      FIELDNAME         = 'CARRID'   "mandatory - dictionary field type
+*      SEARCHHELP        = 'H_T161'  "shelp
+*      SHLPPARAM         = 'BSART'   "field value to return from shelp
+*    TABLES
+*      RETURN_TAB        = return_tab
+*    EXCEPTIONS
+*      FIELD_NOT_FOUND   = 1
+*      NO_HELP_FOR_FIELD = 2
+*      INCONSISTENT_HELP = 3
+*      NO_VALUES_FOUND   = 4
+*      OTHERS            = 5.
