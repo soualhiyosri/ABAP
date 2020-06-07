@@ -1,0 +1,272 @@
+class CL_ILM_STOR_HDP_CONNECTOR_MGR definition
+  public
+  final
+  create public .
+
+public section.
+
+  interfaces IF_ILM_STOR_HDP_CONNECTOR_MGR .
+
+  methods CONSTRUCTOR .
+protected section.
+private section.
+
+  data MO_INSTANCES type ref to CL_ILM_STOR_DICTIONARY .
+
+  methods FIND_CONNECTOR_IN_DICT
+    importing
+      !IV_KEY type STRING
+    returning
+      value(RO_INSTANCE) type ref to IF_ILM_STOR_HDP_CONNECTOR .
+  methods ADD_CONNECTOR_TO_DICTIONARY
+    importing
+      !IV_KEY type STRING
+      !IO_CONNECTOR type ref to IF_ILM_STOR_HDP_CONNECTOR
+    raising
+      CX_ILM_STOR_HDP_RUNTIME .
+  methods REMOVE_CONNECTOR_FROM_DICT
+    importing
+      !IV_KEY type STRING .
+  methods CLEAR_CONNECTORS .
+  methods REFRESH_CONNECTOR
+    importing
+      !IO_CONNECTOR type ref to IF_ILM_STOR_HDP_CONNECTOR
+    raising
+      CX_ILM_STOR_HDP_EXCEPTION .
+ENDCLASS.
+
+
+
+CLASS CL_ILM_STOR_HDP_CONNECTOR_MGR IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ILM_STOR_HDP_CONNECTOR_MGR->ADD_CONNECTOR_TO_DICTIONARY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_KEY                         TYPE        STRING
+* | [--->] IO_CONNECTOR                   TYPE REF TO IF_ILM_STOR_HDP_CONNECTOR
+* | [!CX!] CX_ILM_STOR_HDP_RUNTIME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD add_connector_to_dictionary.
+
+    me->mo_instances->add(
+      EXPORTING
+        iv_key    = iv_key
+        iv_value  = io_connector
+    ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ILM_STOR_HDP_CONNECTOR_MGR->CLEAR_CONNECTORS
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD clear_connectors.
+
+    " In case of future needs
+    me->mo_instances->clear( ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ILM_STOR_HDP_CONNECTOR_MGR->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD constructor.
+
+    CREATE OBJECT me->mo_instances.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ILM_STOR_HDP_CONNECTOR_MGR->FIND_CONNECTOR_IN_DICT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_KEY                         TYPE        STRING
+* | [<-()] RO_INSTANCE                    TYPE REF TO IF_ILM_STOR_HDP_CONNECTOR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD FIND_CONNECTOR_IN_DICT.
+
+    me->mo_instances->find(
+      EXPORTING
+        iv_key       = iv_key
+      IMPORTING
+        ev_value     = ro_instance
+    ).
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ILM_STOR_HDP_CONNECTOR_MGR->IF_ILM_STOR_HDP_CONNECTOR_MGR~DETACH_CONNECTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_RFC_DESTINATION             TYPE        RFCDEST
+* | [!CX!] CX_ILM_STOR_HDP_CMD
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_ilm_stor_hdp_connector_mgr~detach_connector.
+
+    DATA:
+          lo_connector    TYPE REF TO if_ilm_stor_hdp_connector.
+
+    lo_connector = me->find_connector_in_dict( iv_key = |{ iv_rfc_destination }| ).
+
+    IF lo_connector IS BOUND.
+
+      " Close connection
+      lo_connector->close( ).
+
+      " Remove cached connector instance from dictionary
+      me->remove_connector_from_dict( iv_key = |{ iv_rfc_destination }| ).
+
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ILM_STOR_HDP_CONNECTOR_MGR->IF_ILM_STOR_HDP_CONNECTOR_MGR~GET_CONNECTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_RFC_DESTINATION             TYPE        RFCDEST
+* | [<-()] RO_CONNECTOR                   TYPE REF TO IF_ILM_STOR_HDP_CONNECTOR
+* | [!CX!] CX_ILM_STOR_HDP_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD if_ilm_stor_hdp_connector_mgr~get_connector.
+
+    DATA:
+          lo_dependencies     TYPE REF TO lif_http_client_dependencies,
+          lo_http_client      TYPE REF TO if_http_client,
+          lo_connector        TYPE REF TO if_ilm_stor_hdp_connector.
+    DATA:
+          lv_status_code      TYPE i,
+          lv_reason_phrase    TYPE string,
+          lv_subrc            TYPE sysubrc.
+
+    " Check if we have already created connector instance in dictionary
+    lo_connector = me->find_connector_in_dict( iv_key = |{ iv_rfc_destination }| ).
+
+    " Connector is already instantiated (we have opened connection)
+    IF lo_connector IS BOUND.
+
+      " Refresh HTTP client for opened connector
+      me->refresh_connector( lo_connector ).
+*      " CATCH cx_ilm_stor_hdp_exception
+
+      ro_connector = lo_connector.
+      RETURN.
+    ENDIF.
+
+    " Get instance of local dependencies
+    lo_dependencies = lcl_http_client_dependencies=>s_get_instance( ).
+
+    " Get HTTP client with provided RFC destination
+    lo_dependencies->create_by_destination(
+      EXPORTING
+        iv_destination = iv_rfc_destination
+      IMPORTING
+        eo_client      = lo_http_client
+        ev_subrc       = lv_subrc ).
+
+    IF lv_subrc <> 0.
+
+      RAISE EXCEPTION TYPE cx_ilm_stor_hdp_exception
+        EXPORTING
+          textid  = cx_ilm_stor_hdp_exception=>http_client_creation_failed
+          name    = |{ iv_rfc_destination }|.
+    ENDIF.
+
+    " Get HTTP connector instance
+    lo_connector ?= cl_ilm_stor_cf=>s_get_instance( )->get_instance( iv_interface = if_ilm_stor_cf=>interface_names-hdp_connector ).
+
+    " Set HTTP Client
+    lo_connector->set_http_client( lo_http_client ).
+
+    " Add created connector instance to dictionary list
+    me->add_connector_to_dictionary(
+      EXPORTING
+        iv_key        = |{ iv_rfc_destination }|
+        io_connector  = lo_connector
+    ).
+
+    ro_connector = lo_connector.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ILM_STOR_HDP_CONNECTOR_MGR->REFRESH_CONNECTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_CONNECTOR                   TYPE REF TO IF_ILM_STOR_HDP_CONNECTOR
+* | [!CX!] CX_ILM_STOR_HDP_EXCEPTION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD refresh_connector.
+    DATA:
+          lo_http_client        TYPE REF TO if_http_client.
+
+    " Get HTTP client from existing connector
+    lo_http_client = io_connector->get_http_client( ).
+
+    " Refresh HTTP Cookie
+    lo_http_client->refresh_cookie(
+      EXCEPTIONS
+        http_action_failed      = 1
+        http_processing_failed  = 2
+        OTHERS                  = 3
+    ).
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE cx_ilm_stor_hdp_exception
+        EXPORTING
+          textid  = cx_ilm_stor_hdp_exception=>connector_refresh_error
+          name    = 'COOKIE' ##no_text.
+    ENDIF.
+
+    " Refresh HTTP Request
+    lo_http_client->refresh_request(
+      EXCEPTIONS
+        http_action_failed      = 1
+        OTHERS                  = 2
+    ).
+
+    IF sy-subrc <> 0.
+
+      RAISE EXCEPTION TYPE cx_ilm_stor_hdp_exception
+        EXPORTING
+          textid  = cx_ilm_stor_hdp_exception=>connector_refresh_error
+          name    = 'REQUEST' ##no_text.
+    ENDIF.
+
+    " Refresh HTTP Response
+    lo_http_client->refresh_response(
+      EXCEPTIONS
+        http_action_failed      = 1
+        OTHERS                  = 2
+    ).
+
+    IF sy-subrc <> 0.
+
+      RAISE EXCEPTION TYPE cx_ilm_stor_hdp_exception
+        EXPORTING
+          textid  = cx_ilm_stor_hdp_exception=>connector_refresh_error
+          name    = 'RESPONSE' ##no_text.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ILM_STOR_HDP_CONNECTOR_MGR->REMOVE_CONNECTOR_FROM_DICT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_KEY                         TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD remove_connector_from_dict.
+
+    IF me->mo_instances IS BOUND.
+
+      me->mo_instances->remove( iv_key = iv_key ).
+
+    ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.
