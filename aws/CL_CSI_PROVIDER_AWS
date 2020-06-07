@@ -1,0 +1,305 @@
+class CL_CSI_PROVIDER_AWS definition
+  public
+  inheriting from CL_CSI_PROVIDER
+  final
+  create protected
+
+  global friends CL_CSI_FILESTORE_AWS
+                 CL_CSI_FILESTORE_DIR_AWS
+                 CL_CSI_FILESTORE_FILE_AWS
+                 CL_CSI_NODE_AWS
+                 CL_CSI_PROVIDER .
+
+public section.
+
+  constants GC_NODE_DEST_NAME type RFCDEST value 'CSI_AWS_EC2'. "#EC NOTEXT
+  constants GC_NODE_API_VERSION type STRING value '2009-11-30'. "#EC NOTEXT
+  constants GC_FILE_DEST_NAME type RFCDEST value 'CSI_AWS_S3'. "#EC NOTEXT
+  constants GC_FILE_API_VERSION type STRING value '2009-04-04'. "#EC NOTEXT
+
+  methods GET_NODE_DESTINATION
+    importing
+      !IV_REGION type CSI_REGION optional
+    returning
+      value(RV_HTTP_DESTINATION) type RFCDEST .
+  methods GET_FILE_DESTINATION
+    importing
+      !IV_REGION type CSI_REGION optional
+    returning
+      value(RV_HTTP_DESTINATION) type RFCDEST .
+protected section.
+
+  methods _GET_FILESTORE
+    redefinition .
+  methods _GET_NODE
+    redefinition .
+  methods _LIST_FILESTORES
+    redefinition .
+  methods _LIST_IMAGES
+    redefinition .
+  methods _LIST_KEY_NAMES
+    redefinition .
+  methods _LIST_NODES
+    redefinition .
+  methods _LIST_PLACEMENTS
+    redefinition .
+  methods _LIST_REGIONS
+    redefinition .
+  methods _LIST_SECURITY_GROUPS
+    redefinition .
+  methods _LIST_SIZE_TYPES
+    redefinition .
+  methods _SET_ACTIVE_ACCOUNT
+    redefinition .
+private section.
+*"* private components of class CL_CSI_PROVIDER_AWS
+*"* do not include other source files here!!!
+
+  data MO_ACCOUNT type ref to CL_CSI_PROVIDER_ACCOUNT_AWS .
+ENDCLASS.
+
+
+
+CLASS CL_CSI_PROVIDER_AWS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_AWS->GET_FILE_DESTINATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RV_HTTP_DESTINATION            TYPE        RFCDEST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_FILE_DESTINATION.
+  rv_http_destination = gc_file_dest_name.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_CSI_PROVIDER_AWS->GET_NODE_DESTINATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RV_HTTP_DESTINATION            TYPE        RFCDEST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_node_destination.
+  rv_http_destination = gc_node_dest_name.
+  IF ( iv_region IS NOT INITIAL ).
+    DATA:
+      lv_name TYPE csi_string,
+      lv_rfc_host TYPE rfchost_ext,
+      lt_region TYPE csit_region.
+    FIELD-SYMBOLS <ls_region> TYPE csis_region.
+    TRY.
+        lt_region = list_regions( ).
+      CATCH cx_csi_provider.                            "#EC NO_HANDLER
+    ENDTRY.
+    READ TABLE lt_region ASSIGNING <ls_region> WITH TABLE KEY region_name = iv_region.
+    IF ( <ls_region> IS ASSIGNED ).
+      lv_name = iv_region.
+      lv_rfc_host = <ls_region>-region_endpoint.
+      rv_http_destination = cl_csi_provider_aws_helper=>get_rfc_dest( iv_name = lv_name iv_default = gc_node_dest_name iv_overwrite = abap_false iv_endpoint = lv_rfc_host ).
+    ENDIF.
+  ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_GET_FILESTORE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STORE_NAME                  TYPE        CSI_FILESTORE_NAME(optional)
+* | [--->] IV_PLACEMENT                   TYPE        STRING(optional)
+* | [<-()] RO_FILESTORE                   TYPE REF TO CL_CSI_FILESTORE
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _get_filestore.
+  IF ( iv_store_name IS NOT INITIAL AND iv_store_name <> 'S3' ).
+    RAISE EXCEPTION TYPE cx_csi_provider
+      EXPORTING
+        textid     = cx_csi_provider=>incorrect_parameter
+        text_token = 'GET_FILESTORE'.                      "#EC NO_TEXT
+  ENDIF.
+  ro_filestore = cl_csi_filestore=>factory( io_provider = me io_account = me->get_active_account( ) iv_name = iv_store_name ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_GET_NODE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NODEID                      TYPE        CSI_NODE_ID(optional)
+* | [--->] IS_NODE                        TYPE        CSIS_NODE(optional)
+* | [<-()] RO_NODE                        TYPE REF TO CL_CSI_NODE
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _get_node.
+  DATA ls_node TYPE csis_node.
+* deliver one of our own objects (the AWS Node)
+  IF ( is_node IS NOT INITIAL ).
+    ls_node = is_node.
+  ENDIF.
+  IF ( iv_nodeid IS NOT INITIAL ).
+    ls_node-id = iv_nodeid.
+  ENDIF.
+
+  ro_node = cl_csi_node_aws=>factory(
+    iv_node_id  = ls_node-id  " this is ok as we have set the value above
+    is_node     = ls_node
+    io_account  = if_csi_provider~get_active_account( )
+    io_provider = me
+  ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_FILESTORES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RT_FILESTORES                  TYPE        CSIT_FILESTORE_OBJ
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_filestores.
+  DATA:
+    ls_filestore TYPE csis_filestore_obj.
+  ls_filestore-name = cl_csi_filestore_aws=>gv_name.
+  ls_filestore-object_ref = get_filestore( ls_filestore-name ).
+  INSERT ls_filestore INTO TABLE rt_filestores.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_IMAGES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RT_IMAGES                      TYPE        CSIT_INSTANCE_IMAGE
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method _LIST_IMAGES.
+  list_from_buffer csis_instance_image images image_name images image_id.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_KEY_NAMES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RT_KEY_NAMES                   TYPE        CSIT_INSTANCE_KEY_NAME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_key_names.
+  list_from_buffer csis_instance_key_name key_pairs key_name key_names key_name.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_NODES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [--->] IV_FILTER_BY_STATUS            TYPE        CSI_NODE_STATUS (default =IF_CSI_NODE_C=>GC_STATUS_ALL)
+* | [<-()] RT_NODES                       TYPE        CSIT_NODE_OBJ
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_nodes.
+  DATA lo_aws_node TYPE REF TO cl_csi_node_aws.
+  lo_aws_node ?= me->get_node( iv_nodeid = 'dummy' ).
+  rt_nodes = lo_aws_node->list( iv_region = iv_region iv_filter_by_status = iv_filter_by_status ).
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_PLACEMENTS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION
+* | [<-()] RT_PLACEMENTS                  TYPE        CSIT_INSTANCE_PLACEMENT
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_placements.
+  list_from_buffer csis_instance_placement availability_zones placement_name placements zone_name.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_REGIONS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RT_REGIONS                     TYPE        CSIT_REGION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_regions.
+  DATA:
+    ls_buffer TYPE csis_aws_buffer,
+    ls_line TYPE csis_region.
+  FIELD-SYMBOLS:
+    <ls_region> TYPE csis_aws_buffer_region.
+  cl_csi_provider_aws_helper=>get_zone_buffer(
+    exporting
+      io_provider = me
+      iv_region_only = abap_true  " speed up regions as they are use heavily in AWS
+    importing
+      es_buffer = ls_buffer
+  ).
+  IF ( ls_buffer IS INITIAL ).
+    RETURN. "no available regions... for this provider & account
+  ENDIF.
+  READ TABLE ls_buffer-regions ASSIGNING <ls_region> WITH TABLE KEY region_name = iv_region.
+  IF ( <ls_region> IS ASSIGNED ).
+    ls_line-region_name = <ls_region>-region_name.
+    ls_line-region_endpoint = <ls_region>-region_endpoint.
+    INSERT ls_line INTO TABLE rt_regions.
+    RETURN.
+  ENDIF.
+
+  LOOP AT ls_buffer-regions ASSIGNING <ls_region>.
+    ls_line-region_name = <ls_region>-region_name.
+    ls_line-region_endpoint = <ls_region>-region_endpoint.
+    INSERT ls_line INTO TABLE rt_regions.
+    FREE ls_line.
+  ENDLOOP.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_SECURITY_GROUPS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RT_SECURITY_GROUPS             TYPE        CSIT_INSTANCE_SEC_GROUP
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_security_groups.
+  list_from_buffer csis_instance_sec_group security_groups security_group_name security_groups group_name.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_LIST_SIZE_TYPES
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REGION                      TYPE        CSI_REGION(optional)
+* | [<-()] RT_SIZE_TYPES                  TYPE        CSIT_INSTANCE_SIZE_TYPE
+* | [!CX!] CX_CSI_PROVIDER
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _list_size_types.
+  DATA ls_size_type TYPE csis_instance_size_type.
+
+  DEFINE add_value.
+    ls_size_type-size_type_name = &1.
+    insert ls_size_type into table rt_size_types.
+  END-OF-DEFINITION.
+  ls_size_type-region_name = iv_region.
+  add_value:
+    't1.micro',
+    'm1.small',
+    'm1.large',
+    'm1.xlarge',
+    'c1.medium',
+    'c1.xlarge',
+    'm2.xlarge',
+    'm2.2xlarge',
+    'm2.4xlarge',
+    'cc1.4xlarge',
+    'cg1.4xlarge'.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Protected Method CL_CSI_PROVIDER_AWS->_SET_ACTIVE_ACCOUNT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_ACCOUNT                     TYPE REF TO CL_CSI_PROVIDER_ACCOUNT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD _set_active_account.
+  mo_account ?= io_account.
+ENDMETHOD.
+ENDCLASS.
