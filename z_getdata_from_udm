@@ -1,0 +1,167 @@
+*&---------------------------------------------------------------------*
+*& Report Z_GETDATA_FROM_UDM
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z_getdata_from_udm.
+
+
+DATA : lo_reader_base TYPE REF TO cl_mai_reporting_base,
+       lo_reader      TYPE REF TO if_mai_rca_technical_systems,
+       lt_filter      TYPE if_mai_reporting_filter=>tty_filter,
+       ls_filter      LIKE LINE OF lt_filter.
+
+ls_filter-fieldname = 'CONTEXT_ID'.
+ls_filter-hlevel = 0 .
+ls_filter-sign = 'I' .
+ls_filter-option = 'EQ' .
+ls_filter-low =  '6CAE8B74A0DE1ED88FA265A0D5CE3CE8' .
+
+APPEND ls_filter TO lt_filter .
+CLEAR ls_filter .
+
+
+SELECT event_type_id FROM acmetricdir INTO @data(lv_type_id)
+WHERE context_id = '6CAE8B74A0DE1ED88FA265A0D5CE3CE8'
+AND name = 'CPU_SYSTEM_UTILIZATION'
+AND ac_variant = 'A'.
+ENDSELECT.
+
+
+ls_filter-fieldname = 'TYPE_ID'.
+ls_filter-hlevel = 0 .
+ls_filter-sign = 'I' .
+ls_filter-option = 'EQ' .
+ls_filter-low =  lv_type_id .
+
+APPEND ls_filter TO lt_filter .
+CLEAR ls_filter .
+
+
+*         ls_filter-FIELDNAME = 'METRIC_NAME'.
+*  LS_FILTER-HLEVEL = 0 .
+*   LS_FILTER-sign = 'I' .
+*    LS_FILTER-option = 'EQ' .
+*      LS_FILTER-low =  'DIALOG_RESPONSE_TIME' .
+*
+*
+*  append ls_filter to lt_filter .
+*    clear ls_filter .
+
+lo_reader_base ?= cl_mai_reporting_factory=>create_reader_by_id( cl_mai_reporting_factory=>co_id_rca_technical_systems ).
+lo_reader ?= lo_reader_base.
+
+IF lt_filter IS NOT INITIAL.
+  DATA(lo_filter) = cl_mai_reporting_factory=>create_simple_filter( iv_filter_id = cl_mai_reporting_factory=>co_id_filter_technames it_filter = lt_filter ).
+  cl_mai_reporting_factory=>attach_filter( io_reader = lo_reader  io_filter = lo_filter ).
+ENDIF.
+
+
+DATA(lo_time) = cl_mai_reporting_factory=>create_time_dimension( ).
+
+DATA  lv_granularity TYPE char10 VALUE 'HOUR'.
+DATA: lv_to_utc   TYPE timestamp VALUE 20181213235959,  lv_from_utc  TYPE timestamp VALUE  20181213000000 .
+DATA  lt_data        TYPE if_mai_reporting_generic=>tty_data .
+
+
+IF lv_granularity IS NOT INITIAL.
+  lo_time->set_slot_granularity( iv_granu = lv_granularity ).
+ENDIF.
+
+
+lo_time->set_time_interval( iv_start = lv_from_utc  iv_end = lv_to_utc  ). "UTC
+lo_time->set_result_timezone( iv_timezone = 'UTC' ).
+cl_mai_reporting_factory=>attach_time_dimension( io_reader = lo_reader io_time = lo_time ).
+
+DATA(lo_output_typedescr) = cl_abap_tabledescr=>describe_by_data( lt_data ).
+DATA lo_table_typedescr TYPE REF TO cl_abap_tabledescr.
+lo_table_typedescr ?= lo_output_typedescr.
+
+*    lo_table_typedescr = set_drilldown( reader = lo_reader_base default_output_typedescr = lo_table_typedescr drilldown = lv_drilldown ).
+lo_reader_base->set_compression( iv_compression_enabled = abap_true ).
+
+
+
+
+
+lo_reader->get_data(
+  IMPORTING
+    et_data = lt_data
+).
+
+
+DATA: it_fieldcat TYPE slis_t_fieldcat_alv,
+      wa_fieldcat TYPE slis_fieldcat_alv.
+
+
+
+
+*Build field catalog
+wa_fieldcat-fieldname  = 'context_id'.    " Fieldname in the data table
+wa_fieldcat-seltext_m  = 'context_id'.   " Column description in the output
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'type_id'.
+wa_fieldcat-seltext_m  = 'type_id'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'hash_metric_path'.
+wa_fieldcat-seltext_m  = 'hash_metric_path'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'value_date'.
+wa_fieldcat-seltext_m  = 'value_date'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'value_count'.
+wa_fieldcat-seltext_m  = 'value_count'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'value_max'.
+wa_fieldcat-seltext_m  = 'value_max'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'value_min'.
+wa_fieldcat-seltext_m  = 'value_min'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+
+wa_fieldcat-fieldname  = 'value_sum'.
+wa_fieldcat-seltext_m  = 'value_sum'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'value_average'.
+wa_fieldcat-seltext_m  = 'value_average'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+wa_fieldcat-fieldname  = 'calculated_rating'.
+wa_fieldcat-seltext_m  = 'calculated_rating'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+
+wa_fieldcat-fieldname  = 'number_of_records'.
+wa_fieldcat-seltext_m  = 'number_of_records'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+
+wa_fieldcat-fieldname  = 'covered_time_range'.
+wa_fieldcat-seltext_m  = 'covered_time_range'.
+APPEND wa_fieldcat TO it_fieldcat.
+
+
+
+
+
+*Pass data and field catalog to ALV function module to display ALV list
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+  EXPORTING
+    it_fieldcat   = it_fieldcat
+  TABLES
+    t_outtab      = lt_data
+  EXCEPTIONS
+    program_error = 1
+    OTHERS        = 2.
+
+
+
+WRITE : ''.
