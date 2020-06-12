@@ -1,0 +1,467 @@
+class CL_ABAP_TABLEDESCR definition
+  public
+  inheriting from CL_ABAP_COMPLEXDESCR
+  final
+  create protected .
+
+public section.
+
+*"* public components of class CL_ABAP_TABLEDESCR
+*"* do not include other source files here!!!
+  type-pools ABAP .
+  constants TABLEKIND_ANY type ABAP_TABLEKIND value 'A'. "#EC NOTEXT
+  constants TABLEKIND_STD type ABAP_TABLEKIND value 'S'. "#EC NOTEXT
+  constants TABLEKIND_INDEX type ABAP_TABLEKIND value 'I'. "#EC NOTEXT
+  constants TABLEKIND_HASHED type ABAP_TABLEKIND value 'H'. "#EC NOTEXT
+  constants TABLEKIND_SORTED type ABAP_TABLEKIND value 'O'. "#EC NOTEXT
+  constants KEYDEFKIND_DEFAULT type ABAP_KEYDEFKIND value 'D'. "#EC NOTEXT
+  constants KEYDEFKIND_TABLELINE type ABAP_KEYDEFKIND value 'L'. "#EC NOTEXT
+  constants KEYDEFKIND_USER type ABAP_KEYDEFKIND value 'U'. "#EC NOTEXT
+  constants KEYDEFKIND_EMPTY type ABAP_KEYDEFKIND value 'E'. "#EC NOTEXT
+  data KEY type ABAP_KEYDESCR_TAB read-only .
+  data INITIAL_SIZE type I read-only .
+  data KEY_DEFKIND type ABAP_KEYDEFKIND read-only .
+  data HAS_UNIQUE_KEY type ABAP_BOOL read-only .
+  data TABLE_KIND type ABAP_TABLEKIND read-only .
+  constants FURTHER_SCND_KEYS_NOT_SPEC type I value 26453701. "#EC NOTEXT
+  constants FURTHER_SCND_KEYS_YES type I value 26453702. "#EC NOTEXT
+  constants FURTHER_SCND_KEYS_NO type I value 26453703. "#EC NOTEXT
+
+  class-methods LOAD_CLASS .
+  class-methods CLASS_CONSTRUCTOR .
+  methods GET_TABLE_LINE_TYPE
+    returning
+      value(P_DESCR_REF) type ref to CL_ABAP_DATADESCR .
+  class-methods GET
+    importing
+      !P_LINE_TYPE type ref to CL_ABAP_DATADESCR
+      !P_TABLE_KIND type ABAP_TABLEKIND default TABLEKIND_STD
+      !P_UNIQUE type ABAP_BOOL default ABAP_FALSE
+      !P_KEY type ABAP_KEYDESCR_TAB optional
+      !P_KEY_KIND type ABAP_KEYDEFKIND default KEYDEFKIND_DEFAULT
+    returning
+      value(P_RESULT) type ref to CL_ABAP_TABLEDESCR
+    raising
+      CX_SY_TABLE_CREATION .
+  class-methods CREATE
+    importing
+      !P_LINE_TYPE type ref to CL_ABAP_DATADESCR
+      !P_TABLE_KIND type ABAP_TABLEKIND default TABLEKIND_STD
+      !P_UNIQUE type ABAP_BOOL default ABAP_FALSE
+      !P_KEY type ABAP_KEYDESCR_TAB optional
+      !P_KEY_KIND type ABAP_KEYDEFKIND default KEYDEFKIND_DEFAULT
+    returning
+      value(P_RESULT) type ref to CL_ABAP_TABLEDESCR
+    raising
+      CX_SY_TABLE_CREATION .
+  methods GET_KEYS
+    returning
+      value(P_KEYS) type ABAP_TABLE_KEYDESCR_TAB .
+  class-methods GET_WITH_KEYS
+    importing
+      !P_LINE_TYPE type ref to CL_ABAP_DATADESCR
+      !P_KEYS type ABAP_TABLE_KEYDESCR_TAB
+      !P_INITIAL_SIZE type I default 0
+    returning
+      value(P_RESULT) type ref to CL_ABAP_TABLEDESCR
+    raising
+      CX_SY_TABLE_CREATION .
+  class-methods CREATE_WITH_KEYS
+    importing
+      !P_LINE_TYPE type ref to CL_ABAP_DATADESCR
+      !P_KEYS type ABAP_TABLE_KEYDESCR_TAB
+      !P_INITIAL_SIZE type I default 0
+    returning
+      value(P_RESULT) type ref to CL_ABAP_TABLEDESCR
+    raising
+      CX_SY_TABLE_CREATION .
+protected section.
+*"* protected components of class CL_ABAP_TABLEDESCR
+*"* do not include other source files here!!!
+
+  class-methods CREATE_TABLEDESCR_OBJECT
+    for event CREATE_TABLEDESCR of CL_ABAP_TYPEDESCR
+    importing
+      !XTYPE .
+private section.
+
+*"* private components of class CL_ABAP_TABLEDESCR
+*"* do not include other source files here!!!
+  data LINE_TYPE_CACHE type ref to CL_ABAP_DATADESCR .
+
+  class-methods CREATE_XTYP_FROM_ITAB_DESC
+    importing
+      !LINE_TYPE type XTYPE_TYPE
+      !TABLEKIND type ABAP_TABLEKIND
+      !UNIQUE type ABAP_BOOL
+      !KEYKIND type ABAP_KEYDEFKIND
+      !KEY type ABAP_KEYDESCR_TAB
+    returning
+      value(XTYP) type XTYPE_TYPE
+    raising
+      CX_SY_TABLE_CREATION .
+  class-methods GET_XTYP_FROM_ITAB_DESC
+    importing
+      !LINE_TYPE type XTYPE_TYPE
+      !TABLEKIND type ABAP_TABLEKIND
+      !UNIQUE type ABAP_BOOL
+      !KEYKIND type ABAP_KEYDEFKIND
+      !KEY type ABAP_KEYDESCR_TAB
+    returning
+      value(XTYP) type XTYPE_TYPE
+    raising
+      CX_SY_TABLE_CREATION .
+  class-methods GET_XTYP_FROM_ITAB_W_KEY_DESC
+    importing
+      !LINE_TYPE type XTYPE_TYPE
+      !KEYS type ABAP_TABLE_KEYDESCR_TAB
+      !INITIAL_SIZE type I
+      !FURTHER_SCND_KEYS type I
+      !WITH_REUSE type ABAP_BOOL
+    returning
+      value(XTYP) type XTYPE_TYPE
+    raising
+      CX_SY_TABLE_CREATION .
+  methods GET_KEYS_TAB
+    returning
+      value(P_KEYS) type ABAP_TABLE_KEYDESCR_TAB .
+ENDCLASS.
+
+
+
+CLASS CL_ABAP_TABLEDESCR IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ABAP_TABLEDESCR=>CLASS_CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD CLASS_CONSTRUCTOR.
+
+  SET HANDLER CREATE_TABLEDESCR_OBJECT.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ABAP_TABLEDESCR=>CREATE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] P_LINE_TYPE                    TYPE REF TO CL_ABAP_DATADESCR
+* | [--->] P_TABLE_KIND                   TYPE        ABAP_TABLEKIND (default =TABLEKIND_STD)
+* | [--->] P_UNIQUE                       TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [--->] P_KEY                          TYPE        ABAP_KEYDESCR_TAB(optional)
+* | [--->] P_KEY_KIND                     TYPE        ABAP_KEYDEFKIND (default =KEYDEFKIND_DEFAULT)
+* | [<-()] P_RESULT                       TYPE REF TO CL_ABAP_TABLEDESCR
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method CREATE.
+
+  data: linetype   like me_xtype,
+        linekind   like p_line_type->kind,
+        keykind    like key_defkind,
+        xtype      like me_xtype.
+
+  if p_line_type is initial.
+    raise exception type CX_SY_TABLE_LINE_TYPE
+      exporting textid = CX_SY_TABLE_LINE_TYPE=>EMPTY_TYPE.
+  endif.
+
+  if p_key is supplied and not p_key_kind is supplied.
+    keykind = KEYDEFKIND_USER.
+  else.
+    keykind = p_key_kind.
+  endif.
+
+  linetype = p_line_type->me_xtype.
+  linekind = p_line_type->kind.
+  xtype = CREATE_XTYP_FROM_ITAB_DESC(
+              line_type  = linetype
+              tablekind  = p_table_kind
+              unique     = p_unique
+              keykind    = keykind
+              key        = p_key ).
+
+  p_result ?= get_by_xtype( p_xtype = xtype p_kind = 'T' ).
+  p_result->line_type_cache = p_line_type.
+*  p_result->table_kind = p_table_kind.
+*  p_result->has_unique_key = p_unique.
+*  p_result->key_defkind = keykind.
+*  p_result->key = p_key.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Protected Method CL_ABAP_TABLEDESCR=>CREATE_TABLEDESCR_OBJECT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] XTYPE                          LIKE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD CREATE_TABLEDESCR_OBJECT .
+
+  DATA DREF TYPE REF TO CL_ABAP_TABLEDESCR.
+  CREATE OBJECT DREF.
+  SYSTEM-CALL DESCRIBE TABLE XTYPE
+    INTO DREF->ABSOLUTE_NAME DREF->TYPE_KIND     DREF->LENGTH
+         DREF->DECIMALS      DREF->KEY           DREF->KEY_DEFKIND
+         DREF->INITIAL_SIZE  DREF->TABLE_KIND    DREF->HAS_UNIQUE_KEY.
+  DREF->ME_XTYPE = XTYPE.
+  DREF->KIND  = KIND_TABLE.
+  RETURNING_REF = DREF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ABAP_TABLEDESCR=>CREATE_WITH_KEYS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] P_LINE_TYPE                    TYPE REF TO CL_ABAP_DATADESCR
+* | [--->] P_KEYS                         TYPE        ABAP_TABLE_KEYDESCR_TAB
+* | [--->] P_INITIAL_SIZE                 TYPE        I (default =0)
+* | [<-()] P_RESULT                       TYPE REF TO CL_ABAP_TABLEDESCR
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_with_keys.
+
+  DATA: linetype LIKE me_xtype,
+        linekind like p_line_type->kind,
+        xtype    LIKE me_xtype,
+        l_keys   like p_keys.
+
+  IF p_line_type IS INITIAL.
+    RAISE EXCEPTION TYPE cx_sy_table_line_type
+      EXPORTING textid = cx_sy_table_line_type=>empty_type.
+  ENDIF.
+
+  linetype = p_line_type->me_xtype.
+  linekind = p_line_type->kind.
+
+  l_keys = p_keys.
+  sort l_keys by is_primary descending name.
+
+  xtype = get_xtyp_from_itab_w_key_desc( line_type         = linetype
+                                         keys              = l_keys
+                                         initial_size      = p_initial_size
+                                         further_scnd_keys = cl_abap_tabledescr=>further_scnd_keys_no
+                                         with_reuse        = abap_false ).
+
+  p_result ?= get_by_xtype( p_xtype = xtype
+                            p_kind  = 'T' ).
+  p_result->line_type_cache = p_line_type.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_ABAP_TABLEDESCR=>CREATE_XTYP_FROM_ITAB_DESC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LINE_TYPE                      TYPE        XTYPE_TYPE
+* | [--->] TABLEKIND                      TYPE        ABAP_TABLEKIND
+* | [--->] UNIQUE                         TYPE        ABAP_BOOL
+* | [--->] KEYKIND                        TYPE        ABAP_KEYDEFKIND
+* | [--->] KEY                            TYPE        ABAP_KEYDESCR_TAB
+* | [<-()] XTYP                           TYPE        XTYPE_TYPE
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method CREATE_XTYP_FROM_ITAB_DESC
+       by KERNEL MODULE ab_createXtypFromItabDesc.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ABAP_TABLEDESCR=>GET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] P_LINE_TYPE                    TYPE REF TO CL_ABAP_DATADESCR
+* | [--->] P_TABLE_KIND                   TYPE        ABAP_TABLEKIND (default =TABLEKIND_STD)
+* | [--->] P_UNIQUE                       TYPE        ABAP_BOOL (default =ABAP_FALSE)
+* | [--->] P_KEY                          TYPE        ABAP_KEYDESCR_TAB(optional)
+* | [--->] P_KEY_KIND                     TYPE        ABAP_KEYDEFKIND (default =KEYDEFKIND_DEFAULT)
+* | [<-()] P_RESULT                       TYPE REF TO CL_ABAP_TABLEDESCR
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET.
+
+  data: linetype   like me_xtype,
+        linekind   like p_line_type->kind,
+        keykind    like key_defkind,
+        xtype      like me_xtype.
+
+  if p_line_type is initial.
+    raise exception type CX_SY_TABLE_LINE_TYPE
+      exporting textid = CX_SY_TABLE_LINE_TYPE=>EMPTY_TYPE.
+  endif.
+
+  if p_key is supplied and not p_key_kind is supplied.
+    keykind = KEYDEFKIND_USER.
+  else.
+    keykind = p_key_kind.
+  endif.
+
+  linetype = p_line_type->me_xtype.
+  linekind = p_line_type->kind.
+  xtype = GET_XTYP_FROM_ITAB_DESC(
+              line_type  = linetype
+              tablekind  = p_table_kind
+              unique     = p_unique
+              keykind    = keykind
+              key        = p_key ).
+
+  p_result ?= get_by_xtype( p_xtype = xtype p_kind = 'T' ).
+  p_result->line_type_cache = p_line_type.
+*  p_result->table_kind = p_table_kind.
+*  p_result->has_unique_key = p_unique.
+*  p_result->key_defkind = keykind.
+*  p_result->key = p_key.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ABAP_TABLEDESCR->GET_KEYS
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] P_KEYS                         TYPE        ABAP_TABLE_KEYDESCR_TAB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_KEYS.
+  p_keys = get_keys_tab( ).
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method CL_ABAP_TABLEDESCR->GET_KEYS_TAB
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] P_KEYS                         TYPE        ABAP_TABLE_KEYDESCR_TAB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_KEYS_TAB by kernel module abkm_RTTI_TableGetKeys ignore.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method CL_ABAP_TABLEDESCR->GET_TABLE_LINE_TYPE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] P_DESCR_REF                    TYPE REF TO CL_ABAP_DATADESCR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_TABLE_LINE_TYPE.
+
+  data CRC type F.
+
+
+  if line_type_cache is initial.
+
+    system-call describe navigation mode 'T' from ME_XTYPE
+      to ' ' ' ' into ADMIN_TAB_LINE-XTYPE CRC ADMIN_TAB_LINE-KIND.
+
+*   look at hash table whether descr object already exists
+    read table ADMIN_TAB from ADMIN_TAB_LINE into ADMIN_TAB_LINE.
+    if SY-SUBRC = 0.
+      P_DESCR_REF ?= ADMIN_TAB_LINE-REF->GET( ).
+      if P_DESCR_REF is bound.
+        return.
+      endif.
+      delete table ADMIN_TAB from ADMIN_TAB_LINE.
+    endif.
+
+*   create new descr object
+    case ADMIN_TAB_LINE-KIND.
+      when 'E'.
+        raise event CREATE_ELEMDESCR
+          exporting XTYPE = ADMIN_TAB_LINE-XTYPE.
+      when 'R'.
+        raise event CREATE_REFDESCR
+          exporting XTYPE = ADMIN_TAB_LINE-XTYPE.
+      when 'S'.
+        raise event CREATE_STRUCTDESCR
+          exporting XTYPE = ADMIN_TAB_LINE-XTYPE.
+      when 'T'.
+        raise event CREATE_TABLEDESCR
+          exporting XTYPE = ADMIN_TAB_LINE-XTYPE.
+    endcase.
+
+    create object ADMIN_TAB_LINE-REF exporting OREF = RETURNING_REF.
+    insert ADMIN_TAB_LINE into table ADMIN_TAB.
+    line_type_cache ?= RETURNING_REF.
+    clear RETURNING_REF.
+
+  endif.
+
+  p_descr_ref = line_type_cache.
+
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ABAP_TABLEDESCR=>GET_WITH_KEYS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] P_LINE_TYPE                    TYPE REF TO CL_ABAP_DATADESCR
+* | [--->] P_KEYS                         TYPE        ABAP_TABLE_KEYDESCR_TAB
+* | [--->] P_INITIAL_SIZE                 TYPE        I (default =0)
+* | [<-()] P_RESULT                       TYPE REF TO CL_ABAP_TABLEDESCR
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_with_keys.
+
+  DATA: linetype LIKE me_xtype,
+        linekind like p_line_type->kind,
+        xtype    LIKE me_xtype,
+        l_keys   like p_keys.
+
+  IF p_line_type IS INITIAL.
+    RAISE EXCEPTION TYPE cx_sy_table_line_type
+      EXPORTING textid = cx_sy_table_line_type=>empty_type.
+  ENDIF.
+
+  linetype = p_line_type->me_xtype.
+  linekind = p_line_type->kind.
+
+  l_keys = p_keys.
+  sort l_keys by is_primary descending name.
+
+  xtype = get_xtyp_from_itab_w_key_desc( line_type         = linetype
+                                         keys              = l_keys
+                                         initial_size      = p_initial_size
+                                         further_scnd_keys = cl_abap_tabledescr=>further_scnd_keys_no
+                                         with_reuse        = abap_true ).
+
+  p_result ?= get_by_xtype( p_xtype = xtype
+                            p_kind  = 'T' ).
+  p_result->line_type_cache = p_line_type.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_ABAP_TABLEDESCR=>GET_XTYP_FROM_ITAB_DESC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LINE_TYPE                      TYPE        XTYPE_TYPE
+* | [--->] TABLEKIND                      TYPE        ABAP_TABLEKIND
+* | [--->] UNIQUE                         TYPE        ABAP_BOOL
+* | [--->] KEYKIND                        TYPE        ABAP_KEYDEFKIND
+* | [--->] KEY                            TYPE        ABAP_KEYDESCR_TAB
+* | [<-()] XTYP                           TYPE        XTYPE_TYPE
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+method GET_XTYP_FROM_ITAB_DESC by KERNEL MODULE ab_getXtypFromItabDesc FAIL.
+endmethod.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Private Method CL_ABAP_TABLEDESCR=>GET_XTYP_FROM_ITAB_W_KEY_DESC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] LINE_TYPE                      TYPE        XTYPE_TYPE
+* | [--->] KEYS                           TYPE        ABAP_TABLE_KEYDESCR_TAB
+* | [--->] INITIAL_SIZE                   TYPE        I
+* | [--->] FURTHER_SCND_KEYS              TYPE        I
+* | [--->] WITH_REUSE                     TYPE        ABAP_BOOL
+* | [<-()] XTYP                           TYPE        XTYPE_TYPE
+* | [!CX!] CX_SY_TABLE_CREATION
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_xtyp_from_itab_w_key_desc
+  BY KERNEL MODULE ab_getXtypFromItabWithKeyDesc fail.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method CL_ABAP_TABLEDESCR=>LOAD_CLASS
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD LOAD_CLASS . "#EC NEEDED
+* ...
+ENDMETHOD.
+ENDCLASS.
