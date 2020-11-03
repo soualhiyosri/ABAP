@@ -1,0 +1,2565 @@
+class CL_FRN_FI_RUM_DATA_STORE definition
+
+  public
+
+  final
+
+  create public .
+
+ 
+
+public section.
+
+ 
+
+  interfaces IF_AMDP_MARKER_HDB .
+
+ 
+
+  types:
+
+    begin of ts_executions_per_time,
+
+             time_axis    type /rum/time_axis,
+
+             TOTAL_EXECUTION   type /rum/df34_dec,
+
+             GREEN_EXECUTION type /rum/df34_dec,
+
+             YELLOW_EXECUTION type /rum/df34_dec,
+
+             RED_EXECUTION type /rum/df34_dec,
+
+             resptime     type /rum/df34_dec,
+
+             resptime_min type /rum/df34_dec,
+
+             resptime_max type /rum/df34_dec,
+
+             unique_calls type /rum/df34_dec,
+
+           end of ts_executions_per_time .
+
+  types:
+
+    tt_executions_per_time type table of ts_executions_per_time .
+
+  types:
+
+    begin of ts_users_per_time,
+
+             time_axis    type /rum/time_axis,
+
+              username       type /rum/snglrecin-username,
+
+             TOTAL_EXECUTION   type /rum/df34_dec,
+
+             GREEN_EXECUTION type /rum/df34_dec,
+
+             YELLOW_EXECUTION type /rum/df34_dec,
+
+             RED_EXECUTION type /rum/df34_dec,
+
+             resptime     type /rum/df34_dec,
+
+             resptime_min type /rum/df34_dec,
+
+             resptime_max type /rum/df34_dec,
+
+ 
+
+           end of ts_users_per_time .
+
+  types:
+
+    tt_users_per_time type table of ts_users_per_time .
+
+  types:
+
+    begin of ts_types_per_time,
+
+             time_axis    type /rum/time_axis,
+
+             type         type /rum/snglrecin-type,
+
+             TOTAL_EXECUTION   type /rum/df34_dec,
+
+             GREEN_EXECUTION type /rum/df34_dec,
+
+             YELLOW_EXECUTION type /rum/df34_dec,
+
+             RED_EXECUTION type /rum/df34_dec,
+
+             resptime     type /rum/df34_dec,
+
+             resptime_min type /rum/df34_dec,
+
+             resptime_max type /rum/df34_dec,
+
+               unique_calls type /rum/df34_dec,
+
+           end of ts_types_per_time .
+
+  types:
+
+    tt_types_per_time type table of ts_types_per_time .
+
+  types:
+
+    begin of ts_user,
+
+             username       type /rum/snglrecin-username,
+
+             green          type int4,
+
+             yellow         type int4,
+
+             red            type int4,
+
+             total          type /rum/df34_dec,
+
+             resptime       type /rum/df34_dec,
+
+             totaltime      type /rum/df34_dec,
+
+             cputime        type /rum/df34_dec,
+
+             dbtime         type /rum/df34_dec,
+
+ 
+
+             red_percentage type int4,
+
+           end of ts_user .
+
+ 
+
+             types:
+
+    begin of ts_req,
+
+            name1 type /rum/entityname,
+
+           end of ts_req .
+
+ 
+
+                types:
+
+    begin of ts_act,
+
+            action type /RUM/ACTION,
+
+           end of ts_act.
+
+ 
+
+  types:
+
+    tt_user type table of ts_user .
+
+        types: tt_request_only type table of ts_req.
+
+        types: tt_action_only type table of ts_act.
+
+ 
+
+         types: begin of ts_usertype,
+
+             usertype type /rum/snglrecin-usertype,
+
+           end of ts_usertype.
+
+ 
+
+    types: tt_usertype type table of ts_usertype.
+
+ 
+
+                    types: begin of ts_lmdbid,
+
+             lmdbid type /rum/guid_32,
+
+           end of  ts_lmdbid.
+
+ 
+
+    types: tt_lmdbid type table of ts_lmdbid.
+
+ 
+
+               types: begin of ts_request_name,
+
+             name type /rum/entityname,
+
+           end of ts_request_name.
+
+ 
+
+    types: tt_request_name type table of ts_request_name.
+
+ 
+
+               types: begin of ts_type,
+
+             type type /rum/requesttype,
+
+           end of  ts_type.
+
+ 
+
+    types: tt_type type standard table of ts_type with default key.
+
+ 
+
+                   types: begin of ts_request,
+
+ 
+
+             time_axis    type /rum/time_axis,
+
+             green          type int4,
+
+             yellow         type int4,
+
+             red            type int4,
+
+             total          type /rum/df34_dec,
+
+             resptime       type /rum/df34_dec,
+
+             totaltime      type /rum/df34_dec,
+
+             cputime        type /rum/df34_dec,
+
+             dbtime         type /rum/df34_dec,
+
+             unique_calls   type /rum/df34_dec,
+
+             red_percentage type int4,
+
+           end of ts_request.
+
+ 
+
+    types: tt_request type table of ts_request.
+
+ 
+
+    types begin of ts_request_loc.
+
+      include type ts_request.
+
+      types location_key type string.
+
+    types  end of ts_request_loc.
+
+ 
+
+    types: tt_request_loc type table of ts_request_loc.
+
+ 
+
+ 
+
+  class-methods GET_EXECUTIONS_PER_TIME_AGG
+
+    importing
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type /RUM/CL_DATA_STORE_AMDP=>TT_LMDBID
+
+      value(IT_ACTION) type tt_action_only
+
+      value(IV_FILTER) type STRING
+
+      value(IT_USERTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_USERTYPE
+
+      value(IT_REQUESTTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IT_REQUEST) type /RUM/CL_DATA_STORE_AMDP=>TT_REQUEST_NAME
+
+      value(IV_AGG_LEVEL) type CHAR1
+
+    exporting
+
+      value(ET_REQUEST) type TT_EXECUTIONS_PER_TIME
+
+    raising
+
+      CX_AMDP_ERROR .
+
+  class-methods GET_REQUEST_OVERVIEW
+
+    importing
+
+      value(IV_CLIENT) type MANDT
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type /RUM/CL_DATA_STORE_AMDP=>TT_LMDBID
+
+      value(IT_TYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IV_FILTER) type STRING
+
+      value(IT_USERTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_USERTYPE
+
+      value(IT_REQUESTTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+    exporting
+
+      value(ET_REQUEST) type tt_request_only
+
+    raising
+
+      CX_AMDP_ERROR .
+
+   class-methods GET_ACTION_OVERVIEW
+
+    importing
+
+      value(IV_CLIENT) type MANDT
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type /RUM/CL_DATA_STORE_AMDP=>TT_LMDBID
+
+      value(IT_TYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IV_FILTER) type STRING
+
+      value(IT_USERTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_USERTYPE
+
+      value(IT_REQUESTTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+    exporting
+
+      value(ET_ACTION) type tt_action_only
+
+    raising
+
+      CX_AMDP_ERROR .
+
+  class-methods GET_TYPES_PER_TIME_AGG
+
+    importing
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type /RUM/CL_DATA_STORE_AMDP=>TT_LMDBID
+
+      value(IT_ACTION) type tt_action_only
+
+      value(IV_FILTER) type STRING
+
+      value(IT_USERTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_USERTYPE
+
+      value(IT_REQUESTTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IT_REQUEST) type /RUM/CL_DATA_STORE_AMDP=>TT_REQUEST_NAME
+
+      value(IV_AGG_LEVEL) type CHAR1
+
+    exporting
+
+      value(ET_TYPES) type TT_TYPES_PER_TIME
+
+    raising
+
+      CX_AMDP_ERROR .
+
+  class-methods GET_USERS_PER_TIME_AGG
+
+    importing
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type /RUM/CL_DATA_STORE_AMDP=>TT_LMDBID
+
+      value(IT_ACTION) type tt_action_only
+
+      value(IV_FILTER) type STRING
+
+      value(IT_USERTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_USERTYPE
+
+      value(IT_REQUESTTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IT_REQUEST) type /RUM/CL_DATA_STORE_AMDP=>TT_REQUEST_NAME
+
+      value(IV_AGG_LEVEL) type CHAR1
+
+    exporting
+
+      value(ET_USERS) type TT_USERS_PER_TIME
+
+    raising
+
+      CX_AMDP_ERROR .
+
+  class-methods GET_USER_OVERVIEW
+
+    importing
+
+      value(IV_CLIENT) type MANDT
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type /RUM/CL_DATA_STORE_AMDP=>TT_LMDBID
+
+      value(IV_TOP_N) type INT4
+
+      value(IV_SKIP_N) type INT4
+
+      value(IT_TYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IV_FILTER) type STRING
+
+      value(IT_USERTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_USERTYPE
+
+      value(IT_REQUESTTYPE) type /RUM/CL_DATA_STORE_AMDP=>TT_TYPE
+
+      value(IT_REQUEST) type /RUM/CL_DATA_STORE_AMDP=>TT_REQUEST_NAME
+
+      value(IV_ORDER_BY) type STRING
+
+    exporting
+
+      value(ET_USER) type TT_USER
+
+    raising
+
+      CX_AMDP_ERROR .
+
+ 
+
+       class-methods GET_LOCATION_PER_TIME_AGG
+
+    importing
+
+      value(IV_CLIENT) type MANDT
+
+      value(IV_SDATE) type DATS
+
+      value(IV_STIME) type TIMS
+
+      value(IV_EDATE) type DATS
+
+      value(IV_ETIME) type TIMS
+
+      value(IT_LMDBID) type TT_LMDBID
+
+      value(IV_TOP_N) type INT4
+
+      value(IV_SKIP_N) type INT4
+
+      value(IT_TYPE) type TT_TYPE
+
+      value(IV_FILTER) type STRING
+
+      value(IV_LOC_FILTER) type STRING
+
+      value(IV_LOC_DRILL) type STRING
+
+      value(IT_USERTYPE) type TT_USERTYPE
+
+      value(IV_ORDER_BY) type STRING
+
+      value(IV_AGG_LEVEL) type CHAR1
+
+      value(IT_ACTION) type tt_action_only
+
+    exporting
+
+      value(ET_REQUEST_LOC) type TT_REQUEST_LOC
+
+    raising
+
+      CX_AMDP_ERROR .
+
+ 
+
+       class-methods CONVERT_UI_FILTER_2_AMDP
+
+    importing
+
+      !IV_FILTER type STRING
+
+    returning
+
+      value(RV_VALUE) type STRING .
+
+ 
+
+protected section.
+
+private section.
+
+ 
+
+class-methods REPLACE_WILDCARDS
+
+    importing
+
+      !IV_INPUT type STRING
+
+    returning
+
+      value(RV_OUTPUT) type STRING .
+
+ 
+
+ENDCLASS.
+
+ 
+
+ 
+
+ 
+
+CLASS CL_FRN_FI_RUM_DATA_STORE IMPLEMENTATION.
+
+ 
+
+ 
+
+  method CONVERT_UI_FILTER_2_AMDP.
+
+ 
+
+    data: lv_sep       type string,
+
+          lv_or_sep    type string value 'OR',
+
+          lv_not       type string,
+
+          lv_or_clause type string,
+
+          lv_spacechar type c length 1.
+
+ 
+
+    split iv_filter at ',,' into table data(lt_filter).
+
+ 
+
+    loop at lt_filter assigning field-symbol(<lv_filter>).
+
+      clear:lv_or_clause.
+
+      split <lv_filter> at ':' into data(lv_key) data(lv_value).
+
+      check sy-subrc eq 0 and strlen( lv_value ) > 0. " Exclude value '' with length 0
+
+ 
+
+*      if sy-subrc = 0.
+
+      split lv_value at ';' into table data(lt_values).
+
+*      IF lines( lt_values ) > 1. "sy-subrc = 0.
+
+      " create OR combination
+
+      loop at lt_values into data(lv_or_value).
+
+"        if strlen( lv_or_value ) > 1. " Only do it if not empty, otherwise exception occurs later
+
+        if lv_or_value cn lv_spacechar. " Only do it if not empty, otherwise exception occurs later
+
+          shift lv_or_value left deleting leading space.
+
+        endif.
+
+ 
+
+        " Handle negation
+
+        if lv_or_value(1) = '!'.
+
+          lv_not = 'NOT'.
+
+          shift lv_or_value left deleting leading '!'.
+
+        else.
+
+          clear lv_not.
+
+        endif.
+
+ 
+
+        if sy-tabix = 1. " First value
+
+ 
+
+          " Empty filter values and negated empty values
+
+          if lv_or_value co lv_spacechar.
+
+ 
+
+            " Empty filter values and negated empty values
+
+            if lv_not is initial.
+
+              lv_or_clause = |{ lv_key } ='' OR { lv_key } IS NULL |.
+
+            else.
+
+              lv_or_clause = |{ lv_key } <>'' AND { lv_key } IS NOT NULL |.
+
+            endif.
+
+ 
+
+          else. " Non-empty filter values
+
+ 
+
+            " Handle / Add wildcards
+
+            lv_or_value = replace_wildcards( lv_or_value ).
+
+            lv_or_clause = |{ lv_key } { lv_not } LIKE '{ lv_or_value }'|.
+
+          endif.
+
+ 
+
+        else. " Not the first value
+
+ 
+
+          if lv_or_value co lv_spacechar.
+
+ 
+
+            " Empty filter values and negated empty values
+
+            if lv_not is initial.
+
+              lv_or_clause = |{ lv_or_clause } { lv_or_sep } { lv_key } ='' OR { lv_key } IS NULL |.
+
+            else.
+
+              lv_or_clause = |{ lv_or_clause } { lv_or_sep } { lv_key } <>'' AND { lv_key } IS NOT NULL |.
+
+            endif.
+
+ 
+
+          else. " Not only spacechar
+
+ 
+
+            " Handle / add wildcards
+
+            lv_or_value = replace_wildcards( lv_or_value ).
+
+            lv_or_clause = |{ lv_or_clause } { lv_or_sep } { lv_key } { lv_not } LIKE '{ lv_or_value }' |.
+
+ 
+
+          endif. " co spacechar
+
+ 
+
+        endif. " First value or not
+
+ 
+
+      endloop. " Filter values for one filter key
+
+ 
+
+      rv_value = |{ rv_value }{ lv_sep } ( { lv_or_clause } )|.
+
+      lv_sep = ' AND '.
+
+ 
+
+    endloop. " Filter keys
+
+ 
+
+  endmethod.
+
+ 
+
+ 
+
+ 
+
+ 
+
+  method GET_EXECUTIONS_PER_TIME_AGG by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin /rum/aggrecin.
+
+ 
+
+ 
+
+    lt1 = SELECT
+
+      case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    username as username,
+
+    type as type,
+
+    NAME1,
+
+    ( sum( case WHEN rating = 1 then 1 else 0 end ) + sum( case when rating = 2 then 1 else 0 end ) + sum( case when rating = 3 then 1 else 0 end )) as TOTAL_EXECUTION,
+
+    sum( case WHEN rating = 1 then 1 else 0 end ) as GREEN_EXECUTION,
+
+    sum( case when rating = 2 then 1 else 0 end ) as YELLOW_EXECUTION,
+
+    sum( case when rating = 3 then 1 else 0 end ) as RED_EXECUTION,
+
+    SUM( case when resptime < 0 then 0 else resptime end )  as RESPTIME,
+
+    min( case when resptime < 0 then 0 else resptime end )  as resptime_min,
+
+    max( resptime )  as resptime_max
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = session_context('CLIENT' ) and
+
+    (
+
+( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+      ( cdate > iv_sdate and cdate < iv_edate) or
+
+      ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+      ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype)and
+
+    action in ( select action from :it_action)
+
+    GROUP BY cdate, ctime, username, type, NAME1;
+
+ 
+
+    lt2 = SELECT
+
+      case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    username as username,
+
+        type as type,
+
+    NAME1,
+
+    sum( execution ) as TOTAL_EXECUTION,
+
+    sum( case when green = 0 and yellow = 0 and red = 0 then execution else green end) as GREEN_EXECUTION,
+
+    sum( yellow ) as YELLOW_EXECUTION,
+
+    sum( red ) as RED_EXECUTION,
+
+    ( sum(  case when resptime < 0 then 0 else resptime end  ) / sum( execution ) )  as RESPTIME,
+
+    min(  RESPTIMEMIN ) as RESPTIME_MIN,
+
+    max(  RESPTIMEMIN ) as RESPTIME_MAX
+
+    FROM "/RUM/AGGRECIN"
+
+    where client = session_context('CLIENT' ) and
+
+    (
+
+( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+      ( cdate > iv_sdate and cdate < iv_edate) or
+
+      ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+      ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype)
+
+    GROUP BY cdate, ctime, username, type, NAME1;
+
+ 
+
+    lt3 = SELECT * FROM :lt1 union all select * FROM :lt2;
+
+ 
+
+    et_request = SELECT
+
+      time_axis as time_axis,
+
+*      type as type,
+
+*      name1 as name1,
+
+      sum( TOTAL_EXECUTION ) as TOTAL_EXECUTION,
+
+      sum( GREEN_EXECUTION ) as GREEN_EXECUTION,
+
+      sum( YELLOW_EXECUTION ) as YELLOW_EXECUTION,
+
+      sum( RED_EXECUTION ) as RED_EXECUTION,
+
+      (sum (resptime ) / sum( TOTAL_EXECUTION )) / 1000  as resptime,
+
+      min (resptime_min ) / 1000 as resptime_min,
+
+      max (resptime_max ) / 1000 as resptime_max,
+
+      COUNT ( distinct username ) as unique_calls
+
+      FROM :lt3
+
+      GROUP BY time_axis
+
+      order by time_axis ASC ;
+
+ 
+
+  ENDMETHOD.
+
+ 
+
+ 
+
+ 
+
+  method GET_LOCATION_PER_TIME_AGG by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin /rum/aggrecin /rum/usrloc.
+
+ 
+
+    DECLARE lv_line INTEGER;
+
+    DECLARE lv_loc_filter string;
+
+*------------------------------------------------------------------------
+
+* Single Requests with filter -> lt1
+
+*------------------------------------------------------------------------
+
+*    lt1 = SELECT
+
+*    lmdbid as lmdbid,
+
+*    type as type,
+
+*    name1 as name1,
+
+*    name2 as name2,
+
+*    sclient as sclient,
+
+*    username as username,
+
+*    sum( case WHEN rating = 1 then 1 else 0 end ) as green,
+
+*    sum( case when rating = 2 then 1 else 0 end ) as yellow,
+
+*    sum( case when rating = 3 then 1 else 0 end ) as red,
+
+*    ( sum( case WHEN rating = 1 then 1 else 0 end ) + sum( case when rating = 2 then 1 else 0 end ) + sum( case when rating = 3 then 1 else 0 end )) as total,
+
+*    SUM( RESPTIME ) / 1000 as RESPTIME,
+
+*    sum( case when resptime < 0 then 0 else resptime end ) / 1000 as totaltime,
+
+*    sum( cputime ) / 1000 as cputime,
+
+*    sum( dbtime ) / 1000 as dbtime,
+
+*    rating
+
+*    FROM "/RUM/SNGLRECIN"
+
+*    where client = iv_client and
+
+*    type in ( select type from :it_type ) and
+
+*    (
+
+*    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+*    ( cdate > iv_sdate and cdate < iv_edate) or
+
+*    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+*    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+*    ) and
+
+*    lmdbid in (select lmdbid from :it_lmdbid) and
+
+*    usertype in ( select usertype from :it_usertype)
+
+*
+
+*    GROUP BY lmdbid, type, name1, name2, sclient, username, rating ;
+
+ 
+
+    -- FESR rec might be available twice, for SAP CP and ABAP oP => creat rank and read only 1. entry.
+
+    lt1_all = SELECT
+
+     case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    type,
+
+    name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    rating as rating,
+
+    RESPTIME,
+
+    cputime,
+
+    dbtime,
+
+    transid as transid,
+
+    connid as connid,
+
+    conncounter as conncounter,
+
+    lmdbid as lmdbid,
+
+    systemtype,
+
+    rank() over ( partition by cdate, ctime, transid, connid, conncounter order by systemtype   desc ) as rank
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = iv_client and
+
+    (
+
+    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+    ( cdate > iv_sdate and cdate < iv_edate) or
+
+    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype) and
+
+    action in ( select action from :it_action);
+
+ 
+
+ 
+
+    lt1_unique = select * from :lt1_all where rank = 1;
+
+ 
+
+ 
+
+    lt1 = SELECT
+
+    time_axis as time_axis,
+
+    lmdbid as lmdbid,
+
+    type as type,
+
+   name1 as name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    sum( case WHEN rating = 1 then 1 else 0 end ) as green,
+
+    sum( case when rating = 2 then 1 else 0 end ) as yellow,
+
+    sum( case when rating = 3 then 1 else 0 end ) as red,
+
+    ( sum( case WHEN rating = 1 then 1 else 0 end ) + sum( case when rating = 2 then 1 else 0 end ) + sum( case when rating = 3 then 1 else 0 end )) as total,
+
+    SUM( RESPTIME ) / 1000 as RESPTIME,
+
+    sum( case when resptime < 0 then 0 else resptime end ) / 1000 as totaltime,
+
+    sum( cputime ) / 1000 as cputime,
+
+    sum( dbtime ) / 1000 as dbtime,
+
+    rating
+
+    FROM :lt1_unique
+
+    GROUP BY time_axis, lmdbid, type, name1, name2, sclient, username, rating ;
+
+ 
+
+    IF :iv_filter <> ''
+
+      then lt1 = APPLY_FILTER (:lt1, :iv_filter);
+
+    end if;
+
+*------------------------------------------------------------------------
+
+* Aggregated Requests with filter -> lt2
+
+*------------------------------------------------------------------------
+
+    lt2 = SELECT
+
+     case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    lmdbid as lmdbid,
+
+    type as type,
+
+    name1 as name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    sum( case when green = 0 and yellow = 0 and red = 0 then execution else green end) as green,
+
+    sum( yellow ) as yellow,
+
+    sum( red ) as red,
+
+    sum( execution ) as total,
+
+    ( sum(  case when resptime < 0 then 0 else resptime end  ) / sum( execution ) ) / 1000 as RESPTIME,
+
+    sum(  case when resptime < 0 then 0 else resptime end  ) / 1000 as totaltime,
+
+    sum( cputime ) / 1000 as cputime,
+
+    sum( dbtime ) / 1000 as dbtime,
+
+    1 as rating
+
+    FROM "/RUM/AGGRECIN"
+
+    where client = iv_client and
+
+    type in ( select type from :it_type ) and
+
+    (
+
+    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+    ( cdate > iv_sdate and cdate < iv_edate) or
+
+    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)
+
+    GROUP BY  cdate, ctime, lmdbid, type, name1, name2, sclient, username ;
+
+ 
+
+    IF :iv_filter <> ''
+
+      then lt2 = APPLY_FILTER (:lt2, :iv_filter);
+
+    end if;
+
+*------------------------------------------------------------------------
+
+* Single + Aggregated -> lt3
+
+*------------------------------------------------------------------------
+
+    lt3 = SELECT * FROM :lt1 union all select * FROM :lt2;
+
+ 
+
+*------------------------------------------------------------------------
+
+* Location Data based on drilldown -> lt5
+
+*------------------------------------------------------------------------
+
+        lt5 = select
+
+           time_axis, lt3.type, lt3.name1, lt3.name2, lt3.sclient, lt3.username, lt3.green, lt3.yellow,
+
+          lt3.red, lt3.total, lt3.resptime, lt3.totaltime, lt3.cputime, lt3.dbtime, lt3.rating,
+
+ 
+
+          upper(countrycode) as countrycode,
+
+          upper(city) as city,
+
+          upper(buildingcode) as buildingcode,
+
+          upper(company) as company,
+
+          upper(department) as department,
+
+          upper(custom1) as custom1,
+
+          upper(custom2) as custom2,
+
+          upper(custom3) as custom3
+
+ 
+
+*          case when instr(iv_loc_drill,'COUNTRYCODE') != 0 and countrycode <> ''
+
+*               then upper(countrycode) end as countrycode,
+
+*          case when instr(iv_loc_drill,'CITY') != 0 and city <> ''
+
+*               then upper(city) end as city,
+
+*          case when instr(iv_loc_drill,'BUILDINGCODE') != 0 and buildingcode <> ''
+
+*               then upper(buildingcode) end as buildingcode,
+
+*          case when instr(iv_loc_drill,'COMPANY') != 0 and company <> ''
+
+*               then upper(company) end as company,
+
+*          case when instr(iv_loc_drill,'DEPARTMENT') != 0 and department <> ''
+
+*               then upper(department) end as department,
+
+*          case when instr(iv_loc_drill,'CUSTOM1') != 0 and custom1 <> ''
+
+*               then upper(custom1) end as custom1,
+
+*          case when instr(iv_loc_drill,'CUSTOM2') != 0 and custom2 <> ''
+
+*               then upper(custom2) end as custom2,
+
+*          case when instr(iv_loc_drill,'CUSTOM3') != 0 and custom3 <> ''
+
+*               then upper(custom3) end as custom3
+
+ 
+
+*** Beware of matches of substrings when you add further field names!! ***
+
+        from :lt3 as lt3
+
+          left outer join "/RUM/USRLOC" as loc
+
+             on  ( loc.lmdbid  = '' or loc.lmdbid   = lt3.lmdbid ) -- Empty or equal, but not filled with different value
+
+             and ( loc.sclient  = '' or loc.sclient = lt3.sclient ) -- Empty or equal, but not filled with different value
+
+             and lt3.username = loc.username;
+
+*------------------------------------------------------------------------
+
+* Location Filter --> lt5
+
+*------------------------------------------------------------------------
+
+    lv_loc_filter = upper(iv_loc_filter);
+
+    IF :iv_loc_filter <> ''
+
+      then lt5 = APPLY_FILTER (:lt5, :lv_loc_filter);
+
+    end if;
+
+*------------------------------------------------------------------------
+
+* Remove duplicate requests from global and system-specific users with
+
+* the same user name (1x with LMDBID and 1x w/o LMDBID
+
+* --> lt6
+
+*------------------------------------------------------------------------
+
+        lt6 = select distinct * from :lt5;
+
+ 
+
+*------------------------------------------------------------------------
+
+* Location Field Attribute Names -> lt7
+
+*------------------------------------------------------------------------
+
+        lt7 = select
+
+           time_axis , type, name1, name2, sclient, username, green, yellow,
+
+          red, total, resptime, totaltime, cputime, dbtime, rating,
+
+          -- Convert null values to '', otherwise the concatenated string will be null -->
+
+          case when instr(iv_loc_drill,'COUNTRYCODE') != 0
+
+               then 'COUNTRYCODE=' || ifnull(countrycode,'') || ',,' end as countrycode,
+
+          case when instr(iv_loc_drill,'CITY') != 0
+
+               then 'CITY=' || ifnull( city,'') || ',,' end as city,
+
+          case when instr(iv_loc_drill,'BUILDINGCODE') != 0
+
+               then 'BUILDINGCODE=' || ifnull(buildingcode,'') || ',,' end as buildingcode,
+
+          case when instr(iv_loc_drill,'COMPANY') != 0
+
+               then 'COMPANY=' || ifnull(company,'') || ',,' end as company,
+
+          case when instr(iv_loc_drill,'DEPARTMENT') != 0
+
+               then 'DEPARTMENT=' || ifnull(department,'') || ',,' end as department,
+
+          case when instr(iv_loc_drill,'CUSTOM1') != 0
+
+               then 'CUSTOM1=' || ifnull(custom1,'') || ',,' end as custom1,
+
+          case when instr(iv_loc_drill,'CUSTOM2') != 0
+
+               then 'CUSTOM2=' || ifnull(custom2,'') || ',,' end as custom2,
+
+          case when instr(iv_loc_drill,'CUSTOM3') != 0
+
+               then 'CUSTOM3=' || ifnull(custom3,'') || ',,' end as custom3
+
+ 
+
+          from :lt6;
+
+ 
+
+*------------------------------------------------------------------------
+
+* Location Key -> lt8
+
+*------------------------------------------------------------------------
+
+        lt8 = select
+
+           time_axis, type, name1, name2, sclient, username, green, yellow,
+
+          red, total, resptime, totaltime, cputime, dbtime, rating,
+
+ 
+
+*          countrycode || city     || buildingcode || company ||
+
+*          department  || custom1  || custom2      || custom3
+
+          ifnull (countrycode,'') || ifnull (city,'')       || ifnull (buildingcode,'') ||
+
+          ifnull (company,'')     || ifnull (department,'') ||
+
+          ifnull (custom1,'')     || ifnull (custom2,'')    || ifnull (custom3,'')
+
+            as location_key
+
+ 
+
+        from :lt7;
+
+*        from :lt6;
+
+ 
+
+ 
+
+*------------------------------------------------------------------------
+
+* Count Distinct Username -> lt9 => Username dropped
+
+*------------------------------------------------------------------------
+
+        lt9 = SELECT  time_axis as time_axis,
+
+          sum( green ) as green,
+
+          sum( yellow ) as yellow,
+
+          sum( red ) as red,
+
+          sum( total ) as total,
+
+          sum (resptime ) as resptime,
+
+          sum( totaltime ) as totaltime,
+
+          sum( cputime )  as cputime,
+
+          sum( dbtime )  as dbtime,
+
+          COUNT ( distinct username ) as unique_calls,
+
+          location_key
+
+          FROM :lt8
+
+          GROUP BY  time_axis , location_key ;
+
+ 
+
+*------------------------------------------------------------------------
+
+* RespTime + Red_Percentage -> lt10
+
+*------------------------------------------------------------------------
+
+      lt10 = select time_axis as time_axis,
+
+      green  as green,
+
+      yellow  as yellow,
+
+      red  as red,
+
+      total as total,
+
+      totaltime / total  as resptime,
+
+      totaltime as totaltime,
+
+      cputime as cputime,
+
+      dbtime as dbtime,
+
+      unique_calls as unique_calls,
+
+      case when total = 0 then 0 else TO_INT ( abs((RED / TOTAL) * 100) ) end as RED_PERCENTAGE,
+
+      location_key
+
+      from :lt9;
+
+ 
+
+*------------------------------------------------------------------------
+
+* Order By -> lt11
+
+*------------------------------------------------------------------------
+
+    if :iv_order_by = 'RED_EXECUTION desc' then
+
+       lt11 = select * from :lt10 ORDER BY red desc, yellow desc ;
+
+    elseif :iv_order_by = 'TOTAL_EXECUTION desc' then
+
+       lt11 = select * from :lt10 ORDER BY total desc  ;
+
+    elseif :iv_order_by = 'RED_PERCENTAGE desc' then
+
+       lt11 = select * from :lt10 ORDER BY red_percentage desc, red desc, yellow desc;
+
+    elseif :iv_order_by = 'AVERAGE_RESPONSETIME desc' then
+
+       lt11 = select * from :lt10 ORDER BY resptime desc;
+
+    elseif :iv_order_by = 'UNIQUE_CALLS desc' then
+
+       lt11 = select * from :lt10 ORDER BY unique_calls desc;
+
+    elseif :iv_order_by = 'TOTALTIME desc' then
+
+       lt11 = select * from :lt10 ORDER BY totaltime desc;
+
+    elseif :iv_order_by = 'CPUTIME desc' then
+
+       lt11 = select * from :lt10 ORDER BY cputime desc;
+
+    elseif :iv_order_by = 'DBTIME desc' then
+
+       lt11 = select * from :lt10 ORDER BY dbtime desc;
+
+    elseif :iv_order_by = 'RED_EXECUTION asc' then
+
+       lt11 = select * from :lt10 ORDER BY red asc, yellow asc ;
+
+    elseif :iv_order_by = 'TOTAL_EXECUTION asc' then
+
+       lt11 = select * from :lt10 ORDER BY total asc  ;
+
+    elseif :iv_order_by = 'RED_PERCENTAGE asc' then
+
+       lt11 = select * from :lt10 ORDER BY red_percentage asc, red asc, yellow asc;
+
+    elseif :iv_order_by = 'AVERAGE_RESPONSETIME asc' then
+
+       lt11 = select * from :lt10 ORDER BY resptime asc;
+
+    elseif :iv_order_by = 'UNIQUE_CALLS asc' then
+
+       lt11 = select * from :lt10 ORDER BY unique_calls asc;
+
+    elseif :iv_order_by = 'TOTALTIME asc' then
+
+       lt11 = select * from :lt10 ORDER BY totaltime asc;
+
+    elseif :iv_order_by = 'CPUTIME asc' then
+
+       lt11 = select * from :lt10 ORDER BY cputime asc;
+
+    elseif :iv_order_by = 'DBTIME asc' then
+
+       lt11 = select * from :lt10 ORDER BY dbtime asc;
+
+    end if;
+
+ 
+
+*------------------------------------------------------------------------
+
+* Top/Skip -> et_request_loc
+
+*------------------------------------------------------------------------
+
+    lv_line = :iv_top_n + :iv_skip_n;
+
+    et_request_loc = ( SELECT top :lv_line * from :lt11 except select top :iv_skip_n * from :lt11 );
+
+ 
+
+  endmethod.
+
+ 
+
+ 
+
+method GET_REQUEST_OVERVIEW by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin .
+
+ 
+
+    DECLARE lv_line INTEGER;
+
+ 
+
+    -- FESR rec might be available twice, for SAP CP and ABAP oP => creat rank and read only 1. entry.
+
+    lt1_all = SELECT DISTINCT
+
+    type,
+
+    name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    lmdbid as lmdbid,
+
+    systemtype,
+
+    rank() over ( partition by cdate, ctime, transid, connid, conncounter order by systemtype   desc ) as rank
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = iv_client and
+
+    (
+
+    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+    ( cdate > iv_sdate and cdate < iv_edate) or
+
+    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype) and
+
+     type in ( select type from :it_requesttype)  ;
+
+ 
+
+    lt1_unique = select * from :lt1_all where rank = 1;
+
+ 
+
+    lt1 = SELECT DISTINCT name1 as name1,
+
+    type as type,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username
+
+    FROM :lt1_unique;
+
+ 
+
+    IF :iv_filter <> ''
+
+      then lt1 = APPLY_FILTER (:lt1, :iv_filter);
+
+    end if;
+
+ 
+
+ 
+
+       et_request = ( select DISTINCT
+
+      name1 as name1
+
+      from :lt1 ) ;
+
+ 
+
+ 
+
+ 
+
+  endmethod.
+
+ 
+
+ 
+
+method GET_ACTION_OVERVIEW by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin .
+
+ 
+
+    DECLARE lv_line INTEGER;
+
+ 
+
+    -- FESR rec might be available twice, for SAP CP and ABAP oP => creat rank and read only 1. entry.
+
+    lt1_all = SELECT DISTINCT
+
+    type,
+
+    action,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    lmdbid as lmdbid,
+
+    systemtype,
+
+    rank() over ( partition by cdate, ctime, transid, connid, conncounter order by systemtype   desc ) as rank
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = iv_client and
+
+    (
+
+    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+    ( cdate > iv_sdate and cdate < iv_edate) or
+
+    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype) and
+
+     type in ( select type from :it_requesttype)  ;
+
+ 
+
+    lt1_unique = select * from :lt1_all where rank = 1;
+
+ 
+
+    lt1 = SELECT DISTINCT action as action,
+
+    type as type,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username
+
+    FROM :lt1_unique;
+
+ 
+
+    IF :iv_filter <> ''
+
+      then lt1 = APPLY_FILTER (:lt1, :iv_filter);
+
+    end if;
+
+ 
+
+ 
+
+       et_action = ( select DISTINCT
+
+      action as action
+
+      from :lt1 ) ;
+
+ 
+
+ 
+
+ 
+
+  endmethod.
+
+ 
+
+ 
+
+ 
+
+  method GET_TYPES_PER_TIME_AGG by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin /rum/aggrecin.
+
+ 
+
+    lt1 = SELECT
+
+      case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    username as username,
+
+    type as type,
+
+    NAME1,
+
+    ( sum( case WHEN rating = 1 then 1 else 0 end ) + sum( case when rating = 2 then 1 else 0 end ) + sum( case when rating = 3 then 1 else 0 end )) as TOTAL_EXECUTION,
+
+    sum( case WHEN rating = 1 then 1 else 0 end ) as GREEN_EXECUTION,
+
+    sum( case when rating = 2 then 1 else 0 end ) as YELLOW_EXECUTION,
+
+    sum( case when rating = 3 then 1 else 0 end ) as RED_EXECUTION,
+
+    SUM( case when resptime < 0 then 0 else resptime end )  as RESPTIME,
+
+    min( case when resptime < 0 then 0 else resptime end )  as resptime_min,
+
+    max( resptime )  as resptime_max
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = session_context('CLIENT' ) and
+
+    (
+
+( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+      ( cdate > iv_sdate and cdate < iv_edate) or
+
+      ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+      ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype) and
+
+    action in ( select action from :it_action)
+
+    GROUP BY cdate, ctime, username, type, NAME1;
+
+ 
+
+    lt2 = SELECT
+
+      case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    username as username,
+
+        type as type,
+
+    NAME1,
+
+    sum( execution ) as TOTAL_EXECUTION,
+
+    sum( case when green = 0 and yellow = 0 and red = 0 then execution else green end) as GREEN_EXECUTION,
+
+    sum( yellow ) as YELLOW_EXECUTION,
+
+    sum( red ) as RED_EXECUTION,
+
+    ( sum(  case when resptime < 0 then 0 else resptime end  ) / sum( execution ) )  as RESPTIME,
+
+    min(  RESPTIMEMIN ) as RESPTIME_MIN,
+
+    max(  RESPTIMEMIN ) as RESPTIME_MAX
+
+    FROM "/RUM/AGGRECIN"
+
+    where client = '200' and
+
+    (
+
+( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+      ( cdate > iv_sdate and cdate < iv_edate) or
+
+      ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+      ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype)
+
+    GROUP BY cdate, ctime, username, type, NAME1 ;
+
+ 
+
+    lt3 = SELECT * FROM :lt1 union all select * FROM :lt2;
+
+ 
+
+    et_types = SELECT
+
+      time_axis as time_axis,
+
+      type as type,
+
+      sum( TOTAL_EXECUTION ) as TOTAL_EXECUTION,
+
+      sum( GREEN_EXECUTION ) as GREEN_EXECUTION,
+
+      sum( YELLOW_EXECUTION ) as YELLOW_EXECUTION,
+
+      sum( RED_EXECUTION ) as RED_EXECUTION,
+
+      (sum (resptime ) / sum( TOTAL_EXECUTION )) / 1000  as resptime,
+
+      min (resptime_min ) / 1000 as resptime_min,
+
+      max (resptime_max ) / 1000 as resptime_max,
+
+      COUNT ( distinct username ) as unique_calls
+
+      FROM :lt3
+
+      GROUP BY time_axis ,  type
+
+      order by time_axis ASC ;
+
+ 
+
+  ENDMETHOD.
+
+ 
+
+ 
+
+  method GET_USERS_PER_TIME_AGG by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin /rum/aggrecin.
+
+ 
+
+ 
+
+    lt1 = SELECT
+
+      case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    username as username,
+
+    type as type,
+
+    NAME1,
+
+    ( sum( case WHEN rating = 1 then 1 else 0 end ) + sum( case when rating = 2 then 1 else 0 end ) + sum( case when rating = 3 then 1 else 0 end )) as TOTAL_EXECUTION,
+
+    sum( case WHEN rating = 1 then 1 else 0 end ) as GREEN_EXECUTION,
+
+    sum( case when rating = 2 then 1 else 0 end ) as YELLOW_EXECUTION,
+
+    sum( case when rating = 3 then 1 else 0 end ) as RED_EXECUTION,
+
+    SUM( case when resptime < 0 then 0 else resptime end )  as RESPTIME,
+
+    min( case when resptime < 0 then 0 else resptime end )  as resptime_min,
+
+    max( resptime )  as resptime_max
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = session_context('CLIENT' ) and
+
+    (
+
+( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+      ( cdate > iv_sdate and cdate < iv_edate) or
+
+      ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+      ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype) and
+
+    action in ( select action from :it_action)
+
+    GROUP BY cdate, ctime, username, type, NAME1;
+
+ 
+
+    lt2 = SELECT
+
+      case
+
+*      n = not aggregated, t = ten seconds, m = minutes, H = hour, D = day, M = Month, W = Week, M = month
+
+       when :iv_agg_level = 'n' then  cdate || ctime
+
+       when :iv_agg_level = 't' then  cdate || SUBSTR_REGEXPR('([\d]{5})([\d]{1})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'm' then  cdate || SUBSTR_REGEXPR('([\d]{4})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'T' then  cdate || SUBSTR_REGEXPR('([\d]{3})([\d]{3})' IN ctime GROUP 1) || '0'
+
+       when :iv_agg_level = 'H' then  cdate || SUBSTR_REGEXPR('([\d]{2})([\d]{2})([\d]{2})' IN ctime GROUP 1)
+
+       when :iv_agg_level = 'D' then  cdate
+
+       when :iv_agg_level = 'W' then isoweek( cdate )
+
+       when :iv_agg_level = 'M' then SUBSTR( cdate,0,6)
+
+     else cdate end as time_axis,
+
+    username as username,
+
+        type as type,
+
+    NAME1,
+
+    sum( execution ) as TOTAL_EXECUTION,
+
+    sum( case when green = 0 and yellow = 0 and red = 0 then execution else green end) as GREEN_EXECUTION,
+
+    sum( yellow ) as YELLOW_EXECUTION,
+
+    sum( red ) as RED_EXECUTION,
+
+    ( sum(  case when resptime < 0 then 0 else resptime end  ) / sum( execution ) )  as RESPTIME,
+
+    min(  RESPTIMEMIN ) as RESPTIME_MIN,
+
+    max(  RESPTIMEMIN ) as RESPTIME_MAX
+
+    FROM "/RUM/AGGRECIN"
+
+    where client = '200' and
+
+    (
+
+( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+      ( cdate > iv_sdate and cdate < iv_edate) or
+
+      ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+      ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype)
+
+    GROUP BY cdate, ctime, username, type, NAME1 ;
+
+ 
+
+    lt3 = SELECT * FROM :lt1 union all select * FROM :lt2;
+
+ 
+
+    et_users = SELECT
+
+      time_axis as time_axis,
+
+      username as username,
+
+      sum( TOTAL_EXECUTION ) as TOTAL_EXECUTION,
+
+      sum( GREEN_EXECUTION ) as GREEN_EXECUTION,
+
+      sum( YELLOW_EXECUTION ) as YELLOW_EXECUTION,
+
+      sum( RED_EXECUTION ) as RED_EXECUTION,
+
+      (sum (resptime ) / sum( TOTAL_EXECUTION )) / 1000  as resptime,
+
+      min (resptime_min ) / 1000 as resptime_min,
+
+      max (resptime_max ) / 1000 as resptime_max
+
+      FROM :lt3
+
+      GROUP BY time_axis ,  username
+
+      order by time_axis ASC ;
+
+ 
+
+  ENDMETHOD.
+
+ 
+
+ 
+
+  method GET_USER_OVERVIEW by database procedure
+
+                                for hdb
+
+                                language sqlscript
+
+                                options read-only
+
+                                using /rum/snglrecin /rum/aggrecin.
+
+ 
+
+    DECLARE lv_line INTEGER;
+
+ 
+
+    -- FESR rec might be available twice, for SAP CP and ABAP oP => creat rank and read only 1. entry.
+
+    lt1_all = SELECT
+
+    cdate,
+
+    ctime,
+
+    type,
+
+    name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    rating as rating,
+
+    RESPTIME,
+
+    cputime,
+
+    dbtime,
+
+    transid as transid,
+
+    connid as connid,
+
+    conncounter as conncounter,
+
+    lmdbid as lmdbid,
+
+    systemtype,
+
+    rank() over ( partition by cdate, ctime, transid, connid, conncounter order by systemtype   desc ) as rank
+
+    FROM "/RUM/SNGLRECIN"
+
+    where client = iv_client and
+
+    (
+
+    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+    ( cdate > iv_sdate and cdate < iv_edate) or
+
+    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype) and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype);
+
+ 
+
+    lt1_unique = select * from :lt1_all where rank = 1;
+
+ 
+
+    lt1 = SELECT type as type,
+
+    name1 as name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    sum( case WHEN rating = 1 then 1 else 0 end ) as green,
+
+    sum( case when rating = 2 then 1 else 0 end ) as yellow,
+
+    sum( case when rating = 3 then 1 else 0 end ) as red,
+
+    ( sum( case WHEN rating = 1 then 1 else 0 end ) + sum( case when rating = 2 then 1 else 0 end ) + sum( case when rating = 3 then 1 else 0 end )) as total,
+
+    SUM( RESPTIME ) / 1000 as RESPTIME,
+
+    sum( case when resptime < 0 then 0 else resptime end ) / 1000 as totaltime,
+
+    sum( cputime ) / 1000 as cputime,
+
+    sum( dbtime ) / 1000 as dbtime,
+
+    rating
+
+    FROM :lt1_unique
+
+    GROUP BY type, name1, name2, sclient, username, rating ;
+
+ 
+
+ 
+
+    lt2 = SELECT type as type,
+
+    name1 as name1,
+
+    name2 as name2,
+
+    sclient as sclient,
+
+    username as username,
+
+    sum( case when green = 0 and yellow = 0 and red = 0 then execution else green end) as green,
+
+    sum( yellow ) as yellow,
+
+    sum( red ) as red,
+
+    sum( execution ) as total,
+
+    ( sum(  case when resptime < 0 then 0 else resptime end  ) / sum( execution ) ) / 1000 as RESPTIME,
+
+    sum(  case when resptime < 0 then 0 else resptime end  ) / 1000 as totaltime,
+
+    sum( cputime ) / 1000 as cputime,
+
+    sum( dbtime ) / 1000 as dbtime,
+
+    1 as rating
+
+    FROM "/RUM/AGGRECIN"
+
+    where client = iv_client and
+
+    type in ( select type from :it_type ) and
+
+    (
+
+    ( cdate = iv_sdate and ctime >= iv_stime and cdate <> iv_edate ) or
+
+    ( cdate > iv_sdate and cdate < iv_edate) or
+
+    ( cdate = iv_edate and ctime <= iv_etime and cdate <> iv_sdate ) or
+
+    ( cdate = iv_edate and cdate = iv_sdate and ctime >= iv_stime and ctime <= iv_etime)
+
+    ) and
+
+    lmdbid in (select lmdbid from :it_lmdbid) and
+
+    usertype in ( select usertype from :it_usertype)and
+
+    name1 in ( select name from :it_request)and
+
+    type in ( select type from :it_requesttype)
+
+    GROUP BY type, name1, name2, sclient, username ;
+
+ 
+
+    lt3 = SELECT * FROM :lt1 union all select * FROM :lt2;
+
+ 
+
+    lt4 = SELECT       username  as username,
+
+     sum( green ) as green,
+
+      sum( yellow ) as yellow,
+
+      sum( red ) as red,
+
+      sum( total ) as total,
+
+      sum (resptime ) as resptime,
+
+      sum( totaltime ) as totaltime,
+
+      sum( cputime )  as cputime,
+
+      sum( dbtime )  as dbtime
+
+      FROM :lt3
+
+      GROUP BY  username ;
+
+ 
+
+      lt5 = select
+
+      username as username,
+
+      green  as green,
+
+      yellow  as yellow,
+
+      red  as red,
+
+      total as total,
+
+      totaltime / total  as resptime,
+
+      totaltime as totaltime,
+
+      cputime as cputime,
+
+      dbtime as dbtime,
+
+      case when total = 0 then 0 else TO_INT ( abs((RED / TOTAL) * 100) ) end as RED_PERCENTAGE
+
+      from :lt4;
+
+ 
+
+    if :iv_order_by = 'RED_EXECUTION desc' then
+
+       lt6 = select * from :lt5 ORDER BY red desc, yellow desc ;
+
+    elseif :iv_order_by = 'TOTAL_EXECUTION desc' then
+
+       lt6 = select * from :lt5 ORDER BY total desc  ;
+
+    elseif :iv_order_by = 'RED_PERCENTAGE desc' then
+
+       lt6 = select * from :lt5 ORDER BY red_percentage desc, red desc, yellow desc;
+
+    elseif :iv_order_by = 'AVERAGE_RESPONSETIME desc' then
+
+       lt6 = select * from :lt5 ORDER BY resptime desc;
+
+    elseif :iv_order_by = 'TOTALTIME desc' then
+
+       lt6 = select * from :lt5 ORDER BY totaltime desc;
+
+    elseif :iv_order_by = 'CPUTIME desc' then
+
+       lt6 = select * from :lt5 ORDER BY cputime desc;
+
+    elseif :iv_order_by = 'DBTIME desc' then
+
+       lt6 = select * from :lt5 ORDER BY dbtime desc;
+
+    elseif :iv_order_by = 'RED_EXECUTION asc' then
+
+       lt6 = select * from :lt5 ORDER BY red asc, yellow asc ;
+
+    elseif :iv_order_by = 'TOTAL_EXECUTION asc' then
+
+       lt6 = select * from :lt5 ORDER BY total asc  ;
+
+    elseif :iv_order_by = 'RED_PERCENTAGE asc' then
+
+       lt6 = select * from :lt5 ORDER BY red_percentage asc, red asc, yellow asc;
+
+    elseif :iv_order_by = 'AVERAGE_RESPONSETIME asc' then
+
+       lt6 = select * from :lt5 ORDER BY resptime asc;
+
+    elseif :iv_order_by = 'TOTALTIME asc' then
+
+       lt6 = select * from :lt5 ORDER BY totaltime asc;
+
+    elseif :iv_order_by = 'CPUTIME asc' then
+
+       lt6 = select * from :lt5 ORDER BY cputime asc;
+
+    elseif :iv_order_by = 'DBTIME asc' then
+
+       lt6 = select * from :lt5 ORDER BY dbtime asc;
+
+    end if;
+
+ 
+
+ 
+
+    lv_line = :iv_top_n + :iv_skip_n;
+
+    et_user = ( SELECT top :lv_line * from :lt6 except select top :iv_skip_n * from :lt6 );
+
+ 
+
+  endmethod.
+
+ 
+
+ 
+
+  method REPLACE_WILDCARDS.
+
+ 
+
+    if iv_input is initial.
+
+      return.
+
+    endif.
+
+ 
+
+    rv_output = iv_input.
+
+ 
+
+    if rv_output ca '*'.
+
+      " Explicit wildcard - just replace it with OpenSQL-compliant %
+
+      replace all occurrences of '*' in rv_output with '%'.
+
+    else.
+
+      " No explicit wildcard - add leading and trailing wildcard symbol
+
+      rv_output = '%' && rv_output && '%'.
+
+    endif.
+
+ 
+
+    rv_output = to_upper( rv_output ).
+
+ 
+
+ 
+
+  endmethod.
+
+ENDCLASS.
